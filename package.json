@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "24.12.4",
     "@vitest/eslint-plugin": "1.6.17",
     "esbuild": "0.28.1",

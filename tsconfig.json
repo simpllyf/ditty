@@ -4,6 +4,6 @@
     "types": ["node"],
     "tsBuildInfoFile": "./node_modules/.cache/ditty.tsbuildinfo"
   },
-  "include": ["src", "test", "*.config.ts"],
+  "include": ["src", "test", "e2e", "*.config.ts"],
   "exclude": ["node_modules", "dist", "coverage"]
 }
