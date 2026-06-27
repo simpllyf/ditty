@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Test / tooling output
+test-results/
+playwright-report/
+.cache/
