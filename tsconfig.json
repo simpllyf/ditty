@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "tsBuildInfoFile": "./node_modules/.cache/ditty.tsbuildinfo"
+  },
+  "include": ["src", "test", "*.config.ts"],
+  "exclude": ["node_modules", "dist", "coverage"]
+}

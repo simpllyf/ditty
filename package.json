@@ -1,0 +1,74 @@
+{
+  "name": "@simpllyf/ditty",
+  "version": "0.0.0",
+  "description": "Zero-dependency generative music engine for the browser — endless peppy game-feel background music and reward stingers, synthesized via the Web Audio API.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Simpllyf",
+  "sideEffects": false,
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./core": {
+      "import": {
+        "types": "./dist/core.d.ts",
+        "default": "./dist/core.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "unpkg": "./dist/ditty.global.js",
+  "jsdelivr": "./dist/ditty.global.js",
+  "files": [
+    "dist"
+  ],
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "size": "node scripts/measure-size.mjs",
+    "check": "just check"
+  },
+  "keywords": [
+    "web-audio",
+    "generative-music",
+    "procedural",
+    "music",
+    "synthesizer",
+    "chiptune",
+    "game-audio",
+    "background-music",
+    "zero-dependency"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simpllyf/ditty.git"
+  },
+  "homepage": "https://github.com/simpllyf/ditty#readme",
+  "bugs": {
+    "url": "https://github.com/simpllyf/ditty/issues"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.12.4",
+    "@vitest/eslint-plugin": "1.6.17",
+    "esbuild": "0.28.1",
+    "eslint": "10.4.0",
+    "globals": "17.6.0",
+    "prettier": "3.8.3",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.59.3",
+    "vitest": "4.1.6"
+  }
+}

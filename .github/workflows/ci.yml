@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup tools
+        uses: jdx/mise-action@v4
+        with:
+          cache: true
+
+      - name: install dependencies
+        run: mise exec -- just setup
+
+      - name: check
+        run: mise exec -- just check
