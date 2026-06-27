@@ -8,3 +8,11 @@
  */
 export { makeRng } from "./rng";
 export type { Rng } from "./rng";
+export {
+  SCALES,
+  DEFAULT_ROOT_MIDI,
+  degreeToSemitone,
+  semitoneToFrequency,
+  degreeToFrequency,
+} from "./scale";
+export type { Scale, ScaleName } from "./scale";

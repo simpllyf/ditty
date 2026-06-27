@@ -78,7 +78,7 @@ engine.dispose();
 | Layer                           | Status |
 | ------------------------------- | ------ |
 | `rng` — seeded PRNG             | ✅     |
-| `scale` — pitch                 | ⏳     |
+| `scale` — pitch                 | ✅     |
 | `rhythm` — time                 | ⏳     |
 | `constraints` — musicality      | ⏳     |
 | `melody` — the brain            | ⏳     |
