@@ -25,9 +25,9 @@ but standalone and reusable anywhere.
 - **Framework-agnostic.** No DOM access, no framework imports. Vanilla, React,
   Vue, Svelte — identical.
 
-> **Pre-release (0.0.x).** The engine is complete and thoroughly unit-tested
-> against a fake audio context; cross-browser audio is being validated with a
-> Playwright e2e suite before the first npm publish.
+> **Pre-release (0.0.x).** The engine is complete, thoroughly unit-tested, and
+> validated end-to-end in Chromium, Firefox, and WebKit (real Web Audio output),
+> pending the first npm publish.
 
 ## Install
 

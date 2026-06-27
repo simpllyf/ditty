@@ -28,3 +28,24 @@ jobs:
 
       - name: check
         run: mise exec -- just check
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: setup tools
+        uses: jdx/mise-action@v4
+        with:
+          cache: true
+
+      - name: install dependencies
+        run: mise exec -- just setup
+
+      - name: install playwright browsers
+        run: mise exec -- pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: e2e
+        run: mise exec -- just e2e

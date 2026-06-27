@@ -8,3 +8,4 @@ coverage/
 test-results/
 playwright-report/
 .cache/
+e2e/*.bundle.js

@@ -32,5 +32,14 @@ deps-check:
 size:
     DITTY_SIZE_MAX_GZIP_BYTES=10240 node scripts/measure-size.mjs
 
-# The single gate CI runs. Mirrors what you should run before pushing.
+# Build the browser-side harness the e2e suite injects.
+e2e-build:
+    node scripts/build-e2e.mjs
+
+# Cross-browser audio e2e (needs Playwright browsers: `pnpm exec playwright install`).
+# Builds dist too so the suite can also exercise the shipped IIFE global.
+e2e: build e2e-build
+    pnpm exec playwright test
+
+# The single gate CI runs (browserless). e2e runs in its own CI job.
 check: format-check lint typecheck test build deps-check size
