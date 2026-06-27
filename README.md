@@ -83,7 +83,7 @@ engine.dispose();
 | `constraints` — musicality      | ✅     |
 | `melody` — the brain            | ✅     |
 | `synth` — Web Audio voices      | ✅     |
-| `scheduler` — look-ahead timing | ⏳     |
+| `scheduler` — look-ahead timing | ✅     |
 | `engine` + presets + stingers   | ⏳     |
 | cross-browser e2e + size gate   | ⏳     |
 
