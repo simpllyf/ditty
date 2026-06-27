@@ -24,3 +24,16 @@ export {
   generateBar,
 } from "./rhythm";
 export type { RhythmConfig, DurationWeight } from "./rhythm";
+export {
+  DEFAULT_MAX_LEAP,
+  DEFAULT_MAX_NOTE_REPEAT,
+  STABLE_PITCH_CLASSES,
+  isWithinLeap,
+  capLeap,
+  isStableDegree,
+  nearestStableDegree,
+  contourTarget,
+  exceedsRepeatLimit,
+  ShuffleBag,
+} from "./constraints";
+export type { ContourShape } from "./constraints";

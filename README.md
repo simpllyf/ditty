@@ -80,7 +80,7 @@ engine.dispose();
 | `rng` — seeded PRNG             | ✅     |
 | `scale` — pitch                 | ✅     |
 | `rhythm` — time                 | ✅     |
-| `constraints` — musicality      | ⏳     |
+| `constraints` — musicality      | ✅     |
 | `melody` — the brain            | ⏳     |
 | `synth` — Web Audio voices      | ⏳     |
 | `scheduler` — look-ahead timing | ⏳     |
