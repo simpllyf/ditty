@@ -88,9 +88,20 @@ class FakeDestination implements AudioNodeLike {
 
 export class FakeAudioContext implements AudioContextLike {
   currentTime = 0;
+  state: AudioContextState = "suspended";
   readonly destination = new FakeDestination();
   readonly oscillators: FakeOscillator[] = [];
   readonly gains: FakeGain[] = [];
+  resumeCount = 0;
+  suspendCount = 0;
+  closeCount = 0;
+  /** When set, the matching lifecycle call rejects (simulates an externally-killed context). */
+  failResume = false;
+  failSuspend = false;
+  failClose = false;
+  /** When true, resume() stays pending until {@link flushResume} (simulates the gesture gap). */
+  deferResume = false;
+  private pendingResume: (() => void) | null = null;
 
   createOscillator(): FakeOscillator {
     const osc = new FakeOscillator();
@@ -102,6 +113,41 @@ export class FakeAudioContext implements AudioContextLike {
     const gain = new FakeGain();
     this.gains.push(gain);
     return gain;
+  }
+
+  resume(): Promise<void> {
+    this.resumeCount++;
+    if (this.failResume) return Promise.reject(new Error("resume failed"));
+    if (this.deferResume) {
+      return new Promise<void>((resolve) => {
+        this.pendingResume = () => {
+          this.state = "running";
+          resolve();
+        };
+      });
+    }
+    this.state = "running";
+    return Promise.resolve();
+  }
+
+  /** Resolve a deferred resume() (see {@link deferResume}). */
+  flushResume(): void {
+    this.pendingResume?.();
+    this.pendingResume = null;
+  }
+
+  suspend(): Promise<void> {
+    this.suspendCount++;
+    if (this.failSuspend) return Promise.reject(new Error("suspend failed"));
+    this.state = "suspended";
+    return Promise.resolve();
+  }
+
+  close(): Promise<void> {
+    this.closeCount++;
+    if (this.failClose) return Promise.reject(new Error("close failed"));
+    this.state = "closed";
+    return Promise.resolve();
   }
 
   /** Advance the controllable clock. */

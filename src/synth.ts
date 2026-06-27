@@ -86,7 +86,10 @@ const TIMBRES: Record<Voice, Timbre> = {
 /** Small tail after release so stop() never clips the envelope's end. */
 const TAIL_SECONDS = 0.02;
 
-const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
+// NaN must not reach an AudioParam (it silently corrupts the value); fall back
+// to the low bound. Infinity already clamps correctly via min/max.
+const clamp = (x: number, lo: number, hi: number): number =>
+  Number.isNaN(x) ? lo : Math.max(lo, Math.min(hi, x));
 
 interface ActiveVoice {
   readonly osc: OscillatorNodeLike;
