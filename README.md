@@ -21,14 +21,13 @@ but standalone and reusable anywhere.
 - **Deterministic.** One seeded PRNG drives everything. Same seed → identical
   music, byte-for-byte. The whole musical brain runs and is tested in Node with
   no `AudioContext`.
-- **Tiny.** Budgeted under 10 KB min+gzip, tree-shakeable, side-effect-free.
+- **Tiny.** ~5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
 - **Framework-agnostic.** No DOM access, no framework imports. Vanilla, React,
   Vue, Svelte — identical.
 
-> **Status: under active, incremental construction.** The package is being built
-> layer by layer (see the roadmap). The pure core (`@simpllyf/ditty/core`) is
-> usable today; the audio engine facade lands as the scheduler and synth layers
-> arrive.
+> **Pre-release (0.0.x).** The engine is complete and thoroughly unit-tested
+> against a fake audio context; cross-browser audio is being validated with a
+> Playwright e2e suite before the first npm publish.
 
 ## Install
 
@@ -36,56 +35,110 @@ but standalone and reusable anywhere.
 npm install @simpllyf/ditty
 ```
 
-## The pure core, today
+Or drop it into a plain HTML page with no build step:
 
-The musical brain is pure and deterministic — handy for tests, previews, or
-building your own playback layer:
-
-```ts
-import { makeRng } from "@simpllyf/ditty/core";
-
-const rng = makeRng(1234); // same seed → same stream, every run
-rng.next(); // float in [0, 1)
-rng.int(6); // integer in [0, 6)
-rng.pick(["c", "e", "g"]); // uniform choice
-rng.weighted(["eighth", "quarter"], [3, 1]); // weighted choice
-
-// Independent, uncorrelated sub-streams for parallel concerns:
-const melodyRng = rng.fork();
-const rhythmRng = rng.fork();
+```html
+<script src="https://unpkg.com/@simpllyf/ditty"></script>
+<script>
+  const engine = Ditty.createPeppyEngine();
+  document.querySelector("button").addEventListener("click", () => engine.start());
+</script>
 ```
 
-## Engine API (target)
-
-The public facade, assembled over the coming layers:
+## Usage
 
 ```ts
 import { createPeppyEngine } from "@simpllyf/ditty";
 
-const engine = createPeppyEngine({ tempo: 128, volume: 0.4 });
+const engine = createPeppyEngine({
+  seed: 1234, // omit for a fresh random feel each session
+  tempo: 128, // BPM
+  volume: 0.4, // 0..1 — it's background music, keep it quiet
+});
 
-await engine.start(); // call from a click/tap — browsers block audio until a user gesture
-engine.stinger("correct"); // one-shot reward flourish, layered over the music
+// MUST be called from a user gesture (click/tap/keydown) — see below.
+await engine.start();
+
+engine.stinger("correct"); // "correct" | "levelup" | "win" — layers over the music
 engine.setVolume(0.3);
-engine.pause();
+engine.pause(); // suspend audio, keep state
 engine.resume();
-engine.stop();
-engine.dispose();
+engine.stop(); // stop and silence, keep the context for a later start()
+engine.dispose(); // tear down nodes, release the context
 ```
 
-## Roadmap
+### Options
 
-| Layer                           | Status |
-| ------------------------------- | ------ |
-| `rng` — seeded PRNG             | ✅     |
-| `scale` — pitch                 | ✅     |
-| `rhythm` — time                 | ✅     |
-| `constraints` — musicality      | ✅     |
-| `melody` — the brain            | ✅     |
-| `synth` — Web Audio voices      | ✅     |
-| `scheduler` — look-ahead timing | ✅     |
-| `engine` + presets + stingers   | ⏳     |
-| cross-browser e2e + size gate   | ⏳     |
+| Option         | Default        | Notes                                                       |
+| -------------- | -------------- | ----------------------------------------------------------- |
+| `seed`         | random         | Set for a reproducible stream; omit for variety per session |
+| `tempo`        | `128`          | Beats per minute                                            |
+| `volume`       | `0.4`          | Master volume, 0..1                                         |
+| `audioContext` | created lazily | Bring your own `AudioContext` (or a compatible one)         |
+
+## Browser autoplay
+
+Browsers block audio until a user gesture. Call **`start()` from a click/tap**:
+
+```js
+playButton.addEventListener("click", () => engine.start());
+```
+
+If `start()` is called outside a gesture it resolves but stays silent (it does
+not throw); the next `start()` from a real gesture begins playback.
+
+## Framework integration
+
+Ditty ships no framework code — it stays DOM- and framework-free. A few patterns:
+
+**React**
+
+```jsx
+const engine = useMemo(() => createPeppyEngine(), []);
+useEffect(() => () => engine.dispose(), [engine]);
+return <button onClick={() => engine.start()}>Sound on</button>;
+```
+
+**Vue**
+
+```vue
+<script setup>
+const engine = createPeppyEngine();
+onUnmounted(() => engine.dispose());
+</script>
+<template><button @click="engine.start()">Sound on</button></template>
+```
+
+**Svelte**
+
+```svelte
+<script>
+  const engine = createPeppyEngine();
+  onDestroy(() => engine.dispose());
+</script>
+<button on:click={() => engine.start()}>Sound on</button>
+```
+
+## The pure core
+
+The musical brain is pure, deterministic, and importable on its own — handy for
+tests, previews, or building your own playback layer. No audio involved:
+
+```ts
+import { makeRng, SCALES, MelodyStream } from "@simpllyf/ditty/core";
+
+const stream = new MelodyStream({ rng: makeRng(1234), scale: SCALES.majorPentatonic });
+const notes = stream.next(); // NoteEvent[] — { startBeat, durationBeats, frequency, velocity, voice }
+```
+
+## What it's good at (and not)
+
+- **Good at:** unobtrusive, cheerful, endlessly varied background music and
+  satisfying reward stingers; never grating, thanks to the anti-repeat and
+  phrase-variation constraints.
+- **Not:** a composed, memorable theme. There is no "hook." The pentatonic scale
+  plus leap caps and phrase resolution are why it reliably sounds _fine_ rather
+  than random — if your app needs a signature melody, that's a human job.
 
 ## Development
 

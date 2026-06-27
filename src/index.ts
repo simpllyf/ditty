@@ -1,9 +1,16 @@
 /**
  * Public entry point — `@simpllyf/ditty`.
  *
- * This will expose the audio engine facade (`createPeppyEngine`) once the
- * scheduler and synth layers land. Until then it re-exports the pure layer so
- * the package resolves; the pure layer is also available on its own at
- * `@simpllyf/ditty/core`.
+ * The audio engine facade. For the pure, deterministic layer (PRNG, scales,
+ * melody stream — no audio), import `@simpllyf/ditty/core` instead.
+ *
+ * ```ts
+ * import { createPeppyEngine } from "@simpllyf/ditty";
+ * const engine = createPeppyEngine();
+ * playButton.addEventListener("click", () => engine.start()); // start from a gesture
+ * engine.stinger("correct");
+ * ```
  */
-export * from "./core";
+export { createPeppyEngine } from "./engine";
+export type { EngineOptions, EngineAudioContext, PeppyEngine } from "./engine";
+export type { StingerName } from "./presets";
