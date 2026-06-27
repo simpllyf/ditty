@@ -16,3 +16,11 @@ export {
   degreeToFrequency,
 } from "./scale";
 export type { Scale, ScaleName } from "./scale";
+export {
+  DEFAULT_RHYTHM,
+  barLengthSteps,
+  stepsToBeats,
+  weightedDuration,
+  generateBar,
+} from "./rhythm";
+export type { RhythmConfig, DurationWeight } from "./rhythm";
