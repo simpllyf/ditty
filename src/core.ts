@@ -37,3 +37,5 @@ export {
   ShuffleBag,
 } from "./constraints";
 export type { ContourShape } from "./constraints";
+export { MelodyStream } from "./melody";
+export type { NoteEvent, Voice, MelodyOptions } from "./melody";

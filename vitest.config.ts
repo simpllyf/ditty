@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -7,5 +8,9 @@ export default defineConfig({
     // Playwright e2e suite, which is not run by vitest.
     environment: "node",
     include: ["test/**/*.test.ts"],
+    // Golden snapshots live under test/golden/ (spec §13) — the deterministic
+    // safety net for the musical brain.
+    resolveSnapshotPath: (testPath, snapExtension) =>
+      path.join(path.dirname(testPath), "golden", path.basename(testPath) + snapExtension),
   },
 });

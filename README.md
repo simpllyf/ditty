@@ -81,7 +81,7 @@ engine.dispose();
 | `scale` — pitch                 | ✅     |
 | `rhythm` — time                 | ✅     |
 | `constraints` — musicality      | ✅     |
-| `melody` — the brain            | ⏳     |
+| `melody` — the brain            | ✅     |
 | `synth` — Web Audio voices      | ⏳     |
 | `scheduler` — look-ahead timing | ⏳     |
 | `engine` + presets + stingers   | ⏳     |
