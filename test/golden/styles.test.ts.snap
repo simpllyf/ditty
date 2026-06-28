@@ -64,7 +64,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "sineLead",
         "marimba",
         "epiano",
-        "flute",
+        "airLead",
       ],
       "pad": [
         "warmPad",
@@ -153,7 +153,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "sineLead",
         "marimba",
         "epiano",
-        "flute",
+        "airLead",
       ],
       "pad": [
         "glassPad",

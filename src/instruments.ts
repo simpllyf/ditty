@@ -86,6 +86,16 @@ export const REVERB_SEND_BY_VOICE: Readonly<Record<ScoreVoice, number>> = {
   arp: 0.35,
 };
 
+/** Mix balance per voice (multiplies note velocity at playback). Brings the lead
+ * melody forward of the bed (pad/arp) so it cuts through. Audio-layer only — does
+ * not change the Score. */
+export const MIX_BY_VOICE: Readonly<Record<ScoreVoice, number>> = {
+  lead: 1.12,
+  bass: 1.0,
+  pad: 0.82,
+  arp: 0.88,
+};
+
 export const INSTRUMENTS = {
   // ── leads ──
   pluck: {
@@ -120,13 +130,15 @@ export const INSTRUMENTS = {
     vibrato: { rateHz: 5, depthCents: 9, delaySec: 0.6 }, // a gentle, late shimmer (not a wobble)
     reverbSend: 0.25,
   },
-  flute: {
-    name: "flute",
+  airLead: {
+    name: "airLead",
+    // An airy, breathy soft lead (honestly NOT a flute — blown instruments need a
+    // breath model/samples). Shows off the noise layer as a gentle texture.
     voices: ["lead"],
     layers: [{ kind: "sine" }, { kind: "sine", ratio: 2, gain: 0.06 }],
-    amp: { attack: 0.06, decay: 0.1, sustain: 0.7, release: 0.18 }, // soft breathy onset
+    amp: { attack: 0.06, decay: 0.1, sustain: 0.7, release: 0.18 }, // soft onset
     vibrato: { rateHz: 5, depthCents: 12, delaySec: 0.4 },
-    noise: { gain: 0.05, highpass: 2000 }, // airy breath
+    noise: { gain: 0.05, highpass: 2000 }, // a wisp of air
     reverbSend: 0.3,
   },
 
