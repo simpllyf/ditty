@@ -126,6 +126,23 @@ describe("Synth.playNote", () => {
     expect(modGain!.gain.events.some((e) => e.type === "target" && e.value === 0)).toBe(true);
   });
 
+  it("a noise layer adds filtered breath routed into the amp chain", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    const p: Instrument = {
+      name: "breathy",
+      voices: ["lead"],
+      layers: [{ kind: "sine" }],
+      amp: { attack: 0.05, decay: 0.1, sustain: 0.7, release: 0.1 },
+      noise: { gain: 0.05, highpass: 2000 },
+    };
+    const before = ctx.bufferSources.length;
+    s.playNote(p, { freq: 440, startTime: 0, durationSeconds: 0.5, velocity: 0.7 });
+    expect(ctx.bufferSources.length).toBe(before + 1); // the breath noise source
+    expect(ctx.filters.some((f) => f.type === "highpass")).toBe(true); // band-limited up high
+    expect(ctx.gains.some((g) => Math.abs(g.gain.value - 0.05) < 1e-9)).toBe(true); // breath mix level
+  });
+
   it("a patch with neither vibrato nor tremolo adds no LFO", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);

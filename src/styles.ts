@@ -79,7 +79,7 @@ export const STYLES = {
     density: [0.2, 0.5],
     rootMidi: [55, 62],
     instruments: {
-      lead: ["sineLead", "marimba", "epiano"],
+      lead: ["sineLead", "marimba", "epiano", "airLead"],
       pad: ["warmPad", "glassPad", "epiano"],
       arp: ["musicBox", "bell"],
       bass: ["subBass", "roundBass"],
@@ -117,7 +117,7 @@ export const STYLES = {
     density: [0.3, 0.6],
     rootMidi: [55, 62],
     instruments: {
-      lead: ["sineLead", "marimba", "epiano"],
+      lead: ["sineLead", "marimba", "epiano", "airLead"],
       pad: ["glassPad", "warmPad", "epiano"],
       arp: ["bell", "musicBox"],
       bass: ["subBass", "roundBass"],

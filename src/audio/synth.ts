@@ -203,7 +203,7 @@ export class Synth {
     const stopAt = releaseAt + r + 0.02;
 
     const nodes: AudioNodeLike[] = [env];
-    const oscs: OscillatorNodeLike[] = [];
+    const oscs: Source[] = []; // oscillators, LFOs, and any noise source
 
     // A sine LFO running for the note's lifetime — the vibrato/tremolo source.
     const makeLfo = (rateHz: number): OscillatorNodeLike => {
@@ -307,6 +307,38 @@ export class Synth {
       osc.start(t0);
       osc.stop(stopAt);
       oscs.push(osc);
+    }
+
+    // Breath/bow noise: filtered noise mixed in parallel into the amp chain, so it
+    // follows the note's envelope (and any tremolo) like the oscillators do.
+    if (patch.noise) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noiseBuffer;
+      let tail: AudioNodeLike = src;
+      if (patch.noise.highpass !== undefined) {
+        const hp = ctx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = clamp(patch.noise.highpass, 20, this.nyquist);
+        tail.connect(hp);
+        nodes.push(hp);
+        tail = hp;
+      }
+      if (patch.noise.lowpass !== undefined) {
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = clamp(patch.noise.lowpass, 20, this.nyquist);
+        tail.connect(lp);
+        nodes.push(lp);
+        tail = lp;
+      }
+      const ng = ctx.createGain();
+      ng.gain.value = clamp(patch.noise.gain, 0, 1);
+      tail.connect(ng);
+      ng.connect(ampIn);
+      nodes.push(ng);
+      src.start(t0);
+      src.stop(stopAt);
+      oscs.push(src);
     }
 
     env.connect(this.master);

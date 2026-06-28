@@ -5,7 +5,12 @@
  * the Score stays pure.
  */
 import type { Score } from "../compose/arranger";
-import { REVERB_SEND_BY_VOICE, type DrumVoice, type Instrument } from "../instruments";
+import {
+  MIX_BY_VOICE,
+  REVERB_SEND_BY_VOICE,
+  type DrumVoice,
+  type Instrument,
+} from "../instruments";
 import type { DrumName, ScoreVoice } from "../voices";
 import type { PreparedLoop, ScheduledEvent } from "./scheduler";
 import type { Synth } from "./synth";
@@ -22,6 +27,7 @@ export function buildLoop(
   for (const part of score.parts) {
     const patch = instruments[part.voice];
     const reverbSend = patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice];
+    const mix = MIX_BY_VOICE[part.voice]; // bring the lead forward of the bed
     for (const note of part.notes) {
       events.push({
         beat: note.startBeat,
@@ -30,7 +36,7 @@ export function buildLoop(
             freq: note.freq,
             startTime: time,
             durationSeconds: note.durationBeats * secondsPerBeat,
-            velocity: note.velocity,
+            velocity: note.velocity * mix,
             reverbSend,
           }),
       });
