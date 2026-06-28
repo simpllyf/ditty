@@ -116,6 +116,7 @@ const REVERB_DELAYS = [0.0297, 0.0419, 0.0537]; // prime-ish spacing → diffuse
 export class Synth {
   private readonly ctx: AudioContextLike;
   private readonly master: GainNodeLike;
+  private readonly limiter: WaveShaperLike;
   private readonly reverbIn: GainNodeLike;
   private readonly reverbNodes: AudioNodeLike[] = [];
   private readonly noiseBuffer: AudioBufferLike;
@@ -129,10 +130,10 @@ export class Synth {
 
     this.master = ctx.createGain();
     this.master.gain.value = clamp(options.masterGain ?? 0.35, 0, 1);
-    const limiter = ctx.createWaveShaper();
-    limiter.curve = softClipCurve();
-    this.master.connect(limiter);
-    limiter.connect(ctx.destination);
+    this.limiter = ctx.createWaveShaper();
+    this.limiter.curve = softClipCurve();
+    this.master.connect(this.limiter);
+    this.limiter.connect(ctx.destination);
 
     this.reverbIn = this.buildReverb(options.reverb ?? {});
 
@@ -312,14 +313,19 @@ export class Synth {
   }
 
   private register(nodes: AudioNodeLike[], oscs: Source[]): void {
+    const last = oscs[oscs.length - 1];
+    if (!last) {
+      // No source means nothing will ever fire onended; disconnect now so the
+      // note can't leak (only reachable via a malformed patch/drum voice).
+      for (const n of nodes) n.disconnect();
+      return;
+    }
     const entry: LiveNote = { nodes, oscs };
     this.live.add(entry);
-    const last = oscs[oscs.length - 1];
-    const cleanup = () => {
+    last.onended = () => {
       for (const n of nodes) n.disconnect();
       this.live.delete(entry);
     };
-    if (last) last.onended = cleanup;
   }
 
   /** Stop all sounding notes and tear down the graph. */
@@ -333,6 +339,7 @@ export class Synth {
     }
     this.live.clear();
     this.master.disconnect();
+    this.limiter.disconnect();
     this.reverbIn.disconnect();
     for (const node of this.reverbNodes) node.disconnect(); // stop the feedback taps recirculating
   }

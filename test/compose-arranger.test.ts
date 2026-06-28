@@ -252,6 +252,7 @@ describe("arrange — golden & validation", () => {
     const rng = makeRng(1);
     expect(() => arrange({ rng, bpm: 0 })).toThrow(RangeError);
     expect(() => arrange({ rng, swing: 1.5 })).toThrow(RangeError);
+    expect(() => arrange({ rng, density: Number.NaN })).toThrow(RangeError);
     expect(() => arrange({ rng, rootMidi: 12 })).toThrow(RangeError);
     expect(() => arrange({ rng, rootMidi: 60.5 })).toThrow(RangeError);
     // @ts-expect-error invalid groove name
