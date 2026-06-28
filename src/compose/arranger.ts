@@ -9,7 +9,7 @@
  * throws otherwise.
  */
 import type { Rng } from "../rng";
-import { DEFAULT_ROOT_MIDI, midiToFrequency, pitchClass } from "../theory/pitch";
+import { DEFAULT_ROOT_MIDI, OCTAVE, midiToFrequency, pitchClass } from "../theory/pitch";
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
 import { SCALES, type Scale, degreeToFrequency } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
@@ -163,10 +163,10 @@ export function arrange(options: ArrangeOptions): Score {
     const half = beatsPerBar / 2;
     for (let bar = 0; bar < bars; bar++) {
       const chord = plan.bars[bar]!.chord;
-      const rootNote = rootMidi - 12 + chord.root;
+      const rootNote = rootMidi - OCTAVE + chord.root;
       // Use the chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
       // a perfect fifth over a diminished/augmented triad is out of key.
-      const fifthNote = rootMidi - 12 + (chord.pcs[2] ?? chord.root); // stay in the bass octave
+      const fifthNote = rootMidi - OCTAVE + (chord.pcs[2] ?? chord.root); // stay in the bass octave
       const barStart = bar * beatsPerBar;
       notes.push({
         startBeat: barStart,
@@ -216,7 +216,7 @@ export function arrange(options: ArrangeOptions): Score {
         notes.push({
           startBeat: start,
           durationBeats: fit(start, 0.45),
-          freq: midiToFrequency(rootMidi + 12 + pc),
+          freq: midiToFrequency(rootMidi + OCTAVE + pc),
           velocity: 0.45,
         });
       }

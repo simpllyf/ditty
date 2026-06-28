@@ -86,10 +86,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
    * back to the nearest in-leap degree if no target tone is reachable.
    */
   const resolveTo = (pcs: readonly number[]): number => {
-    const inLeap: number[] = [];
-    for (let d = Math.max(lo, prev - maxLeap); d <= Math.min(hi, prev + maxLeap); d++) {
-      inLeap.push(d);
-    }
+    const inLeap = leapWindow(prev, lo, hi, maxLeap);
     const matches = inLeap.filter((d) => pcs.includes(pcOf(d)));
     const fresh = (pool: number[]) =>
       pool.filter((d) => !exceedsRepeatLimit(recent, d, maxNoteRepeat));
@@ -114,12 +111,12 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
   }
 
   for (let bar = 0; bar < plan.bars.length; bar++) {
-    const chord = (plan.bars[bar] as HarmonicPlan["bars"][number]).chord;
+    const chord = plan.bars[bar]!.chord;
     const chordRagaPcs = chordTonesInScale(chord, scale); // raga ∩ chord
     const onsets = melodyRhythm(rng, plan.beatsPerBar, { density });
 
     for (let i = 0; i < onsets.length; i++) {
-      const onset = onsets[i] as (typeof onsets)[number];
+      const onset = onsets[i]!;
       const isLast = i === onsets.length - 1;
       const phraseT = ((bar % 4) + onset.startBeat / plan.beatsPerBar) / 4; // 0..1 across a 4-bar phrase
       // contourTarget("arch", t, 2, amp) === sin(π·t)·amp — an arch peaking mid-phrase.
@@ -171,12 +168,18 @@ interface PickArgs {
   maxNoteRepeat: number;
 }
 
+/** The in-range degrees reachable from `prev` within the leap cap. */
+function leapWindow(prev: number, lo: number, hi: number, maxLeap: number): number[] {
+  const window: number[] = [];
+  for (let d = Math.max(lo, prev - maxLeap); d <= Math.min(hi, prev + maxLeap); d++) {
+    window.push(d);
+  }
+  return window;
+}
+
 /** Weighted choice within the leap window, biased toward the contour target and stepwise motion. */
 function pickNote(rng: Rng, a: PickArgs): number {
-  const inLeap: number[] = [];
-  for (let d = Math.max(a.lo, a.prev - a.maxLeap); d <= Math.min(a.hi, a.prev + a.maxLeap); d++) {
-    inLeap.push(d);
-  }
+  const inLeap = leapWindow(a.prev, a.lo, a.hi, a.maxLeap);
   const chordTones = a.chordPcs ? inLeap.filter((d) => a.chordPcs!.includes(a.pcOf(d))) : [];
   let candidates = chordTones.length > 0 ? chordTones : inLeap;
 

@@ -27,7 +27,7 @@ kid-friendly learning apps and games, but standalone and reusable anywhere.
   in CI.
 - **Deterministic.** One seeded PRNG drives everything. Same seed → identical
   music. The whole musical brain runs and is tested in Node with no `AudioContext`.
-- **Tiny.** ~8.5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
+- **Tiny.** ~8.9 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
 - **Framework-agnostic.** No DOM access, no framework imports.
 
 > **Pre-release (0.0.x).** Feature-complete, thoroughly unit-tested (250+ tests,
@@ -80,18 +80,21 @@ createEngine({ style: "calm", bpm: 84, voices: { arp: false } });
 
 ### Options
 
-| Option                                                          | Default        | Notes                                                                 |
-| --------------------------------------------------------------- | -------------- | --------------------------------------------------------------------- |
-| `style`                                                         | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` — the pool to randomize in |
-| `seed`                                                          | random         | Set for a reproducible track; omit for variety per session            |
-| `bpm`                                                           | from style     | Beats per minute                                                      |
-| `beatsPerBar`                                                   | `4`            | Time signature (beats per bar)                                        |
-| `bars`                                                          | `8`            | Bars per loop                                                         |
-| `volume`                                                        | `0.35`         | Master volume, 0..1                                                   |
-| `evolve`                                                        | `true`         | Re-arrange each loop for endless variety; `false` repeats one loop    |
-| `voices`                                                        | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                     |
-| `parent` / `raga` / `rootMidi` / `groove` / `density` / `swing` | from style     | Advanced overrides (pair `raga` with a compatible `parent`)           |
-| `audioContext`                                                  | created lazily | Bring your own `AudioContext` (or a compatible one)                   |
+| Option                           | Default        | Notes                                                                                    |
+| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
+| `style`                          | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` — the pool to randomize in                    |
+| `seed`                           | random         | Set for a reproducible track; omit for variety per session                               |
+| `bpm`                            | from style     | Beats per minute                                                                         |
+| `beatsPerBar`                    | `4`            | Time signature (beats per bar)                                                           |
+| `bars`                           | `8`            | Bars per loop                                                                            |
+| `volume`                         | `0.35`         | Master volume, 0..1                                                                      |
+| `evolve`                         | `true`         | Re-arrange each loop for endless variety; `false` repeats one loop                       |
+| `voices`                         | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
+| `parent` / `raga`                | from style     | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
+| `groove`                         | from style     | `straight` \| `fourOnFloor` \| `halfTime` \| `soft` \| `busy` \| `none`                  |
+| `rootMidi` / `density` / `swing` | from style     | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
+| `kit`                            | `"default"`    | Drum kit                                                                                 |
+| `audioContext`                   | created lazily | Bring your own `AudioContext` (or a compatible one)                                      |
 
 ## Render / export a track
 
@@ -109,9 +112,17 @@ const { sampleRate, channelData } = await renderOffline({
 });
 
 const wav = encodeWav(channelData, sampleRate); // Uint8Array
-// browser: new Blob([wav.buffer], { type: "audio/wav" })
+// browser: new Blob([wav], { type: "audio/wav" })
 // node:    fs.writeFileSync("track.wav", wav)
 ```
+
+`renderOffline` takes the same musical options as the engine, plus:
+
+- `seconds` **or** `loops` — exactly one (`loops` renders to exact boundaries → gapless).
+- `sampleRate` — output rate, default `44100`.
+- `volume` — master volume, default `0.8` (offline can run a touch hotter than realtime).
+
+`channelData` is a **mono** `Float32Array`.
 
 ## Browser autoplay
 
