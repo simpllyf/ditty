@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateHarmony — shape & determinism > matches a committed golden snapshot (degrees + cadences only) 1`] = `
+{
+  "cadences": {
+    "final": 15,
+    "half": 7,
+  },
+  "degrees": [
+    0,
+    4,
+    4,
+    0,
+    1,
+    3,
+    6,
+    4,
+    3,
+    5,
+    3,
+    3,
+    4,
+    0,
+    4,
+    0,
+  ],
+}
+`;

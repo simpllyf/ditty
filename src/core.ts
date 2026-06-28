@@ -21,6 +21,10 @@ export {
   romanNumerals,
 } from "./theory/chords";
 export type { Chord, ChordQuality } from "./theory/chords";
+export { PROGRESSIONS, FUNCTION_OF, functionalProgression } from "./theory/progressions";
+export type { ProgressionName, HarmonicFunction } from "./theory/progressions";
+export { generateHarmony, chordTonesInScale } from "./compose/harmony";
+export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
 export {
   DEFAULT_RHYTHM,
   barLengthSteps,
