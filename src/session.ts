@@ -154,6 +154,8 @@ export function createSession(options: SessionOptions): Session {
       plan: section.plan,
       texture: section.texture,
       bassPattern: section.bassPattern,
+      dynamics: section.dynamics,
+      fill: section.fill,
       ...(options.voices !== undefined ? { voices: options.voices } : {}),
     });
 

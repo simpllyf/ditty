@@ -260,6 +260,30 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
 
+  it("dynamics scales every velocity (clamped); fill reworks only the last bar", () => {
+    const o = { bars: 8, beatsPerBar: 4 } as const;
+    const base = arrange({ rng: makeRng(1), ...o });
+    // explicit defaults are byte-identical to a bare arrange()
+    expect(arrange({ rng: makeRng(1), ...o, dynamics: 1, fill: false })).toEqual(base);
+    // dynamics < 1 scales note velocities down
+    const soft = arrange({ rng: makeRng(1), ...o, dynamics: 0.5 });
+    const leadVel = (s: ReturnType<typeof arrange>) =>
+      part(s, "lead")!.notes.map((n) => n.velocity);
+    expect(leadVel(soft)).toEqual(leadVel(base).map((v) => v * 0.5));
+    // dynamics > 1 never exceeds 1
+    const loud = arrange({ rng: makeRng(1), ...o, dynamics: 2 });
+    for (const p of loud.parts) for (const n of p.notes) expect(n.velocity).toBeLessThanOrEqual(1);
+    // fill: the last bar becomes a snare buildup + kick downbeat; earlier bars untouched
+    const filled = arrange({ rng: makeRng(1), ...o, fill: true });
+    const lastBar = 7 * 4;
+    const tail = filled.drums.filter((h) => h.startBeat >= lastBar);
+    expect(tail.filter((h) => h.drum === "snare").length).toBe(8); // 8th-note roll
+    expect(tail.some((h) => h.drum === "kick" && h.startBeat === lastBar)).toBe(true);
+    expect(filled.drums.filter((h) => h.startBeat < lastBar)).toEqual(
+      base.drums.filter((h) => h.startBeat < lastBar),
+    );
+  });
+
   it("bass patterns vary the low-end shape; default is rootFifth (unchanged)", () => {
     const o = { bars: 8, beatsPerBar: 4 } as const;
     const bass = (p?: "rootFifth" | "walking" | "pulse" | "sustained") =>

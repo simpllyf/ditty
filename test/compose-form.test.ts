@@ -22,20 +22,30 @@ describe("buildForm", () => {
     expect(a.sections.map((s) => s.density)).toEqual(b.sections.map((s) => s.density));
   });
 
-  it("uses one profile per distinct label and a recognised template", () => {
+  it("uses one recipe per distinct label and a recognised template", () => {
     const form = buildForm({ rng: makeRng(1), ...base });
     expect(form.sections.length).toBeGreaterThanOrEqual(4); // a real multi-section piece
-    const byLabel = new Map(form.sections.map((s) => [s.label, s]));
-    for (const s of form.sections) expect(s).toBe(byLabel.get(s.label)); // every "A" is the same object
+    const planByLabel = new Map(form.sections.map((s) => [s.label, s.plan]));
+    for (const s of form.sections) expect(s.plan).toBe(planByLabel.get(s.label)); // same label → same progression
     expect(form.sections[0]!.label).toBe("A"); // starts at home
   });
 
-  it("contrasts the bridge (B) against home (A): sparser, own progression", () => {
+  it("contrasts the bridge (B) against home (A): sparser, quieter, own progression", () => {
     const form = formWithB();
     const A = form.sections.find((s) => s.label === "A")!;
     const B = form.sections.find((s) => s.label === "B")!;
     expect(B.density).toBeLessThan(A.density); // bridge is thinner
+    expect(B.dynamics).toBeLessThan(A.dynamics); // …and quieter (the dynamics arc)
     expect(A.plan).not.toBe(B.plan); // distinct sections → distinct progressions
+  });
+
+  it("flags a fill exactly on sections that lead into a different part", () => {
+    const form = formWithB();
+    form.sections.forEach((s, i) => {
+      const next = form.sections[(i + 1) % form.sections.length]!;
+      expect(s.fill).toBe(next.label !== s.label);
+    });
+    expect(form.sections.some((s) => s.fill)).toBe(true); // a multi-part form always has ≥1 change
   });
 
   it("keeps section density strictly within (0,1) even at extreme base density", () => {
