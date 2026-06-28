@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEngine } from "../src/audio/engine";
 import type { SchedulerClock } from "../src/audio/scheduler";
+import { createSession } from "../src/session";
 import { FakeAudioContext } from "./helpers/fake-audio-context";
 
 class TickClock implements SchedulerClock {
@@ -77,18 +78,24 @@ describe("createEngine", () => {
   });
 
   it("evolve:false loops the form (periodic); evolve:true keeps changing", async () => {
-    const secondsPerLoop = 16; // 8 bars @ 120 bpm
+    const opts = { seed: 3, bpm: 120, bars: 8 };
     const windows = 12; // ≥ 2 full forms (max template length is 6)
+    // Sections carry their own tempo → loops have different lengths; bucket by the
+    // ACTUAL cumulative loop boundaries rather than a constant stride.
+    const bounds = [0];
+    const probe = createSession(opts);
+    for (let i = 0; i < windows; i++) {
+      const sc = probe.nextScore();
+      bounds.push(bounds[bounds.length - 1]! + sc.lengthBeats * (60 / sc.bpm));
+    }
     const distinctLoops = async (evolve: boolean) => {
-      const { ctx, clock, engine } = setup({ seed: 3, bpm: 120, bars: 8, evolve });
+      const { ctx, clock, engine } = setup({ ...opts, evolve });
       await engine.start();
-      runLoops(ctx, clock, secondsPerLoop * windows);
+      runLoops(ctx, clock, bounds[windows]! + 1);
       const fps = new Set<string>();
       for (let k = 0; k < windows; k++) {
         const f = ctx.oscillators
-          .filter(
-            (o) => o.startedAt! >= k * secondsPerLoop && o.startedAt! < (k + 1) * secondsPerLoop,
-          )
+          .filter((o) => o.startedAt! >= bounds[k]! && o.startedAt! < bounds[k + 1]!)
           .map((o) => o.frequency.value);
         if (f.length) fps.add(JSON.stringify(f));
       }

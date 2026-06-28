@@ -25,6 +25,7 @@ export interface SectionProfile {
   readonly bassPattern: BassPatternName;
   readonly density: number; // melodic density 0..1 (contrast: B sparser, C busier)
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
+  readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
   readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
 }
@@ -95,6 +96,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       bassPattern: o.rng.pick(["sustained", "walking", "rootFifth"]),
       density: clampDensity(o.density * 0.6),
       dynamics: 0.82,
+      bpmScale: 0.96, // bridge eases back a touch
       arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
     };
   }
@@ -108,6 +110,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       bassPattern: "pulse",
       density: clampDensity(o.density * 1.25),
       dynamics: 1.12,
+      bpmScale: 1.06, // climax pushes ahead
       arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
     };
   }
@@ -120,6 +123,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     bassPattern: o.rng.pick(["rootFifth", "rootFifth", "walking"]),
     density: clampDensity(o.density),
     dynamics: 1,
+    bpmScale: 1, // home tempo
     arpRole: "arp", // the arp keeps the running figure — the bed
   };
 }

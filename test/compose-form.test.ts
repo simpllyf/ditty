@@ -70,6 +70,15 @@ describe("buildForm", () => {
     expect(form.sections.some((s) => s.fill)).toBe(true); // a multi-part form always has ≥1 change
   });
 
+  it("varies tempo per section: home steady, bridge eases back, climax pushes", () => {
+    const form = formWithB();
+    for (const a of form.sections.filter((s) => s.label === "A")) expect(a.bpmScale).toBe(1);
+    for (const b of form.sections.filter((s) => s.label === "B"))
+      expect(b.bpmScale).toBeLessThan(1);
+    for (const c of form.sections.filter((s) => s.label === "C"))
+      expect(c.bpmScale).toBeGreaterThan(1);
+  });
+
   it("orchestrates the arp per section: A arpeggiates, B harmonises, C doubles", () => {
     for (let s = 1; s < 30; s++) {
       const form = buildForm({ rng: makeRng(s), ...base });

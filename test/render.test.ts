@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { type RenderOptions, renderOffline } from "../src/audio/render";
+import { createSession } from "../src/session";
 import { FakeOfflineAudioContext } from "./helpers/fake-audio-context";
+
+/** Sum the real (per-section-tempo) durations of the first `n` loops for these opts. */
+function totalLoopSeconds(opts: Record<string, unknown>, n: number): number {
+  const probe = createSession(opts);
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    const sc = probe.nextScore();
+    total += sc.lengthBeats * (60 / sc.bpm);
+  }
+  return total;
+}
 
 interface Cap {
   ctx?: FakeOfflineAudioContext;
@@ -30,32 +42,19 @@ describe("renderOffline", () => {
     }
   });
 
-  it("renders whole loops to exact boundaries", async () => {
+  it("renders whole loops to exact boundaries (summing per-section tempos)", async () => {
+    const opts = { seed: 1, bpm: 120, bars: 8, beatsPerBar: 4 };
     const cap: Cap = {};
-    const r = await renderOffline({
-      seed: 1,
-      loops: 2,
-      bpm: 120,
-      bars: 8,
-      beatsPerBar: 4,
-      createContext: factory(cap),
-    });
-    const secondsPerLoop = 8 * 4 * (60 / 120); // 16 s
-    expect(r.channelData.length).toBe(Math.ceil(2 * secondsPerLoop * 44100));
+    const r = await renderOffline({ ...opts, loops: 2, createContext: factory(cap) });
+    expect(r.channelData.length).toBe(Math.ceil(totalLoopSeconds(opts, 2) * 44100));
   });
 
   it("loop renders allocate a tail and wrap it onto the head (gapless seam)", async () => {
+    const opts = { seed: 1, bpm: 120, bars: 8, beatsPerBar: 4 };
     const cap: Cap = {};
-    const r = await renderOffline({
-      seed: 1,
-      loops: 2,
-      bpm: 120,
-      bars: 8,
-      beatsPerBar: 4,
-      createContext: factory(cap),
-    });
-    const loopLen = Math.ceil(2 * 16 * 44100);
-    expect(r.channelData.length).toBe(loopLen); // returned at the exact loop boundary
+    const r = await renderOffline({ ...opts, loops: 2, createContext: factory(cap) });
+    const loopLen = Math.ceil(totalLoopSeconds(opts, 2) * 44100);
+    expect(r.channelData.length).toBe(loopLen); // returned at the exact form boundary
     expect(cap.ctx!.length).toBeGreaterThan(loopLen); // but rendered longer to capture the ring-out
   });
 
@@ -66,26 +65,23 @@ describe("renderOffline", () => {
   });
 
   it("evolve:true keeps changing; evolve:false loops the form (periodic)", async () => {
-    const secondsPerLoop = 16;
+    const opts = { seed: 5, bpm: 120, bars: 8, beatsPerBar: 4 } as const;
     const windows = 12; // ≥ 2 full forms (max template length is 6)
+    // Sections carry their own tempo → variable loop lengths; bucket by actual boundaries.
+    const bounds = [0];
+    const probe = createSession(opts);
+    for (let i = 0; i < windows; i++) {
+      const sc = probe.nextScore();
+      bounds.push(bounds[bounds.length - 1]! + sc.lengthBeats * (60 / sc.bpm));
+    }
     const distinctLoops = async (evolve: boolean) => {
       const cap: Cap = {};
-      await renderOffline({
-        seed: 5,
-        loops: windows,
-        bpm: 120,
-        bars: 8,
-        beatsPerBar: 4,
-        evolve,
-        createContext: factory(cap),
-      });
+      await renderOffline({ ...opts, loops: windows, evolve, createContext: factory(cap) });
       const osc = cap.ctx!.oscillators;
       const fps = new Set<string>();
       for (let k = 0; k < windows; k++) {
         const f = osc
-          .filter(
-            (o) => o.startedAt! >= k * secondsPerLoop && o.startedAt! < (k + 1) * secondsPerLoop,
-          )
+          .filter((o) => o.startedAt! >= bounds[k]! && o.startedAt! < bounds[k + 1]!)
           .map((o) => o.frequency.value);
         if (f.length) fps.add(JSON.stringify(f));
       }

@@ -52,6 +52,13 @@ describe("createSession", () => {
     }
   });
 
+  it("applies per-section tempo — the bridge/climax differ from the home bpm", () => {
+    const s = createSession({ seed: 13, style: "peppy", bpm: 120 });
+    const bpms = Array.from({ length: s.sections.length }, () => s.nextScore().bpm);
+    expect(new Set(bpms).size).toBeGreaterThan(1); // tempo changes across the form
+    expect(bpms).toContain(120); // home sections play at the base tempo
+  });
+
   it("draws instruments from the style's pools", () => {
     const s = createSession({ seed: 3, style: "calm" });
     expect(STYLES.calm.instruments.lead).toContain(s.instruments.lead.name); // from calm's pool

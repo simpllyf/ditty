@@ -4,6 +4,7 @@
  * the realtime engine. Render by `seconds` (free length) or `loops` (exact loop
  * boundaries → gapless loop assets). Pair with {@link encodeWav} to write a file.
  */
+import type { Score } from "../compose/arranger";
 import { type Session, type SessionOptions, createSession } from "../session";
 import { buildLoop } from "./loop";
 import { type AudioBufferLike, type AudioContextLike, Synth } from "./synth";
@@ -56,26 +57,45 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
     throw new RangeError("renderOffline requires exactly one of { seconds, loops }");
   }
 
-  const session: Session = createSession(options); // validates bpm
-  const secondsPerBeat = 60 / session.bpm;
-  const secondsPerLoop = session.bars * session.beatsPerBar * secondsPerBeat;
-  if (!(secondsPerLoop > 0)) {
+  const session: Session = createSession(options); // validates bpm/bars/beatsPerBar
+  // Sections can carry their OWN tempo, so each loop has its own duration — we lay
+  // them end to end at cumulative offsets rather than a single constant stride.
+  const nominalLoopSeconds = session.bars * session.beatsPerBar * (60 / session.bpm);
+  if (!(nominalLoopSeconds > 0)) {
     throw new RangeError("renderOffline: loop length must be positive (bars/beatsPerBar > 0)");
   }
+  const loopSeconds = (s: Score) => s.lengthBeats * (60 / s.bpm);
 
+  // Pull the scores ONCE (advancing the form), recording each loop's start offset.
+  const scores: Score[] = [];
+  const offsets: number[] = [];
   let seconds: number;
-  let loopCount: number | null = null;
+  let cursor = 0;
+  const isLoopRender = hasLoops;
   if (hasLoops) {
     const loops = options.loops;
     if (!Number.isInteger(loops) || loops <= 0) {
       throw new RangeError(`renderOffline loops must be a positive integer, got ${loops}`);
     }
-    loopCount = loops;
-    seconds = loops * secondsPerLoop;
+    for (let i = 0; i < loops; i++) {
+      const score = session.nextScore();
+      scores.push(score);
+      offsets.push(cursor);
+      cursor += loopSeconds(score);
+    }
+    seconds = cursor; // total = sum of the loops' real (per-tempo) durations
   } else {
     seconds = options.seconds;
     if (!(seconds > 0) || !Number.isFinite(seconds)) {
       throw new RangeError(`renderOffline seconds must be a positive number, got ${seconds}`);
+    }
+    // Pull whole loops until they cover `seconds`; bound it so a degenerate session can't spin.
+    const cap = Math.ceil(seconds / nominalLoopSeconds) + 4;
+    for (let i = 0; i < cap && cursor < seconds; i++) {
+      const score = session.nextScore();
+      scores.push(score);
+      offsets.push(cursor);
+      cursor += loopSeconds(score);
     }
   }
 
@@ -89,7 +109,6 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
   // For loop renders, render an extra tail and wrap it back onto the head so the
   // last loop's note-release and reverb don't truncate at the seam — a real gapless
   // loop. (A free-length `seconds` render is a one-shot; its tail simply ends.)
-  const isLoopRender = loopCount !== null;
   const renderLength = isLoopRender ? Math.ceil((seconds + TAIL_SECONDS) * sampleRate) : length;
   const ctx = (options.createContext ?? defaultOfflineContext)(1, renderLength, sampleRate);
   const synth = new Synth(ctx, {
@@ -97,30 +116,14 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
     masterGain: options.volume ?? 0.8,
   });
 
-  // Only one loop-span of events is scheduled (at < seconds); the tail window holds
-  // their natural ring-out, never extra notes.
-  const schedule = (loop: ReturnType<typeof buildLoop>, loopStart: number) => {
+  // Each loop's events resolve against its OWN secondsPerBeat; events past `seconds`
+  // (e.g. a trailing loop's overhang) are dropped — the tail window holds the ring-out.
+  for (let k = 0; k < scores.length; k++) {
+    const loop = buildLoop(scores[k]!, synth, session.instruments, session.drumKit);
+    const loopStart = offsets[k]!;
     for (const event of loop.events) {
       const at = loopStart + event.beat * loop.secondsPerBeat;
       if (at < seconds) event.play(at);
-    }
-  };
-
-  if (loopCount !== null) {
-    for (let i = 0; i < loopCount; i++) {
-      schedule(
-        buildLoop(session.nextScore(), synth, session.instruments, session.drumKit),
-        i * secondsPerLoop,
-      );
-    }
-  } else {
-    // seconds-based: bound the loop so a degenerate session can't spin.
-    const cap = Math.ceil(seconds / secondsPerLoop) + 2;
-    for (let i = 0; i < cap && i * secondsPerLoop < seconds; i++) {
-      schedule(
-        buildLoop(session.nextScore(), synth, session.instruments, session.drumKit),
-        i * secondsPerLoop,
-      );
     }
   }
 
