@@ -150,6 +150,21 @@ describe("Synth.playNote", () => {
     expect(ctx.oscillators.length).toBe(INSTRUMENTS.pluck.layers.length); // no extra LFO osc
   });
 
+  it("every instrument in the registry renders cleanly (no NaN params)", () => {
+    for (const patch of Object.values(INSTRUMENTS)) {
+      const ctx = new FakeAudioContext();
+      const s = make(ctx);
+      s.playNote(patch, { freq: 440, startTime: 0, durationSeconds: 0.5, velocity: 0.7 });
+      const events = [
+        ...ctx.oscillators.flatMap((o) => [...o.frequency.events, ...o.detune.events]),
+        ...ctx.gains.flatMap((g) => g.gain.events),
+        ...ctx.filters.flatMap((f) => [...f.frequency.events, ...f.Q.events]),
+      ];
+      expect(events.length).toBeGreaterThan(0);
+      for (const e of events) expect(Number.isNaN(e.value)).toBe(false);
+    }
+  });
+
   it("guards NaN params: no NaN reaches any AudioParam", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);

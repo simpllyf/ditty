@@ -11,6 +11,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "pluck",
         "bell",
         "musicBox",
+        "glockenspiel",
       ],
       "bass": [
         "subBass",
@@ -20,11 +21,13 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "pluck",
         "marimba",
         "squareLead",
+        "synthBrass",
       ],
       "pad": [
         "warmPad",
         "glassPad",
         "organ",
+        "strings",
       ],
     },
     "name": "peppy",
@@ -55,6 +58,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
       "arp": [
         "musicBox",
         "bell",
+        "glockenspiel",
       ],
       "bass": [
         "subBass",
@@ -65,11 +69,14 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "marimba",
         "epiano",
         "airLead",
+        "clarinet",
+        "strings",
       ],
       "pad": [
         "warmPad",
         "glassPad",
         "epiano",
+        "strings",
       ],
     },
     "name": "calm",
@@ -101,6 +108,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "synthArp",
         "pluck",
         "musicBox",
+        "glockenspiel",
       ],
       "bass": [
         "roundBass",
@@ -110,10 +118,12 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "squareLead",
         "pluck",
         "synthArp",
+        "synthBrass",
       ],
       "pad": [
         "organ",
         "glassPad",
+        "strings",
       ],
     },
     "name": "playful",
@@ -144,6 +154,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
       "arp": [
         "bell",
         "musicBox",
+        "glockenspiel",
       ],
       "bass": [
         "subBass",
@@ -154,11 +165,14 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
         "marimba",
         "epiano",
         "airLead",
+        "clarinet",
+        "strings",
       ],
       "pad": [
         "glassPad",
         "warmPad",
         "epiano",
+        "strings",
       ],
     },
     "name": "dreamy",
