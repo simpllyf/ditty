@@ -65,6 +65,8 @@ export interface ArrangeOptions {
   plan?: HarmonicPlan;
   /** Dynamic arc: which sections the arp/drums play. Default "full" (no gating). */
   texture?: TextureName;
+  /** Bass rhythm/shape. Default "rootFifth". */
+  bassPattern?: BassPatternName;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -90,6 +92,10 @@ const TEXTURES = {
   pulse: { arp: [0, 1, 0, 1], drums: [1, 1, 1, 1] },
 } as const satisfies Record<string, { arp: readonly number[]; drums: readonly number[] }>;
 export type TextureName = keyof typeof TEXTURES;
+
+/** Bass rhythm/shape — varies the low-end groove so tracks don't all share one feel. */
+export const BASS_PATTERNS = ["rootFifth", "walking", "pulse", "sustained"] as const;
+export type BassPatternName = (typeof BASS_PATTERNS)[number];
 
 /** Cycle order of a chord's pitch classes for an arpeggio. */
 function arpSequence(pcs: readonly number[], pattern: (typeof ARP_PATTERNS)[number]): number[] {
@@ -191,28 +197,60 @@ export function arrange(options: ArrangeOptions): Score {
 
   if (enabled("bass")) {
     const notes: ScoreNote[] = [];
+    const bassPattern = options.bassPattern ?? "rootFifth";
     const half = beatsPerBar / 2;
+    const low = (pc: number) => midiToFrequency(rootMidi - OCTAVE + pc); // always below the pad
     for (let bar = 0; bar < bars; bar++) {
       const chord = plan.bars[bar]!.chord;
-      const rootNote = rootMidi - OCTAVE + chord.root;
-      // Use the chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
-      // a perfect fifth over a diminished/augmented triad is out of key.
-      const fifthNote = rootMidi - OCTAVE + (chord.pcs[2] ?? chord.root); // stay in the bass octave
       const barStart = bar * beatsPerBar;
-      notes.push({
-        startBeat: barStart,
-        durationBeats: fit(barStart, half),
-        freq: midiToFrequency(rootNote),
-        velocity: 0.85,
-      });
-      const second = bassRng.next() < 0.5 ? rootNote : fifthNote;
-      const midStart = barStart + half;
-      notes.push({
-        startBeat: midStart,
-        durationBeats: fit(midStart, half),
-        freq: midiToFrequency(second),
-        velocity: 0.8,
-      });
+      const root = chord.root;
+      // The chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
+      // a perfect fifth over a diminished/augmented triad is out of key.
+      const fifth = chord.pcs[2] ?? chord.root;
+      if (bassPattern === "rootFifth") {
+        notes.push({
+          startBeat: barStart,
+          durationBeats: fit(barStart, half),
+          freq: low(root),
+          velocity: 0.85,
+        });
+        const second = bassRng.next() < 0.5 ? root : fifth;
+        const midStart = barStart + half;
+        notes.push({
+          startBeat: midStart,
+          durationBeats: fit(midStart, half),
+          freq: low(second),
+          velocity: 0.8,
+        });
+      } else if (bassPattern === "pulse") {
+        for (let b = 0; b < beatsPerBar; b++) {
+          const at = barStart + b;
+          notes.push({
+            startBeat: at,
+            durationBeats: fit(at, 0.9),
+            freq: low(root),
+            velocity: b === 0 ? 0.85 : 0.72,
+          });
+        }
+      } else if (bassPattern === "walking") {
+        for (let b = 0; b < beatsPerBar; b++) {
+          const at = barStart + b;
+          notes.push({
+            startBeat: at,
+            durationBeats: fit(at, 0.9),
+            freq: low(chord.pcs[b % chord.pcs.length] ?? root),
+            velocity: b === 0 ? 0.85 : 0.75,
+          });
+        }
+      } else {
+        // sustained: root held the whole bar
+        notes.push({
+          startBeat: barStart,
+          durationBeats: fit(barStart, beatsPerBar),
+          freq: low(root),
+          velocity: 0.8,
+        });
+      }
     }
     parts.push({ voice: "bass", notes });
   }

@@ -4,7 +4,13 @@
  * (re-arranged each loop when `evolve`, else a cached one). Pure: no Web Audio
  * (the audio layer's `buildLoop` binds these Scores to a synth).
  */
-import { type ArrangeOptions, type Score, type TextureName, arrange } from "./compose/arranger";
+import {
+  type ArrangeOptions,
+  type BassPatternName,
+  type Score,
+  type TextureName,
+  arrange,
+} from "./compose/arranger";
 import { generateHarmony } from "./compose/harmony";
 import {
   DRUM_KITS,
@@ -139,6 +145,15 @@ export function createSession(options: SessionOptions): Session {
   // arp/drums follow, so the piece has shape; "full" is weighted to stay common.
   const TEXTURE_POOL: readonly TextureName[] = ["full", "full", "build", "breakdown", "pulse"];
   const texture = arrangeRng.fork().pick(TEXTURE_POOL);
+  // …and one bass groove (rootFifth weighted common).
+  const BASS_POOL: readonly BassPatternName[] = [
+    "rootFifth",
+    "rootFifth",
+    "walking",
+    "pulse",
+    "sustained",
+  ];
+  const bassPattern = arrangeRng.fork().pick(BASS_POOL);
 
   const arrangeOptions = (): ArrangeOptions => ({
     rng: arrangeRng,
@@ -153,6 +168,7 @@ export function createSession(options: SessionOptions): Session {
     swing,
     plan: harmonyPlan,
     texture,
+    bassPattern,
     ...(options.voices !== undefined ? { voices: options.voices } : {}),
   });
 
