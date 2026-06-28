@@ -98,9 +98,12 @@ export class Scheduler {
   /** Begin scheduling, anchored at the current audio time. Idempotent. */
   start(): void {
     if (this.running) return;
+    // Obtain the first loop BEFORE flipping `running`, so a throwing provider
+    // surfaces the error without leaving the scheduler half-started (unstartable).
+    const loop = this.provider();
     this.running = true;
     this.anchor = this.context.currentTime;
-    this.loop = this.provider();
+    this.loop = loop;
     this.index = 0;
     this.clock.start(() => this.tick(), this.intervalMs);
     this.tick(); // don't wait a full interval for the first notes

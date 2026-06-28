@@ -22,8 +22,12 @@ describe("createSession", () => {
     expect(evolving.nextScore()).not.toEqual(evolving.nextScore());
   });
 
-  it("validates bpm", () => {
+  it("validates bpm, beatsPerBar, and bars eagerly", () => {
     expect(() => createSession({ bpm: 0 })).toThrow(RangeError);
+    expect(() => createSession({ beatsPerBar: 0 })).toThrow(RangeError);
+    expect(() => createSession({ beatsPerBar: 1.5 })).toThrow(RangeError);
+    expect(() => createSession({ bars: 3 })).toThrow(RangeError); // harmony needs >= 4
+    expect(() => createSession({ bars: 7.5 })).toThrow(RangeError);
   });
 
   it("draws instruments from the style's pools", () => {

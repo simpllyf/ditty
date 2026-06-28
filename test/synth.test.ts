@@ -142,11 +142,14 @@ describe("Synth lifecycle", () => {
     expect(ctx.oscillators.length).toBe(count); // no-op after dispose
   });
 
-  it("setVolume adjusts the master gain", () => {
+  it("setVolume ramps the master gain (no zipper click)", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);
     s.setVolume(0.6);
-    expect(ctx.gains[0]!.gain.value).toBe(0.6); // master is the first gain created
+    // master is the first gain created; setVolume ramps via setTargetAtTime, not a hard set.
+    expect(ctx.gains[0]!.gain.events.some((e) => e.type === "target" && e.value === 0.6)).toBe(
+      true,
+    );
   });
 
   it("dispose stops in-flight sources and disconnects the reverb feedback taps + limiter", () => {

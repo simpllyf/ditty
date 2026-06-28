@@ -7,7 +7,7 @@
  * a bar's onsets tile it exactly with no floating-point drift; values are
  * converted to beats only at emit time.
  */
-import { clamp } from "../math";
+import { clampSafe as clamp } from "../math";
 import type { Rng } from "../rng";
 
 /** Grid resolution: steps per beat (sixteenth notes). */

@@ -89,6 +89,14 @@ export function createSession(options: SessionOptions): Session {
   }
   const beatsPerBar = options.beatsPerBar ?? 4;
   const bars = options.bars ?? 8;
+  // Validate the grid eagerly (not lazily at the first arrange) so a bad config
+  // fails at construction rather than bricking the first scheduler tick.
+  if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
+    throw new RangeError(`createSession: beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
+  }
+  if (!Number.isInteger(bars) || bars < 4) {
+    throw new RangeError(`createSession: bars must be an integer >= 4, got ${bars}`);
+  }
   const evolve = options.evolve ?? true;
 
   const instruments: Record<ScoreVoice, Instrument> = {
