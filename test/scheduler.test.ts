@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type PreparedLoop, Scheduler, type SchedulerClock } from "../src/audio/scheduler";
 import { FakeAudioContext } from "./helpers/fake-audio-context";
 import { FakeClock } from "./helpers/fake-clock";
@@ -106,9 +106,44 @@ describe("Scheduler", () => {
     sch.start(); // plays beat 0 at t=0
     ctx.advance(10); // a long stall: the audio clock ran on while the timer slept
     clock.tick();
-    // The whole backlog must NOT collapse onto t=10 — at most the one currently-due event.
-    expect(played.filter((p) => p.time === 10).length).toBeLessThanOrEqual(2);
+    // The whole backlog must NOT collapse onto t=10 — exactly the one currently-due event.
+    expect(played.filter((p) => p.time === 10).length).toBe(1);
     expect(played.every((p) => p.time <= 10)).toBe(true);
+  });
+
+  it("the default clock drives ticks via setInterval and stops cleanly", () => {
+    vi.useFakeTimers();
+    try {
+      const ctx = new FakeAudioContext();
+      const played: number[] = [];
+      const provider = (): PreparedLoop => ({
+        events: [
+          { beat: 0, play: (t: number) => played.push(t) },
+          { beat: 1, play: (t: number) => played.push(t) },
+        ],
+        loopBeats: 2,
+        secondsPerBeat: 0.25, // events at 0 and 0.25 s; 0.5 s loop
+      });
+      const sch = new Scheduler({ context: ctx, provider }); // real default clock (setInterval)
+      sch.start();
+      const afterStart = played.length;
+      expect(afterStart).toBeGreaterThan(0); // immediate first tick, no full-interval wait
+      // Advance the audio clock and the timer together in small steps (staying caught up).
+      const step = () => {
+        for (let i = 0; i < 8; i++) {
+          ctx.advance(0.05);
+          vi.advanceTimersByTime(25); // one default interval
+        }
+      };
+      step();
+      const afterRun = played.length;
+      expect(afterRun).toBeGreaterThan(afterStart); // setInterval kept scheduling
+      sch.stop();
+      step();
+      expect(played.length).toBe(afterRun); // clearInterval → no further ticks
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("pause keeps position; resume continues without re-arranging", () => {
