@@ -12,11 +12,11 @@ import type { Rng } from "../rng";
 import { DEFAULT_ROOT_MIDI, midiToFrequency, pitchClass } from "../theory/pitch";
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
 import { SCALES, type Scale, degreeToFrequency } from "../theory/scales";
+import type { DrumName, ScoreVoice } from "../voices";
 import { generateHarmony } from "./harmony";
 import { generateMelody } from "./melody";
 
-export type ScoreVoice = "lead" | "bass" | "pad" | "arp";
-export type DrumName = "kick" | "snare" | "hat";
+export type { DrumName, ScoreVoice } from "../voices";
 
 /** Per-part on/off toggles (`drums` alongside the pitched voices). Each defaults to on. */
 export type VoiceToggles = Partial<Record<ScoreVoice | "drums", boolean>>;

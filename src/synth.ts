@@ -12,7 +12,6 @@
  * The `AudioContext` is INJECTED (never the global) so the whole thing runs
  * against a fake context in Node tests — no real audio required.
  */
-import type { DrumName } from "./compose/arranger";
 import type { DrumVoice, Instrument } from "./instruments";
 import { clampSafe } from "./math";
 
@@ -245,8 +244,8 @@ export class Synth {
     this.register(nodes, oscs);
   }
 
-  /** Schedule one drum hit. */
-  playDrum(drum: DrumName, voice: DrumVoice, startTime: number, velocity: number): void {
+  /** Schedule one drum hit, synthesized per its `kind` (data-driven, not name-switched). */
+  playDrum(voice: DrumVoice, startTime: number, velocity: number): void {
     if (this.disposed) return;
     const ctx = this.ctx;
     const peak = clamp(velocity * voice.gain, 0, 1);
@@ -258,7 +257,7 @@ export class Synth {
 
     const nodes: AudioNodeLike[] = [env];
 
-    if (drum === "kick") {
+    if (voice.kind === "tone") {
       const osc = ctx.createOscillator();
       osc.type = "sine";
       osc.frequency.setValueAtTime(clamp(voice.freqStart ?? 120, 20, this.nyquist), startTime);
