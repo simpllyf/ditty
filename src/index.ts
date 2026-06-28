@@ -30,5 +30,7 @@ export { DRUM_GROOVES } from "./theory/rhythm";
 export type { DrumGrooveName } from "./theory/rhythm";
 export { INSTRUMENTS, instrumentsForVoice } from "./instruments";
 export type { Instrument, InstrumentName } from "./instruments";
+export { STYLES } from "./styles";
+export type { Style, StyleName } from "./styles";
 export { makeRng } from "./rng";
 export type { Rng } from "./rng";

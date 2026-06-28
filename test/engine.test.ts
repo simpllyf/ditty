@@ -151,6 +151,66 @@ describe("createEngine", () => {
     expect(() => engine.pause()).not.toThrow();
   });
 
+  it("different styles produce different music for the same seed", async () => {
+    const freqs = async (style: "calm" | "playful") => {
+      const ctx = new FakeAudioContext();
+      const engine = createEngine({ seed: 5, style, audioContext: ctx, clock: new TickClock() });
+      await engine.start();
+      return ctx.oscillators.map((o) => o.frequency.value);
+    };
+    expect(await freqs("calm")).not.toEqual(await freqs("playful"));
+  });
+
+  it("an explicit bpm overrides the style's tempo", async () => {
+    const noteCount = async (bpm: number) => {
+      const ctx = new FakeAudioContext();
+      const clock = new TickClock();
+      const engine = createEngine({ seed: 5, style: "calm", bpm, audioContext: ctx, clock });
+      await engine.start();
+      runLoops(ctx, clock, 4);
+      return ctx.oscillators.length;
+    };
+    expect(await noteCount(180)).toBeGreaterThan(await noteCount(60)); // faster tempo → more notes
+  });
+
+  it("honors an explicit swing:0 over the style (?? not ||, so 0 wins)", async () => {
+    // playful's swing range is [0.1, 0.4] → chosen swing > 0; forcing 0 must change timing.
+    const starts = async (extra: Record<string, unknown>) => {
+      const ctx = new FakeAudioContext();
+      const clock = new TickClock();
+      const engine = createEngine({
+        seed: 5,
+        style: "playful",
+        audioContext: ctx,
+        clock,
+        ...extra,
+      });
+      await engine.start();
+      runLoops(ctx, clock, 4);
+      return ctx.oscillators.map((o) => o.startedAt);
+    };
+    expect(await starts({ swing: 0 })).not.toEqual(await starts({}));
+  });
+
+  it("honors an explicit density:0 over the style (0 wins → sparser)", async () => {
+    // playful's density range is [0.6, 0.9] → forcing 0 yields a sparser lead → fewer notes.
+    const count = async (extra: Record<string, unknown>) => {
+      const ctx = new FakeAudioContext();
+      const clock = new TickClock();
+      const engine = createEngine({
+        seed: 5,
+        style: "playful",
+        audioContext: ctx,
+        clock,
+        ...extra,
+      });
+      await engine.start();
+      runLoops(ctx, clock, 4);
+      return ctx.oscillators.length;
+    };
+    expect(await count({ density: 0 })).toBeLessThan(await count({}));
+  });
+
   it("rejects a bad bpm at construction", () => {
     expect(() => createEngine({ bpm: 0 })).toThrow(RangeError);
     expect(() => createEngine({ bpm: Number.NaN })).toThrow(RangeError);

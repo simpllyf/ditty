@@ -35,10 +35,14 @@ src/index.ts (engine)   src/core.ts (pure layer)             ← entry points
   event stream; golden snapshots guard this.
 - **Side-effect-free.** No top-level work runs on import. `sideEffects: false`.
 - **Size budget < 10 KB min+gzip** for the full engine (`just size`).
-- **Pleasant by constraint, not cleverness.** Pentatonic scale + leap caps +
-  phrase resolution + anti-repeat. Resist adding a "smarter" model.
-- v1 ships **one mood ("peppy")**. The architecture allows more later — do not
-  build them now. Do not silently shrink scope.
+- **Pleasant by constraint, not cleverness.** Coherence comes from functional
+  harmony, in-key ragas (raga ⊆ parent), leap caps, chord tones on strong beats,
+  cadences, and anti-repeat — not from a "smarter" model. Resist adding one.
+- **Curated variety, not a free-for-all.** Ships a few named **styles**
+  (peppy/calm/playful/dreamy) — each a vetted pool of scale pairings, grooves,
+  tempo/feel ranges, and instruments. Add styles/instruments as DATA (registries
+  in `styles.ts`/`instruments.ts`); they auto-join the randomizer. Don't grow the
+  count without reason, and keep every raga ⊆ its parent.
 
 ## How we work
 

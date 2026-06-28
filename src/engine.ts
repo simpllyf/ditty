@@ -20,12 +20,13 @@ import {
   type DrumVoice,
   INSTRUMENTS,
   type Instrument,
+  type InstrumentName,
   REVERB_SEND_BY_VOICE,
-  instrumentsForVoice,
 } from "./instruments";
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
 import { type PreparedLoop, Scheduler, type SchedulerClock } from "./scheduler";
+import { type StyleName, pickStyle } from "./styles";
 import { type AudioContextLike, Synth } from "./synth";
 
 /** The slice of `AudioContext` the engine drives; a real `AudioContext` satisfies it. */
@@ -39,10 +40,14 @@ export interface EngineAudioContext extends AudioContextLike {
 export interface EngineOptions {
   /** Omit for a fresh random seed each session; set for a reproducible stream. */
   seed?: number;
+  /** The vibe to randomize within. Default "peppy". Explicit options below override it. */
+  style?: StyleName;
   bpm?: number;
   beatsPerBar?: number;
   bars?: number;
+  /** Harmony parent scale (heptatonic). Overrides the style. */
   parent?: ArrangeOptions["parent"];
+  /** Melody raga. Overrides the style — pair it with a compatible `parent` (raga ⊆ parent) to stay in key. */
   raga?: ArrangeOptions["raga"];
   rootMidi?: number;
   groove?: ArrangeOptions["groove"];
@@ -87,9 +92,8 @@ function randomSeed(): number {
   return Date.now() >>> 0;
 }
 
-function pickInstrument(rng: Rng, voice: ScoreVoice): Instrument {
-  const names = instrumentsForVoice(voice);
-  return INSTRUMENTS[rng.pick(names)];
+function pickInstrument(rng: Rng, pool: readonly InstrumentName[]): Instrument {
+  return INSTRUMENTS[rng.pick(pool)];
 }
 
 /** Turn a Score + chosen instruments into a sorted, beat-stamped loop for the scheduler. */
@@ -130,7 +134,17 @@ function buildLoop(
 
 /** Create a generative music engine. See {@link EngineOptions}. */
 export function createEngine(options: EngineOptions = {}): Engine {
-  const bpm = options.bpm ?? 100;
+  // Deterministic sub-streams: style (once), instruments (once), arrangement
+  // (advances per loop), noise. Fork order is fixed so toggling options is stable.
+  const master = makeRng(options.seed ?? randomSeed());
+  const styleRng = master.fork();
+  const instrumentRng = master.fork();
+  const arrangeRng = master.fork();
+  const noiseRng = master.fork();
+
+  // Choose the vibe once; explicit options override it (?? keeps explicit 0 for swing/density).
+  const chosen = pickStyle(styleRng, options.style);
+  const bpm = options.bpm ?? chosen.bpm;
   if (!(bpm > 0) || !Number.isFinite(bpm)) {
     throw new RangeError(`createEngine: bpm must be a positive number, got ${bpm}`);
   }
@@ -139,17 +153,11 @@ export function createEngine(options: EngineOptions = {}): Engine {
   const evolve = options.evolve ?? true;
   let volume = clamp(options.volume ?? 0.35, 0, 1);
 
-  // Deterministic sub-streams: instruments (once), arrangement (advances per loop), noise.
-  const master = makeRng(options.seed ?? randomSeed());
-  const instrumentRng = master.fork();
-  const arrangeRng = master.fork();
-  const noiseRng = master.fork();
-
   const instruments: Record<ScoreVoice, Instrument> = {
-    lead: pickInstrument(instrumentRng, "lead"),
-    bass: pickInstrument(instrumentRng, "bass"),
-    pad: pickInstrument(instrumentRng, "pad"),
-    arp: pickInstrument(instrumentRng, "arp"),
+    lead: pickInstrument(instrumentRng, chosen.instruments.lead),
+    bass: pickInstrument(instrumentRng, chosen.instruments.bass),
+    pad: pickInstrument(instrumentRng, chosen.instruments.pad),
+    arp: pickInstrument(instrumentRng, chosen.instruments.arp),
   };
   const drumKit = DRUM_KITS.default;
   const noiseTable = makeNoiseTable(noiseRng);
@@ -159,12 +167,12 @@ export function createEngine(options: EngineOptions = {}): Engine {
     bpm,
     beatsPerBar,
     bars,
-    ...(options.parent !== undefined ? { parent: options.parent } : {}),
-    ...(options.raga !== undefined ? { raga: options.raga } : {}),
-    ...(options.rootMidi !== undefined ? { rootMidi: options.rootMidi } : {}),
-    ...(options.groove !== undefined ? { groove: options.groove } : {}),
-    ...(options.density !== undefined ? { density: options.density } : {}),
-    ...(options.swing !== undefined ? { swing: options.swing } : {}),
+    parent: options.parent ?? chosen.parent,
+    raga: options.raga ?? chosen.raga,
+    rootMidi: options.rootMidi ?? chosen.rootMidi,
+    groove: options.groove ?? chosen.groove,
+    density: options.density ?? chosen.density,
+    swing: options.swing ?? chosen.swing,
     ...(options.voices !== undefined ? { voices: options.voices } : {}),
   });
 
