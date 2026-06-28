@@ -77,6 +77,8 @@ export interface ArrangeOptions {
   motifBars?: number;
   /** The arp instrument's role: arpeggio / double the theme / harmonise it. Default "arp". */
   arpRole?: ArpRole;
+  /** How the pad voices chords: held block / staggered / rhythmic stabs. Default "sustain". */
+  padPattern?: PadPattern;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -109,6 +111,9 @@ export type BassPatternName = (typeof BASS_PATTERNS)[number];
 
 /** What the arp instrument plays — its own arpeggio, or an orchestrated role on the theme. */
 export type ArpRole = "arp" | "double" | "harmony";
+
+/** How the pad voices a chord — held block, broken (staggered), or rhythmic stabs. */
+export type PadPattern = "sustain" | "stabs" | "broken";
 
 /** Cycle order of a chord's pitch classes for an arpeggio. */
 function arpSequence(pcs: readonly number[], pattern: (typeof ARP_PATTERNS)[number]): number[] {
@@ -278,18 +283,42 @@ export function arrange(options: ArrangeOptions): Score {
   }
 
   if (enabled("pad")) {
+    const padPattern = options.padPattern ?? "sustain";
     const notes: ScoreNote[] = [];
+    const padHz = (pc: number) => midiToFrequency(rootMidi + pc);
     for (let bar = 0; bar < bars; bar++) {
       const chord = plan.bars[bar]!.chord;
       const barStart = bar * beatsPerBar;
-      const dur = fit(barStart, beatsPerBar);
-      for (const pc of chord.pcs) {
-        notes.push({
-          startBeat: barStart,
-          durationBeats: dur,
-          freq: midiToFrequency(rootMidi + pc),
-          velocity: 0.3,
+      if (padPattern === "stabs") {
+        // Rhythmic chord hits on each beat — a driving climax pad.
+        for (let b = 0; b < beatsPerBar; b++) {
+          const at = barStart + b;
+          for (const pc of chord.pcs) {
+            notes.push({
+              startBeat: at,
+              durationBeats: fit(at, 0.4),
+              freq: padHz(pc),
+              velocity: 0.32,
+            });
+          }
+        }
+      } else if (padPattern === "broken") {
+        // Chord tones enter one per beat, each held to the bar end — gentle bridge movement.
+        chord.pcs.forEach((pc, i) => {
+          const at = barStart + Math.min(i, beatsPerBar - 1);
+          notes.push({
+            startBeat: at,
+            durationBeats: fit(at, beatsPerBar - (at - barStart)),
+            freq: padHz(pc),
+            velocity: 0.3,
+          });
         });
+      } else {
+        // sustain: whole-bar block chord (default).
+        const dur = fit(barStart, beatsPerBar);
+        for (const pc of chord.pcs) {
+          notes.push({ startBeat: barStart, durationBeats: dur, freq: padHz(pc), velocity: 0.3 });
+        }
       }
     }
     parts.push({ voice: "pad", notes });
