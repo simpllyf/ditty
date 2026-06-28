@@ -75,6 +75,8 @@ export interface ArrangeOptions {
   motif?: readonly MelodyNote[];
   /** Bars the {@link motif} spans. Default 0. */
   motifBars?: number;
+  /** The arp instrument's role: arpeggio / double the theme / harmonise it. Default "arp". */
+  arpRole?: ArpRole;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -104,6 +106,9 @@ export type TextureName = keyof typeof TEXTURES;
 /** Bass rhythm/shape — varies the low-end groove so tracks don't all share one feel. */
 export const BASS_PATTERNS = ["rootFifth", "walking", "pulse", "sustained"] as const;
 export type BassPatternName = (typeof BASS_PATTERNS)[number];
+
+/** What the arp instrument plays — its own arpeggio, or an orchestrated role on the theme. */
+export type ArpRole = "arp" | "double" | "harmony";
 
 /** Cycle order of a chord's pitch classes for an arpeggio. */
 function arpSequence(pcs: readonly number[], pattern: (typeof ARP_PATTERNS)[number]): number[] {
@@ -188,9 +193,10 @@ export function arrange(options: ArrangeOptions): Score {
     });
 
   const parts: ScorePart[] = [];
+  let leadMelody: readonly MelodyNote[] = []; // hoisted so the arp can double/harmonise it
 
   if (enabled("lead")) {
-    const melody = generateMelody({
+    leadMelody = generateMelody({
       rng: leadRng,
       plan,
       scale: raga,
@@ -199,7 +205,7 @@ export function arrange(options: ArrangeOptions): Score {
       ...(options.motif !== undefined ? { motif: options.motif } : {}),
       ...(options.motifBars !== undefined ? { motifBars: options.motifBars } : {}),
     });
-    const notes = melody.map((n): ScoreNote => {
+    const notes = leadMelody.map((n): ScoreNote => {
       const start = swung(n.startBeat);
       return {
         startBeat: start,
@@ -290,24 +296,43 @@ export function arrange(options: ArrangeOptions): Score {
   }
 
   if (enabled("arp")) {
-    const notes: ScoreNote[] = [];
-    const pattern = arpRng.pick(ARP_PATTERNS);
-    const stepsPerBar = beatsPerBar * 2; // eighth notes, so swing bites
-    for (let bar = 0; bar < bars; bar++) {
-      const seq = arpSequence(plan.bars[bar]!.chord.pcs, pattern);
-      for (let s = 0; s < stepsPerBar; s++) {
-        const pc = seq[s % seq.length]!;
-        const start = swung(bar * beatsPerBar + s * 0.5);
-        if (!active(texture.arp, start)) continue; // gated out this section
-        notes.push({
+    const arpRole = options.arpRole ?? "arp";
+    if (arpRole !== "arp") {
+      // Orchestration: the arp instrument follows the THEME instead of arpeggiating —
+      // doubling it an octave up (a tutti climax) or harmonising it a diatonic third
+      // below (a two-part bridge). Tracks the lead, so it sits in the same phrasing.
+      const shiftDeg = arpRole === "harmony" ? -2 : 0; // -2 scale degrees = a third below
+      const octave = arpRole === "double" ? OCTAVE : 0;
+      const notes = leadMelody.map((n): ScoreNote => {
+        const start = swung(n.startBeat);
+        return {
           startBeat: start,
-          durationBeats: fit(start, 0.45),
-          freq: midiToFrequency(rootMidi + OCTAVE + pc),
-          velocity: 0.45,
-        });
+          durationBeats: fit(start, n.durationBeats),
+          freq: degreeToFrequency(raga, n.degree + shiftDeg, rootMidi + octave),
+          velocity: n.velocity * 0.7, // sits just under the lead
+        };
+      });
+      parts.push({ voice: "arp", notes });
+    } else {
+      const notes: ScoreNote[] = [];
+      const pattern = arpRng.pick(ARP_PATTERNS);
+      const stepsPerBar = beatsPerBar * 2; // eighth notes, so swing bites
+      for (let bar = 0; bar < bars; bar++) {
+        const seq = arpSequence(plan.bars[bar]!.chord.pcs, pattern);
+        for (let s = 0; s < stepsPerBar; s++) {
+          const pc = seq[s % seq.length]!;
+          const start = swung(bar * beatsPerBar + s * 0.5);
+          if (!active(texture.arp, start)) continue; // gated out this section
+          notes.push({
+            startBeat: start,
+            durationBeats: fit(start, 0.45),
+            freq: midiToFrequency(rootMidi + OCTAVE + pc),
+            velocity: 0.45,
+          });
+        }
       }
+      parts.push({ voice: "arp", notes });
     }
-    parts.push({ voice: "arp", notes });
   }
 
   let drums: DrumHit[] = [];

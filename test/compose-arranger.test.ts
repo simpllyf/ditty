@@ -260,6 +260,22 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
 
+  it("arpRole orchestrates the arp: arpeggio (default), tutti double, or harmony", () => {
+    const o = { bars: 8, beatsPerBar: 4 } as const;
+    const arpNotes = (role?: "double" | "harmony") =>
+      part(arrange({ rng: makeRng(1), ...o, ...(role ? { arpRole: role } : {}) }), "arp")!.notes;
+    const lead = part(arrange({ rng: makeRng(1), ...o }), "lead")!.notes; // arpRole doesn't touch the lead
+    expect(arpNotes().length).toBe(8 * 4 * 2); // default arpeggio: eighth notes across the loop
+    // double: one note per lead note, an octave above the lead (a tutti)
+    const dbl = arpNotes("double");
+    expect(dbl.map((n) => n.startBeat)).toEqual(lead.map((n) => n.startBeat));
+    for (let i = 0; i < dbl.length; i++) expect(dbl[i]!.freq).toBeCloseTo(lead[i]!.freq * 2, 4);
+    // harmony: same rhythm as the lead, sitting below it (a third under)
+    const harm = arpNotes("harmony");
+    expect(harm.length).toBe(lead.length);
+    for (let i = 0; i < harm.length; i++) expect(harm[i]!.freq).toBeLessThan(lead[i]!.freq);
+  });
+
   it("dynamics scales every velocity (clamped); fill reworks only the last bar", () => {
     const o = { bars: 8, beatsPerBar: 4 } as const;
     const base = arrange({ rng: makeRng(1), ...o });

@@ -70,6 +70,16 @@ describe("buildForm", () => {
     expect(form.sections.some((s) => s.fill)).toBe(true); // a multi-part form always has ≥1 change
   });
 
+  it("orchestrates the arp per section: A arpeggiates, B harmonises, C doubles", () => {
+    for (let s = 1; s < 30; s++) {
+      const form = buildForm({ rng: makeRng(s), ...base });
+      for (const sec of form.sections) {
+        const expected = sec.label === "A" ? "arp" : sec.label === "B" ? "harmony" : "double";
+        expect(sec.arpRole).toBe(expected);
+      }
+    }
+  });
+
   it("carries a recurring theme stated within its motif span", () => {
     const form = buildForm({ rng: makeRng(1), ...base });
     expect(form.motif.length).toBeGreaterThan(0); // a real theme
