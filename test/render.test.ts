@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderOffline } from "../src/audio/render";
+import { type RenderOptions, renderOffline } from "../src/audio/render";
 import { FakeOfflineAudioContext } from "./helpers/fake-audio-context";
 
 interface Cap {
@@ -109,10 +109,17 @@ describe("renderOffline", () => {
     expect(await freqs()).toEqual(await freqs());
   });
 
-  it("requires exactly one of seconds / loops", async () => {
-    await expect(renderOffline({ createContext: factory({}) })).rejects.toThrow(RangeError);
+  it("requires exactly one of seconds / loops (runtime guard for untyped callers)", async () => {
+    // The XOR is enforced at compile time; these cast past it to prove the runtime guard.
     await expect(
-      renderOffline({ seconds: 1, loops: 1, createContext: factory({}) }),
+      renderOffline({ createContext: factory({}) } as unknown as RenderOptions),
+    ).rejects.toThrow(RangeError);
+    await expect(
+      renderOffline({
+        seconds: 1,
+        loops: 1,
+        createContext: factory({}),
+      } as unknown as RenderOptions),
     ).rejects.toThrow(RangeError);
   });
 

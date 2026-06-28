@@ -267,9 +267,9 @@ export class Synth {
     if (voice.kind === "tone") {
       const osc = ctx.createOscillator();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(clamp(voice.freqStart ?? 120, 20, this.nyquist), startTime);
+      osc.frequency.setValueAtTime(clamp(voice.freqStart, 20, this.nyquist), startTime);
       osc.frequency.setTargetAtTime(
-        clamp(voice.freqEnd ?? 48, 20, this.nyquist),
+        clamp(voice.freqEnd, 20, this.nyquist),
         startTime,
         Math.max(0.001, voice.pitchDecay ?? 0.03),
       );
@@ -280,12 +280,13 @@ export class Synth {
       return;
     }
 
+    // noise | mixed: both have a filtered-noise component.
     const oscs: Source[] = [];
-    if (voice.noiseGain) {
+    {
       const src = ctx.createBufferSource();
       src.buffer = this.noiseBuffer;
       let tail: AudioNodeLike = src;
-      if (voice.highpass) {
+      if (voice.highpass !== undefined) {
         const hp = ctx.createBiquadFilter();
         hp.type = "highpass";
         hp.frequency.value = clamp(voice.highpass, 20, this.nyquist);
@@ -302,7 +303,7 @@ export class Synth {
       src.stop(stopAt);
       oscs.push(src);
     }
-    if (voice.toneGain && voice.freqStart) {
+    if (voice.kind === "mixed") {
       const osc = ctx.createOscillator();
       osc.type = "triangle";
       osc.frequency.setValueAtTime(clamp(voice.freqStart, 20, this.nyquist), startTime);

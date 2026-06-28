@@ -8,7 +8,11 @@
  */
 import { DEFAULT_ROOT_MIDI, OCTAVE, pitchClass, semitoneToFrequency } from "./pitch";
 
-/** Semitone offsets within one octave, ascending, starting at the tonic (`0`). */
+/**
+ * Semitone offsets within one octave, ascending, starting at the tonic (`0`).
+ * A custom `parent`/`raga` must include `0` (the melody opens on the tonic) and
+ * use distinct pitch classes.
+ */
 export type Scale = readonly number[];
 
 /**

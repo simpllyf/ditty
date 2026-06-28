@@ -65,8 +65,13 @@ export type {
 } from "./instruments";
 export { makeNoiseTable, DEFAULT_NOISE_LENGTH } from "./noise";
 export { STYLES, pickStyle } from "./styles";
-export type { Style, ChosenStyle, StyleName } from "./styles";
+export type { Style, ChosenStyle, StyleName, ScaleKey } from "./styles";
 export { encodeWav } from "./wav";
+
+// The seed→music brain (pure: no AudioContext) — the base of EngineOptions /
+// RenderOptions, and what you need to build your own playback shell.
+export { createSession } from "./session";
+export type { Session, SessionOptions } from "./session";
 
 export {
   DEFAULT_MAX_LEAP,

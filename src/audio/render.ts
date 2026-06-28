@@ -15,11 +15,10 @@ export interface OfflineContextLike extends AudioContextLike {
   startRendering(): Promise<AudioBufferLike>;
 }
 
-export interface RenderOptions extends SessionOptions {
-  /** Render this many seconds. Provide exactly one of `seconds` or `loops`. */
-  seconds?: number;
-  /** Render this many whole loops (exact loop boundaries → gapless). */
-  loops?: number;
+/** Render length: EXACTLY one of `seconds` (free length) or `loops` (whole loops → gapless). */
+export type RenderLength = { seconds: number; loops?: never } | { loops: number; seconds?: never };
+
+interface RenderBase {
   /** Output sample rate. Default 44100. */
   sampleRate?: number;
   /** Master volume, 0..1. Default 0.8 (offline can run a touch hotter than realtime). */
@@ -27,6 +26,9 @@ export interface RenderOptions extends SessionOptions {
   /** Inject the offline context (default: a global `OfflineAudioContext`). Enables Node tests. */
   createContext?: (channels: number, length: number, sampleRate: number) => OfflineContextLike;
 }
+
+/** Options for {@link renderOffline}: the session knobs + a length (seconds XOR loops). */
+export type RenderOptions = SessionOptions & RenderBase & RenderLength;
 
 export interface RenderResult {
   readonly sampleRate: number;
@@ -64,14 +66,14 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
   let seconds: number;
   let loopCount: number | null = null;
   if (hasLoops) {
-    const loops = options.loops as number;
+    const loops = options.loops;
     if (!Number.isInteger(loops) || loops <= 0) {
       throw new RangeError(`renderOffline loops must be a positive integer, got ${loops}`);
     }
     loopCount = loops;
     seconds = loops * secondsPerLoop;
   } else {
-    seconds = options.seconds as number;
+    seconds = options.seconds;
     if (!(seconds > 0) || !Number.isFinite(seconds)) {
       throw new RangeError(`renderOffline seconds must be a positive number, got ${seconds}`);
     }
