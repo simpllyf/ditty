@@ -44,6 +44,27 @@ describe("renderOffline", () => {
     expect(r.channelData.length).toBe(Math.ceil(2 * secondsPerLoop * 44100));
   });
 
+  it("loop renders allocate a tail and wrap it onto the head (gapless seam)", async () => {
+    const cap: Cap = {};
+    const r = await renderOffline({
+      seed: 1,
+      loops: 2,
+      bpm: 120,
+      bars: 8,
+      beatsPerBar: 4,
+      createContext: factory(cap),
+    });
+    const loopLen = Math.ceil(2 * 16 * 44100);
+    expect(r.channelData.length).toBe(loopLen); // returned at the exact loop boundary
+    expect(cap.ctx!.length).toBeGreaterThan(loopLen); // but rendered longer to capture the ring-out
+  });
+
+  it("seconds renders are one-shot — no extra tail allocated", async () => {
+    const cap: Cap = {};
+    const r = await renderOffline({ seed: 1, seconds: 2, createContext: factory(cap) });
+    expect(cap.ctx!.length).toBe(r.channelData.length);
+  });
+
   it("evolves each loop by default but repeats identically with evolve:false", async () => {
     const loopFreqs = async (evolve: boolean) => {
       const cap: Cap = {};
