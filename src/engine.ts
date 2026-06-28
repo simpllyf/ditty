@@ -8,8 +8,9 @@
  * arrangement is regenerated each loop over the same tempo grid, so the music
  * never exactly repeats yet loops seamlessly.
  */
+import type { Score } from "./compose/arranger";
 import { clampSafe } from "./math";
-import { Scheduler, type SchedulerClock } from "./scheduler";
+import { type PreparedLoop, Scheduler, type SchedulerClock } from "./scheduler";
 import { type Session, type SessionOptions, buildLoop, createSession } from "./session";
 import { type AudioContextLike, Synth } from "./synth";
 
@@ -66,9 +67,20 @@ export function createEngine(options: EngineOptions = {}): Engine {
     if (graph) return graph;
     const context = options.audioContext ?? (new AudioContext() as EngineAudioContext);
     const synth = new Synth(context, { noiseTable: session.noiseTable, masterGain: volume });
+    // Reuse the prepared loop when the Score is unchanged (evolve:false caches it),
+    // rebuilding only when the arrangement actually evolves.
+    let lastScore: Score | null = null;
+    let lastLoop: PreparedLoop | null = null;
     const scheduler = new Scheduler({
       context,
-      provider: () => buildLoop(session.nextScore(), synth, session.instruments, session.drumKit),
+      provider: () => {
+        const score = session.nextScore();
+        if (score !== lastScore || !lastLoop) {
+          lastScore = score;
+          lastLoop = buildLoop(score, synth, session.instruments, session.drumKit);
+        }
+        return lastLoop;
+      },
       ...(options.clock ? { clock: options.clock } : {}),
     });
     graph = { context, synth, scheduler, ownsContext: !options.audioContext };

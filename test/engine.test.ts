@@ -211,6 +211,17 @@ describe("createEngine", () => {
     expect(await count({ density: 0 })).toBeLessThan(await count({}));
   });
 
+  it("stop() halts scheduling without closing the context, and is restartable", async () => {
+    const { ctx, engine } = setup();
+    await engine.start();
+    const afterStart = ctx.oscillators.length;
+    engine.stop();
+    expect(ctx.closeCount).toBe(0); // not torn down
+    expect(ctx.state).toBe("running"); // context still alive
+    await engine.start(); // restartable
+    expect(ctx.oscillators.length).toBeGreaterThanOrEqual(afterStart);
+  });
+
   it("rejects a bad bpm at construction", () => {
     expect(() => createEngine({ bpm: 0 })).toThrow(RangeError);
     expect(() => createEngine({ bpm: Number.NaN })).toThrow(RangeError);

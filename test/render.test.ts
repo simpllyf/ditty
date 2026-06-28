@@ -110,6 +110,12 @@ describe("renderOffline", () => {
     ).rejects.toThrow(RangeError);
   });
 
+  it("rejects an absurdly long render rather than allocating it", async () => {
+    await expect(renderOffline({ seconds: 100000, createContext: factory({}) })).rejects.toThrow(
+      RangeError,
+    );
+  });
+
   it("rejects a degenerate loop length (bars: 0)", async () => {
     await expect(
       renderOffline({ seconds: 1, bars: 0, createContext: factory({}) }),

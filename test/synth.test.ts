@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DRUM_KITS, INSTRUMENTS } from "../src/instruments";
+import { DRUM_KITS, INSTRUMENTS, type Instrument } from "../src/instruments";
 import { makeNoiseTable } from "../src/noise";
 import { makeRng } from "../src/rng";
 import { Synth } from "../src/synth";
@@ -149,7 +149,7 @@ describe("Synth lifecycle", () => {
     expect(ctx.gains[0]!.gain.value).toBe(0.6); // master is the first gain created
   });
 
-  it("dispose stops in-flight sources and disconnects the reverb feedback taps", () => {
+  it("dispose stops in-flight sources and disconnects the reverb feedback taps + limiter", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);
     s.playNote(INSTRUMENTS.pluck, { freq: 440, startTime: 0, durationSeconds: 5, velocity: 0.7 });
@@ -158,5 +158,23 @@ describe("Synth lifecycle", () => {
     s.dispose();
     expect(osc.stoppedAt).toBe(1); // stopped at the current audio time
     expect(ctx.delays.every((d) => d.disconnectCount > 0)).toBe(true); // taps no longer recirculate
+    expect(ctx.shapers.length).toBe(1); // the master soft-clip limiter
+    expect(ctx.shapers[0]!.disconnectCount).toBeGreaterThan(0); // no orphan on a borrowed context
+  });
+
+  it("a patch with no sources leaks nothing (immediate disconnect, no live entry)", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    const empty: Instrument = {
+      name: "empty",
+      voices: ["lead"],
+      layers: [],
+      amp: { attack: 0, decay: 0.1, sustain: 0.5, release: 0.1 },
+    };
+    const gainsBefore = ctx.gains.length;
+    s.playNote(empty, { freq: 440, startTime: 0, durationSeconds: 0.5, velocity: 0.7 });
+    expect(ctx.oscillators.length).toBe(0); // no layers → no sources
+    expect(ctx.gains.length).toBe(gainsBefore + 1); // just the env gain
+    expect(ctx.gains[ctx.gains.length - 1]!.disconnectCount).toBeGreaterThan(0); // disconnected, not parked
   });
 });

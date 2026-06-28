@@ -33,6 +33,8 @@ export interface RenderResult {
 }
 
 const DEFAULT_SAMPLE_RATE = 44100;
+/** Upper bound on a single render — guards against an accidental huge allocation. */
+const MAX_RENDER_SECONDS = 3600;
 
 const defaultOfflineContext = (channels: number, length: number, sampleRate: number) =>
   new OfflineAudioContext(channels, length, sampleRate) as OfflineContextLike;
@@ -70,6 +72,12 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
     if (!(seconds > 0) || !Number.isFinite(seconds)) {
       throw new RangeError(`renderOffline seconds must be a positive number, got ${seconds}`);
     }
+  }
+
+  if (seconds > MAX_RENDER_SECONDS) {
+    throw new RangeError(
+      `renderOffline: ${seconds}s exceeds the ${MAX_RENDER_SECONDS}s limit (render in chunks for longer)`,
+    );
   }
 
   const length = Math.ceil(seconds * sampleRate);

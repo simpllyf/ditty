@@ -100,6 +100,9 @@ export function arrange(options: ArrangeOptions): Score {
   if (!(swing >= 0 && swing <= 1)) {
     throw new RangeError(`arrange swing must be within [0, 1], got ${swing}`);
   }
+  if (!Number.isFinite(density)) {
+    throw new RangeError(`arrange density must be a finite number, got ${density}`);
+  }
   if (!Number.isInteger(rootMidi) || rootMidi < MIN_ROOT_MIDI || rootMidi > MAX_ROOT_MIDI) {
     throw new RangeError(
       `arrange rootMidi must be an integer in [${MIN_ROOT_MIDI}, ${MAX_ROOT_MIDI}], got ${rootMidi}`,
