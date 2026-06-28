@@ -21,6 +21,10 @@ typecheck:
 test:
     pnpm exec vitest run
 
+# Run the tests with V8 coverage + enforced thresholds (used by `check`).
+coverage:
+    pnpm exec vitest run --coverage
+
 build:
     pnpm exec tsup
 
@@ -42,4 +46,4 @@ e2e: build e2e-build
     pnpm exec playwright test
 
 # The single gate CI runs (browserless). e2e runs in its own CI job.
-check: format-check lint typecheck test build deps-check size
+check: format-check lint typecheck coverage build deps-check size
