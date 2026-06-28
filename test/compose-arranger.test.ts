@@ -258,4 +258,12 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, groove: "nope" })).toThrow(RangeError);
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
+
+  it("rejects a raga that isn't a pitch-class subset of the parent", () => {
+    const rng = makeRng(1);
+    // hindolam has b6 (pc 8), which major lacks → out of key.
+    expect(() => arrange({ rng, parent: SCALES.major, raga: SCALES.hindolam })).toThrow(RangeError);
+    // a valid subset pairing is accepted.
+    expect(() => arrange({ rng, parent: SCALES.major, raga: SCALES.mohanam })).not.toThrow();
+  });
 });

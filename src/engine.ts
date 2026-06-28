@@ -9,7 +9,7 @@
  * never exactly repeats yet loops seamlessly.
  */
 import { clampSafe } from "./math";
-import { type PreparedLoop, Scheduler, type SchedulerClock } from "./scheduler";
+import { Scheduler, type SchedulerClock } from "./scheduler";
 import { type Session, type SessionOptions, buildLoop, createSession } from "./session";
 import { type AudioContextLike, Synth } from "./synth";
 
@@ -47,69 +47,70 @@ export interface Engine {
 
 const clamp = clampSafe;
 
+/** The audio graph, built lazily on first start(); null until then (SSR-safe). */
+interface Graph {
+  readonly context: EngineAudioContext;
+  readonly synth: Synth;
+  readonly scheduler: Scheduler;
+  readonly ownsContext: boolean;
+}
+
 /** Create a generative music engine. See {@link EngineOptions}. */
 export function createEngine(options: EngineOptions = {}): Engine {
   const session: Session = createSession(options); // chooses style/instruments once; validates bpm
   let volume = clamp(options.volume ?? 0.35, 0, 1);
-
-  let context: EngineAudioContext | null = null;
-  let synth: Synth | null = null;
-  let scheduler: Scheduler | null = null;
-  let ownsContext = false;
+  let graph: Graph | null = null;
   let disposed = false;
 
-  function provide(): PreparedLoop {
-    return buildLoop(session.nextScore(), synth as Synth, session.instruments, session.drumKit);
-  }
-
-  function ensureGraph(): void {
-    if (context) return;
-    context = options.audioContext ?? (new AudioContext() as EngineAudioContext);
-    ownsContext = !options.audioContext;
-    synth = new Synth(context, { noiseTable: session.noiseTable, masterGain: volume });
-    scheduler = new Scheduler({
+  function ensureGraph(): Graph {
+    if (graph) return graph;
+    const context = options.audioContext ?? (new AudioContext() as EngineAudioContext);
+    const synth = new Synth(context, { noiseTable: session.noiseTable, masterGain: volume });
+    const scheduler = new Scheduler({
       context,
-      provider: provide,
+      provider: () => buildLoop(session.nextScore(), synth, session.instruments, session.drumKit),
       ...(options.clock ? { clock: options.clock } : {}),
     });
+    graph = { context, synth, scheduler, ownsContext: !options.audioContext };
+    return graph;
   }
 
   return {
     async start(): Promise<void> {
       if (disposed) return;
-      ensureGraph();
-      await (context as EngineAudioContext).resume();
+      const { context, scheduler } = ensureGraph();
+      await context.resume();
       if (disposed) return; // dispose() may have run during the await
-      (scheduler as Scheduler).start();
+      scheduler.start();
     },
 
     stop(): void {
-      scheduler?.stop();
+      graph?.scheduler.stop();
     },
 
     pause(): void {
       if (disposed) return;
-      scheduler?.stop();
-      void context?.suspend().catch(() => {});
+      graph?.scheduler.stop();
+      void graph?.context.suspend().catch(() => {});
     },
 
     resume(): void {
-      if (disposed || !scheduler || !context) return;
-      void context.resume().catch(() => {});
-      scheduler.start();
+      if (disposed || !graph) return;
+      void graph.context.resume().catch(() => {});
+      graph.scheduler.start();
     },
 
     setVolume(value: number): void {
       volume = clamp(value, 0, 1);
-      synth?.setVolume(volume);
+      graph?.synth.setVolume(volume);
     },
 
     dispose(): void {
       if (disposed) return;
       disposed = true;
-      scheduler?.stop();
-      synth?.dispose();
-      if (ownsContext) void context?.close().catch(() => {});
+      graph?.scheduler.stop();
+      graph?.synth.dispose();
+      if (graph?.ownsContext) void graph.context.close().catch(() => {});
     },
   };
 }

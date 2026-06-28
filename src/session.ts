@@ -22,7 +22,7 @@ import {
 } from "./instruments";
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
-import type { PreparedLoop } from "./scheduler";
+import type { PreparedLoop, ScheduledEvent } from "./scheduler";
 import { type StyleName, pickStyle } from "./styles";
 import type { Synth } from "./synth";
 
@@ -148,7 +148,7 @@ export function buildLoop(
   drumKit: Record<DrumName, DrumVoice>,
 ): PreparedLoop {
   const secondsPerBeat = 60 / score.bpm;
-  const events = [];
+  const events: ScheduledEvent[] = [];
   for (const part of score.parts) {
     const patch = instruments[part.voice];
     const reverbSend = patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice];
