@@ -104,9 +104,11 @@ function softClipCurve(n = 1024): Float32Array {
   return curve;
 }
 
+/** A scheduled note's nodes + its sources (oscillators and/or a buffer source). */
+type Source = OscillatorNodeLike | BufferSourceLike;
 interface LiveNote {
   readonly nodes: AudioNodeLike[];
-  readonly oscs: { stop(when: number): void }[];
+  readonly oscs: Source[];
 }
 
 const REVERB_DELAYS = [0.0297, 0.0419, 0.0537]; // prime-ish spacing → diffuse tail, not slapback
@@ -271,7 +273,7 @@ export class Synth {
       return;
     }
 
-    const oscs: { stop(when: number): void }[] = [];
+    const oscs: Source[] = [];
     if (voice.noiseGain) {
       const src = ctx.createBufferSource();
       src.buffer = this.noiseBuffer;
@@ -309,10 +311,10 @@ export class Synth {
     this.register(nodes, oscs);
   }
 
-  private register(nodes: AudioNodeLike[], oscs: { stop(when: number): void }[]): void {
+  private register(nodes: AudioNodeLike[], oscs: Source[]): void {
     const entry: LiveNote = { nodes, oscs };
     this.live.add(entry);
-    const last = oscs[oscs.length - 1] as (OscillatorNodeLike | BufferSourceLike) | undefined;
+    const last = oscs[oscs.length - 1];
     const cleanup = () => {
       for (const n of nodes) n.disconnect();
       this.live.delete(entry);

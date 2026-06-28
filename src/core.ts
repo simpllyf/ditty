@@ -49,6 +49,7 @@ export type {
   DrumHit,
   DrumName,
   ArrangeOptions,
+  VoiceToggles,
 } from "./compose/arranger";
 
 export { INSTRUMENTS, instrumentsForVoice, REVERB_SEND_BY_VOICE, DRUM_KITS } from "./instruments";

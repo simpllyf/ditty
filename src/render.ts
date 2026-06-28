@@ -35,7 +35,7 @@ export interface RenderResult {
 const DEFAULT_SAMPLE_RATE = 44100;
 
 const defaultOfflineContext = (channels: number, length: number, sampleRate: number) =>
-  new OfflineAudioContext(channels, length, sampleRate) as unknown as OfflineContextLike;
+  new OfflineAudioContext(channels, length, sampleRate) as OfflineContextLike;
 
 /** Render a generated track offline to a mono Float32 buffer. */
 export async function renderOffline(options: RenderOptions): Promise<RenderResult> {

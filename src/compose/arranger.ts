@@ -4,11 +4,12 @@
  * independent yet deterministic. The Score is play-ready, audio-free data (Hz +
  * beats); the engine/renderer turns it into sound.
  *
- * Assumes `raga ⊆ parent` (true for the built-in pairs, e.g. mohanam ⊂ major) so
- * the lead's raga tones stay in key with the chord-tone pad/arp/bass.
+ * Requires `raga ⊆ parent` (true for the built-in style pairs, e.g. mohanam ⊂
+ * major) so the lead's raga tones stay in key with the chord-tone pad/arp/bass;
+ * throws otherwise.
  */
 import type { Rng } from "../rng";
-import { DEFAULT_ROOT_MIDI, midiToFrequency } from "../theory/pitch";
+import { DEFAULT_ROOT_MIDI, midiToFrequency, pitchClass } from "../theory/pitch";
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
 import { SCALES, type Scale, degreeToFrequency } from "../theory/scales";
 import { generateHarmony } from "./harmony";
@@ -16,6 +17,9 @@ import { generateMelody } from "./melody";
 
 export type ScoreVoice = "lead" | "bass" | "pad" | "arp";
 export type DrumName = "kick" | "snare" | "hat";
+
+/** Per-part on/off toggles (`drums` alongside the pitched voices). Each defaults to on. */
+export type VoiceToggles = Partial<Record<ScoreVoice | "drums", boolean>>;
 
 export interface ScoreNote {
   readonly startBeat: number;
@@ -51,14 +55,14 @@ export interface ArrangeOptions {
   bars?: number;
   /** Harmony parent scale (heptatonic). Default major. */
   parent?: Scale;
-  /** Lead/arp raga. Default = parent. Assumed ⊆ parent. */
+  /** Lead/arp raga. Default = parent. Must be a pitch-class subset of `parent` (raga ⊆ parent). */
   raga?: Scale;
   rootMidi?: number;
   progression?: readonly number[];
   generateProgression?: boolean;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
-  voices?: Partial<Record<ScoreVoice, boolean>> & { drums?: boolean };
+  voices?: VoiceToggles;
   density?: number;
   swing?: number;
   leadRange?: readonly [number, number];
@@ -103,6 +107,13 @@ export function arrange(options: ArrangeOptions): Score {
   }
   if (!(groove in DRUM_GROOVES)) {
     throw new RangeError(`arrange groove "${groove}" is not a known DRUM_GROOVE`);
+  }
+  // The lead draws raga tones over chords built from the parent; they must share a
+  // tuning, so the raga's pitch classes must be a subset of the parent's, or the
+  // lead plays out of key.
+  const parentPcs = new Set(parent.map(pitchClass));
+  if (!raga.every((s) => parentPcs.has(pitchClass(s)))) {
+    throw new RangeError("arrange raga must be a pitch-class subset of parent (raga ⊆ parent)");
   }
 
   const lengthBeats = bars * beatsPerBar;

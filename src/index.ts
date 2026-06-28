@@ -25,6 +25,7 @@ export type {
   DrumHit,
   DrumName,
   ArrangeOptions,
+  VoiceToggles,
 } from "./compose/arranger";
 export { SCALES } from "./theory/scales";
 export type { Scale, ScaleName } from "./theory/scales";
