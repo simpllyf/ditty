@@ -147,7 +147,7 @@ export function createSession(options: SessionOptions): Session {
       bars,
       parent,
       raga,
-      rootMidi,
+      rootMidi: section.rootMidi, // may modulate per section (key change)
       groove,
       density: section.density,
       swing,
