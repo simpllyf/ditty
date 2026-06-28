@@ -6,8 +6,8 @@ export interface OfflineRenderResult {
   peak: number;
   /** RMS energy across the buffer. */
   rms: number;
-  /** A sparse, rounded sample of the waveform — enough to compare renders. */
-  fingerprint: number[];
+  /** A sparse, RAW sample of the waveform — compared with a tolerance, not exact float equality. */
+  samples: number[];
 }
 
 export interface DittyE2E {

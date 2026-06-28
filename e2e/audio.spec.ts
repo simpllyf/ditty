@@ -20,12 +20,22 @@ test("produces audible, finite audio through real Web Audio", async ({ page }) =
   expect(result.rms).toBeGreaterThan(0); // real energy, not a single blip
 });
 
-test("renders identically for a seed and differently across seeds", async ({ page }) => {
+test("renders deterministically per seed and differently across seeds", async ({ page }) => {
   const a = await page.evaluate(() => window.ditty.renderOffline(42, 1));
   const b = await page.evaluate(() => window.ditty.renderOffline(42, 1));
   const other = await page.evaluate(() => window.ditty.renderOffline(7, 1));
-  expect(a.fingerprint).toEqual(b.fingerprint); // deterministic per seed
-  expect(a.fingerprint).not.toEqual(other.fingerprint); // varies by seed
+
+  // Real-browser audio DSP is NOT bit-reproducible (WebKit reorders/denormalizes),
+  // so two renders of the SAME seed differ by ~1 ULP. Assert determinism with a
+  // tolerance, never exact float equality; a different seed must differ far more.
+  const maxAbsDiff = (x: number[], y: number[]): number => {
+    expect(x.length).toBe(y.length);
+    let m = 0;
+    for (let i = 0; i < x.length; i++) m = Math.max(m, Math.abs(x[i]! - y[i]!));
+    return m;
+  };
+  expect(maxAbsDiff(a.samples, b.samples)).toBeLessThan(1e-3); // same seed → identical within float noise
+  expect(maxAbsDiff(a.samples, other.samples)).toBeGreaterThan(1e-2); // different seed → audibly different
 });
 
 // Realtime audio (a live AudioContext clock) is reliable headless in Chromium;
