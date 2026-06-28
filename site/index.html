@@ -1077,7 +1077,9 @@
         raf = 0,
         rebuildT = 0,
         shareT = 0,
-        instT = 0;
+        instT = 0,
+        gen = 0; // rebuild generation — guards against overlapping option changes
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
       // ---- audio context with an analyser tap (engine.destination → analyser → speakers) ----
       function ensureAudio() {
@@ -1111,17 +1113,33 @@
         audioContext: ensureAudio().ctx,
       });
 
+      // Rebuilding the engine (any option change needs it) — crossfade so it never
+      // hard-cuts: fade the old one out, swap, fade the new one in.
       async function buildEngine(autostart) {
-        if (engine) {
+        const myGen = ++gen;
+        const wasPlaying = state.playing || autostart;
+        const old = engine;
+        if (old && wasPlaying) {
           try {
-            engine.dispose();
-          } catch (e) {}
-          engine = null;
+            old.setVolume(0);
+          } catch (e) {} // ramped (~60 ms) inside the synth
+          await wait(130);
+          if (myGen !== gen) return; // a newer change superseded this rebuild
         }
-        engine = createEngine(engineOpts());
-        if (autostart || state.playing) {
+        // Start silent only when we're going to play (so we can fade in); otherwise
+        // build at the real volume so a later play() is at the right level.
+        const next = createEngine({ ...engineOpts(), volume: wasPlaying ? 0 : state.volume / 100 });
+        if (old) {
           try {
-            await engine.start();
+            old.dispose();
+          } catch (e) {}
+        }
+        engine = next;
+        if (wasPlaying) {
+          try {
+            await next.start();
+            if (myGen !== gen) return;
+            next.setVolume(state.volume / 100); // gentle fade-in
           } catch (e) {}
         }
       }
