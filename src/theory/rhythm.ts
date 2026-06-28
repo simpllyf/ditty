@@ -6,10 +6,6 @@
  * Durations are accumulated in integer **grid steps** (sixteenth-note units), so
  * a bar's onsets tile it exactly with no floating-point drift; values are
  * converted to beats only at emit time.
- *
- * (The legacy `src/rhythm.ts` from v1 is separate and stays until v1's melody is
- * retired. Its `barLengthSteps`/`stepsToBeats` share names but take a config
- * object, not a beat count — this module is the v2 replacement.)
  */
 import type { Rng } from "../rng";
 

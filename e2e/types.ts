@@ -11,8 +11,12 @@ export interface OfflineRenderResult {
 }
 
 export interface DittyE2E {
-  /** Render `seconds` of the real synth + melody (seeded) through an OfflineAudioContext. */
+  /** Render `seconds` of the real engine (seeded) through an OfflineAudioContext. */
   renderOffline(seed: number, seconds: number): Promise<OfflineRenderResult>;
+  /** Same render, returned as an object URL to a WAV (for ad-hoc auditioning). */
+  renderWavUrl(seed: number, seconds: number): Promise<string>;
+  /** Same render, returned as a base64 WAV string (for headless capture). */
+  renderWavBase64(seed: number, seconds: number): Promise<string>;
   /** The realtime smoke engine's context state. */
   engineState(): AudioContextState;
   /** The realtime smoke engine's audio clock. */

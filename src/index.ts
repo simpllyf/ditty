@@ -1,16 +1,34 @@
 /**
- * Public entry point — `@simpllyf/ditty`.
- *
- * The audio engine facade. For the pure, deterministic layer (PRNG, scales,
- * melody stream — no audio), import `@simpllyf/ditty/core` instead.
+ * `@simpllyf/ditty` — the audio engine entry. Construct an engine, start it from
+ * a user gesture, and it plays endless, seamlessly-looping generative music.
  *
  * ```ts
- * import { createPeppyEngine } from "@simpllyf/ditty";
- * const engine = createPeppyEngine();
+ * import { createEngine } from "@simpllyf/ditty";
+ * const engine = createEngine({ raga: SCALES.mohanam });
  * playButton.addEventListener("click", () => engine.start()); // start from a gesture
- * engine.stinger("correct");
  * ```
+ *
+ * The pure composition layer (no Web Audio) is available at `@simpllyf/ditty/core`.
  */
-export { createPeppyEngine } from "./engine";
-export type { EngineOptions, EngineAudioContext, PeppyEngine } from "./engine";
-export type { StingerName } from "./presets";
+export { createEngine } from "./engine";
+export type { Engine, EngineOptions, EngineAudioContext } from "./engine";
+
+// Composition + config knobs, re-exported for convenience.
+export { arrange } from "./compose/arranger";
+export type {
+  Score,
+  ScoreNote,
+  ScorePart,
+  ScoreVoice,
+  DrumHit,
+  DrumName,
+  ArrangeOptions,
+} from "./compose/arranger";
+export { SCALES } from "./theory/scales";
+export type { Scale, ScaleName } from "./theory/scales";
+export { DRUM_GROOVES } from "./theory/rhythm";
+export type { DrumGrooveName } from "./theory/rhythm";
+export { INSTRUMENTS, instrumentsForVoice } from "./instruments";
+export type { Instrument, InstrumentName } from "./instruments";
+export { makeRng } from "./rng";
+export type { Rng } from "./rng";

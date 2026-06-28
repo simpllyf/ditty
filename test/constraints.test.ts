@@ -11,7 +11,7 @@ import {
   nearestStableDegree,
 } from "../src/constraints";
 import { makeRng } from "../src/rng";
-import { SCALES } from "../src/scale";
+import { SCALES } from "../src/theory/scales";
 
 describe("leap cap", () => {
   it("accepts steps within the cap and rejects larger leaps (symmetric)", () => {

@@ -54,9 +54,8 @@ test("the shipped IIFE global works in a plain page with no build step", async (
   await page.goto("about:blank");
   await page.addScriptTag({ path: shippedGlobal });
   const result = await page.evaluate(() => {
-    if (typeof window.Ditty?.createPeppyEngine !== "function") return "no factory";
-    const engine = window.Ditty.createPeppyEngine({ seed: 1 });
-    engine.stinger("correct"); // before start: must be a safe no-op (no audio, no throw)
+    if (typeof window.Ditty?.createEngine !== "function") return "no factory";
+    const engine = window.Ditty.createEngine({ seed: 1 });
     return typeof engine.start === "function" ? "ok" : "bad engine";
   });
   expect(result).toBe("ok");

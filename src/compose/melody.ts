@@ -2,11 +2,7 @@
  * Harmony-aware melody — the line that follows the chords. Strong beats land on
  * chord tones, weak beats step between, a gentle arch shapes each phrase, and the
  * cadence bars resolve. Pure and deterministic; the arranger turns degrees into
- * sound.
- *
- * This is the v2 replacement for the free random-walk `src/melody.ts`; the
- * coherence comes from following the {@link HarmonicPlan}, exactly as the
- * prototype Pras approved.
+ * sound. Coherence comes from following the {@link HarmonicPlan}.
  */
 import { exceedsRepeatLimit } from "../constraints";
 import type { Rng } from "../rng";
