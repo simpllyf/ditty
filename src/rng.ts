@@ -85,6 +85,7 @@ export function makeRng(seed: number): Rng {
         return items[i] as T;
       }
     }
+    /* c8 ignore start -- FP-drift guard: exact arithmetic always returns in the loop above */
     // Floating-point drift can leave threshold marginally >= 0 after the loop;
     // the last positive-weight item is the correct fallback.
     for (let i = items.length - 1; i >= 0; i--) {
@@ -92,6 +93,7 @@ export function makeRng(seed: number): Rng {
         return items[i] as T;
       }
     }
+    /* c8 ignore stop */
     /* c8 ignore next -- unreachable: a positive total guarantees a positive weight */
     throw new RangeError("weighted() could not select an item");
   };

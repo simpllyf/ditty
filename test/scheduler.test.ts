@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type PreparedLoop, Scheduler, type SchedulerClock } from "../src/scheduler";
 import { FakeAudioContext } from "./helpers/fake-audio-context";
+import { FakeClock } from "./helpers/fake-clock";
 
 class ManualClock implements SchedulerClock {
   private cb: (() => void) | null = null;
@@ -87,6 +88,69 @@ describe("Scheduler", () => {
     ctx.advance(10);
     clock.tick();
     expect(calls).toBeLessThan(5); // the guard prevents a runaway re-arrange loop
+  });
+
+  it("drops badly-overdue events on a timer stall instead of bursting at 'now'", () => {
+    const ctx = new FakeAudioContext();
+    const played: { beat: number; time: number }[] = [];
+    const clock = new ManualClock();
+    const provider = () => ({
+      events: [0, 1, 2, 3].map((beat) => ({
+        beat,
+        play: (time: number) => played.push({ beat, time }),
+      })),
+      loopBeats: 4,
+      secondsPerBeat: 0.5, // event times 0,0.5,1,1.5; loop = 2 s
+    });
+    const sch = new Scheduler({ context: ctx, provider, lookAheadSeconds: 0.1, clock });
+    sch.start(); // plays beat 0 at t=0
+    ctx.advance(10); // a long stall: the audio clock ran on while the timer slept
+    clock.tick();
+    // The whole backlog must NOT collapse onto t=10 — at most the one currently-due event.
+    expect(played.filter((p) => p.time === 10).length).toBeLessThanOrEqual(2);
+    expect(played.every((p) => p.time <= 10)).toBe(true);
+  });
+
+  it("pause keeps position; resume continues without re-arranging", () => {
+    const ctx = new FakeAudioContext();
+    let providerCalls = 0;
+    const provider = () => {
+      providerCalls++;
+      return { events: [{ beat: 0, play: () => {} }], loopBeats: 4, secondsPerBeat: 0.5 };
+    };
+    const sch = new Scheduler({ context: ctx, provider, clock: new ManualClock() });
+    sch.start();
+    expect(providerCalls).toBe(1);
+    sch.pause();
+    expect(sch.isRunning).toBe(false);
+    sch.resume();
+    expect(sch.isRunning).toBe(true);
+    expect(providerCalls).toBe(1); // resumed the same loop — no fresh arrangement (unlike start())
+  });
+
+  it("resume is a no-op before start()", () => {
+    const ctx = new FakeAudioContext();
+    const sch = new Scheduler({
+      context: ctx,
+      provider: () => loopOf([]),
+      clock: new ManualClock(),
+    });
+    sch.resume();
+    expect(sch.isRunning).toBe(false);
+  });
+
+  it("ignores a stray timer fire after stop (running guard)", () => {
+    const ctx = new FakeAudioContext();
+    const played: { beat: number; time: number }[] = [];
+    const clock = new FakeClock(); // retains the callback after stop() on purpose
+    const sch = new Scheduler({ context: ctx, provider: () => loopOf(played), clock });
+    sch.start();
+    const count = played.length;
+    sch.stop();
+    ctx.advance(10);
+    clock.tick(); // a stray fire after stop
+    expect(played.length).toBe(count); // the running guard prevented any scheduling
+    expect(clock.stopCount).toBeGreaterThan(0);
   });
 
   it("stop() halts scheduling; start() is idempotent", () => {
