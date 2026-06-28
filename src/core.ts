@@ -8,14 +8,19 @@
  */
 export { makeRng } from "./rng";
 export type { Rng } from "./rng";
+export { DEFAULT_ROOT_MIDI, OCTAVE, semitoneToFrequency, midiToFrequency } from "./theory/pitch";
+export { SCALES, degreeToSemitone, degreeToFrequency, degreePitchClass } from "./theory/scales";
+export type { Scale, ScaleName } from "./theory/scales";
 export {
-  SCALES,
-  DEFAULT_ROOT_MIDI,
-  degreeToSemitone,
-  semitoneToFrequency,
-  degreeToFrequency,
-} from "./scale";
-export type { Scale, ScaleName } from "./scale";
+  CHORD_QUALITIES,
+  chordPitchClasses,
+  makeChord,
+  diatonicChord,
+  isChordTone,
+  chordQualityOf,
+  romanNumerals,
+} from "./theory/chords";
+export type { Chord, ChordQuality } from "./theory/chords";
 export {
   DEFAULT_RHYTHM,
   barLengthSteps,
