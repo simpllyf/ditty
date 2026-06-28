@@ -3,7 +3,14 @@ import { buildForm } from "../src/compose/form";
 import { makeRng } from "../src/rng";
 import { SCALES } from "../src/theory/scales";
 
-const base = { scale: SCALES.major, rootMidi: 60, bars: 8, beatsPerBar: 4, density: 0.5 } as const;
+const base = {
+  scale: SCALES.major,
+  raga: SCALES.mohanam,
+  rootMidi: 60,
+  bars: 8,
+  beatsPerBar: 4,
+  density: 0.5,
+} as const;
 
 /** First seed whose form contains a B section (a contrasting part). */
 function formWithB() {
@@ -61,6 +68,17 @@ describe("buildForm", () => {
       expect(s.fill).toBe(next.label !== s.label);
     });
     expect(form.sections.some((s) => s.fill)).toBe(true); // a multi-part form always has ≥1 change
+  });
+
+  it("carries a recurring theme stated within its motif span", () => {
+    const form = buildForm({ rng: makeRng(1), ...base });
+    expect(form.motif.length).toBeGreaterThan(0); // a real theme
+    expect(form.motifBars).toBeGreaterThanOrEqual(1);
+    const span = form.motifBars * base.beatsPerBar;
+    for (const n of form.motif) {
+      expect(n.startBeat).toBeGreaterThanOrEqual(0);
+      expect(n.startBeat).toBeLessThan(span); // confined to the head
+    }
   });
 
   it("keeps section density strictly within (0,1) even at extreme base density", () => {

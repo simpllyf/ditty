@@ -133,6 +133,7 @@ export function createSession(options: SessionOptions): Session {
   const form = buildForm({
     rng: arrangeRng.fork(),
     scale: parent,
+    raga,
     rootMidi,
     bars,
     beatsPerBar,
@@ -156,6 +157,8 @@ export function createSession(options: SessionOptions): Session {
       bassPattern: section.bassPattern,
       dynamics: section.dynamics,
       fill: section.fill,
+      motif: form.motif, // the recurring theme, stated at the head of every section
+      motifBars: form.motifBars,
       ...(options.voices !== undefined ? { voices: options.voices } : {}),
     });
 

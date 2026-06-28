@@ -14,7 +14,7 @@ import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../the
 import { SCALES, type Scale, degreeToFrequency } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
-import { generateMelody } from "./melody";
+import { type MelodyNote, generateMelody } from "./melody";
 
 export type { DrumName, ScoreVoice } from "../voices";
 
@@ -71,6 +71,10 @@ export interface ArrangeOptions {
   dynamics?: number;
   /** End the last bar with a drum fill (a buildup into the next section). Default false. */
   fill?: boolean;
+  /** Recurring theme stated at the lead's head (degrees transpose with the key). */
+  motif?: readonly MelodyNote[];
+  /** Bars the {@link motif} spans. Default 0. */
+  motifBars?: number;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -186,7 +190,15 @@ export function arrange(options: ArrangeOptions): Score {
   const parts: ScorePart[] = [];
 
   if (enabled("lead")) {
-    const melody = generateMelody({ rng: leadRng, plan, scale: raga, range: leadRange, density });
+    const melody = generateMelody({
+      rng: leadRng,
+      plan,
+      scale: raga,
+      range: leadRange,
+      density,
+      ...(options.motif !== undefined ? { motif: options.motif } : {}),
+      ...(options.motifBars !== undefined ? { motifBars: options.motifBars } : {}),
+    });
     const notes = melody.map((n): ScoreNote => {
       const start = swung(n.startBeat);
       return {
