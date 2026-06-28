@@ -53,6 +53,9 @@ export const STYLES = {
       { parent: SCALES.major, raga: SCALES.hamsadhwani },
       { parent: SCALES.major, raga: SCALES.shuddhaSaveri },
       { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
+      { parent: SCALES.lydian, raga: SCALES.kalyani }, // bright, floaty (#4)
+      { parent: SCALES.lydian, raga: SCALES.majorPentatonic },
+      { parent: SCALES.major, raga: SCALES.majorPentatonic },
     ],
     grooves: ["straight", "fourOnFloor", "busy"],
     bpm: [104, 132],
@@ -72,6 +75,9 @@ export const STYLES = {
       { parent: SCALES.naturalMinor, raga: SCALES.hindolam },
       { parent: SCALES.dorian, raga: SCALES.abhogi },
       { parent: SCALES.major, raga: SCALES.mohanam },
+      { parent: SCALES.phrygian, raga: SCALES.hindolam }, // dark, gentle
+      { parent: SCALES.melodicMinor, raga: SCALES.abhogi }, // wistful
+      { parent: SCALES.dorian, raga: SCALES.minorPentatonic },
     ],
     grooves: ["soft", "halfTime"],
     bpm: [68, 92],
@@ -91,6 +97,9 @@ export const STYLES = {
       { parent: SCALES.major, raga: SCALES.hamsadhwani },
       { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
       { parent: SCALES.major, raga: SCALES.mohanam },
+      { parent: SCALES.lydian, raga: SCALES.kalyani },
+      { parent: SCALES.major, raga: SCALES.majorPentatonic },
+      { parent: SCALES.mayamalavagowla, raga: SCALES.mayamalavagowla }, // exotic spice
     ],
     grooves: ["fourOnFloor", "busy", "straight"],
     bpm: [112, 140],
@@ -110,6 +119,10 @@ export const STYLES = {
       { parent: SCALES.major, raga: SCALES.shuddhaSaveri },
       { parent: SCALES.dorian, raga: SCALES.abhogi },
       { parent: SCALES.naturalMinor, raga: SCALES.hindolam },
+      { parent: SCALES.lydian, raga: SCALES.majorPentatonic }, // floaty
+      { parent: SCALES.harmonicMinor, raga: SCALES.harmonicMinor }, // dramatic
+      { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
+      { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
     ],
     grooves: ["soft", "halfTime", "straight"],
     bpm: [72, 100],
