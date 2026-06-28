@@ -2,32 +2,37 @@
 
 **A zero-dependency, framework-agnostic generative music engine for the browser.**
 
-Ditty produces endless, non-repetitive, _peppy_ game-feel background music plus
-one-shot reward stingers — entirely synthesized through the Web Audio API. No
-audio files, no samples, no frameworks. Built for kid-friendly learning apps,
-but standalone and reusable anywhere.
+Ditty composes endless, non-repetitive, melodic background music — harmony-led
+and multi-instrument — entirely synthesized through the Web Audio API. No audio
+files, no samples, no frameworks. Pick a _vibe_, give it a seed, and it arranges
+a lead, bass, pad, arpeggio, and drums that actually follow the chords. Built for
+kid-friendly learning apps and games, but standalone and reusable anywhere.
 
 ```
-┌── pure brain (runs in Node, no audio) ──┐   ┌── thin audio shell ──┐
-   rng → scale → rhythm → constraints → melody  →  scheduler → synth  →  🔊
-└─────────────────────────────────────────┘   └──────────────────────┘
+┌────── pure brain (runs in Node, no audio) ──────┐   ┌─── thin audio shell ───┐
+  scales/ragas → chords → progressions → harmony      synth (patches, filter,
+  → rhythm/grooves → melody → arranger → Score    →    reverb) ← scheduler   → 🔊
+└─────────────────────────────────────────────────┘   └────────────────────────┘
 ```
 
-- **Endless & pleasant.** A pentatonic scale plus a few hard musical
-  constraints (leap caps, phrase resolution, anti-repeat) keep it cheerful over
-  long sessions without ever turning into noise.
+- **Coherent, not random.** Functional harmony (T–S–D progressions, cadences),
+  in-key ragas, chord tones on strong beats, leap caps, and anti-repeat — the
+  melody follows the chords, so it sounds composed rather than noodly.
+- **Endless variety.** Each loop re-arranges over a constant tempo grid, so the
+  music never exactly repeats yet loops seamlessly. Pick a **style** to set the
+  vibe; every seed sounds different.
+- **Multi-instrument.** A small palette of synthesized instruments (plucks, pads,
+  bells, organ, mallets, sub bass) + a drum kit, voiced across registers.
 - **Zero runtime dependencies.** Web Audio is the only thing it needs — enforced
   in CI.
 - **Deterministic.** One seeded PRNG drives everything. Same seed → identical
-  music, byte-for-byte. The whole musical brain runs and is tested in Node with
-  no `AudioContext`.
-- **Tiny.** ~5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
-- **Framework-agnostic.** No DOM access, no framework imports. Vanilla, React,
-  Vue, Svelte — identical.
+  music. The whole musical brain runs and is tested in Node with no `AudioContext`.
+- **Tiny.** ~8.5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
+- **Framework-agnostic.** No DOM access, no framework imports.
 
-> **Pre-release (0.0.x).** The engine is complete, thoroughly unit-tested, and
-> validated end-to-end in Chromium, Firefox, and WebKit (real Web Audio output),
-> pending the first npm publish.
+> **Pre-release (0.0.x).** Feature-complete, thoroughly unit-tested (250+ tests,
+> property-based + golden snapshots), and validated end-to-end in Chromium,
+> Firefox, and WebKit (real Web Audio output), pending the first npm publish.
 
 ## Install
 
@@ -40,7 +45,7 @@ Or drop it into a plain HTML page with no build step:
 ```html
 <script src="https://unpkg.com/@simpllyf/ditty"></script>
 <script>
-  const engine = Ditty.createPeppyEngine();
+  const engine = Ditty.createEngine({ style: "calm" });
   document.querySelector("button").addEventListener("click", () => engine.start());
 </script>
 ```
@@ -48,33 +53,63 @@ Or drop it into a plain HTML page with no build step:
 ## Usage
 
 ```ts
-import { createPeppyEngine } from "@simpllyf/ditty";
+import { createEngine } from "@simpllyf/ditty";
 
-const engine = createPeppyEngine({
-  seed: 1234, // omit for a fresh random feel each session
-  tempo: 128, // BPM
-  volume: 0.4, // 0..1 — it's background music, keep it quiet
+const engine = createEngine({
+  style: "peppy", // "peppy" | "calm" | "playful" | "dreamy"
+  seed: 1234, // omit for a fresh random track each session
+  volume: 0.35, // 0..1 — it's background music, keep it gentle
 });
 
 // MUST be called from a user gesture (click/tap/keydown) — see below.
 await engine.start();
 
-engine.stinger("correct"); // "correct" | "levelup" | "win" — layers over the music
-engine.setVolume(0.3);
+engine.setVolume(0.25);
 engine.pause(); // suspend audio, keep state
 engine.resume();
 engine.stop(); // stop and silence, keep the context for a later start()
 engine.dispose(); // tear down nodes, release the context
 ```
 
+Pick a vibe and let the seed do the rest, or pin any musical knob yourself.
+Explicit options always override the style:
+
+```ts
+createEngine({ style: "calm", bpm: 84, voices: { arp: false } });
+```
+
 ### Options
 
-| Option         | Default        | Notes                                                       |
-| -------------- | -------------- | ----------------------------------------------------------- |
-| `seed`         | random         | Set for a reproducible stream; omit for variety per session |
-| `tempo`        | `128`          | Beats per minute                                            |
-| `volume`       | `0.4`          | Master volume, 0..1                                         |
-| `audioContext` | created lazily | Bring your own `AudioContext` (or a compatible one)         |
+| Option                                                          | Default        | Notes                                                                 |
+| --------------------------------------------------------------- | -------------- | --------------------------------------------------------------------- |
+| `style`                                                         | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` — the pool to randomize in |
+| `seed`                                                          | random         | Set for a reproducible track; omit for variety per session            |
+| `bpm`                                                           | from style     | Beats per minute                                                      |
+| `volume`                                                        | `0.35`         | Master volume, 0..1                                                   |
+| `evolve`                                                        | `true`         | Re-arrange each loop for endless variety; `false` repeats one loop    |
+| `voices`                                                        | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                     |
+| `parent` / `raga` / `rootMidi` / `groove` / `density` / `swing` | from style     | Advanced overrides (pair `raga` with a compatible `parent`)           |
+| `audioContext`                                                  | created lazily | Bring your own `AudioContext` (or a compatible one)                   |
+
+## Render / export a track
+
+Bake a track offline (faster than realtime) to a buffer or a WAV — handy for
+shipping a loop as an asset:
+
+```ts
+import { renderOffline, encodeWav } from "@simpllyf/ditty";
+
+// `loops` renders to exact loop boundaries (gapless); or pass `seconds`.
+const { sampleRate, channelData } = await renderOffline({
+  style: "dreamy",
+  seed: 7,
+  loops: 4,
+});
+
+const wav = encodeWav(channelData, sampleRate); // Uint8Array
+// browser: new Blob([wav.buffer], { type: "audio/wav" })
+// node:    fs.writeFileSync("track.wav", wav)
+```
 
 ## Browser autoplay
 
@@ -89,31 +124,20 @@ not throw); the next `start()` from a real gesture begins playback.
 
 ## Framework integration
 
-Ditty ships no framework code — it stays DOM- and framework-free. A few patterns:
-
-**React**
+Ditty ships no framework code — it stays DOM- and framework-free.
 
 ```jsx
-const engine = useMemo(() => createPeppyEngine(), []);
+// React
+const engine = useMemo(() => createEngine({ style: "playful" }), []);
 useEffect(() => () => engine.dispose(), [engine]);
 return <button onClick={() => engine.start()}>Sound on</button>;
 ```
 
-**Vue**
-
-```vue
-<script setup>
-const engine = createPeppyEngine();
-onUnmounted(() => engine.dispose());
-</script>
-<template><button @click="engine.start()">Sound on</button></template>
-```
-
-**Svelte**
-
 ```svelte
+<!-- Svelte -->
 <script>
-  const engine = createPeppyEngine();
+  import { createEngine } from "@simpllyf/ditty";
+  const engine = createEngine();
   onDestroy(() => engine.dispose());
 </script>
 <button on:click={() => engine.start()}>Sound on</button>
@@ -121,24 +145,35 @@ onUnmounted(() => engine.dispose());
 
 ## The pure core
 
-The musical brain is pure, deterministic, and importable on its own — handy for
-tests, previews, or building your own playback layer. No audio involved:
+The whole composition pipeline is pure, deterministic, and importable on its own
+at `@simpllyf/ditty/core` — for tests, previews, analysis, or building your own
+playback layer. No audio involved:
 
 ```ts
-import { makeRng, SCALES, MelodyStream } from "@simpllyf/ditty/core";
+import { arrange, makeRng, SCALES } from "@simpllyf/ditty/core";
 
-const stream = new MelodyStream({ rng: makeRng(1234), scale: SCALES.majorPentatonic });
-const notes = stream.next(); // NoteEvent[] — { startBeat, durationBeats, frequency, velocity, voice }
+const score = arrange({ rng: makeRng(1234), raga: SCALES.mohanam });
+// score.parts → [{ voice: "lead", notes: [{ startBeat, durationBeats, freq, velocity }] }, ...]
+// score.drums → [{ startBeat, drum: "kick" | "snare" | "hat", velocity }]
 ```
+
+`/core` also exports the building blocks — `generateHarmony`, `generateMelody`,
+`pickStyle`, `SCALES`, `INSTRUMENTS`, `DRUM_GROOVES`, and the pure `encodeWav`.
+
+## Your music is yours
+
+Ditty generates music algorithmically from **uncopyrightable building blocks**
+(scales, ragas, chords, common progressions — all public domain), with no
+samples and no training data. Tracks you generate are yours to use freely, for
+any purpose, commercial or not. The Ditty **code** is MIT-licensed.
 
 ## What it's good at (and not)
 
-- **Good at:** unobtrusive, cheerful, endlessly varied background music and
-  satisfying reward stingers; never grating, thanks to the anti-repeat and
-  phrase-variation constraints.
-- **Not:** a composed, memorable theme. There is no "hook." The pentatonic scale
-  plus leap caps and phrase resolution are why it reliably sounds _fine_ rather
-  than random — if your app needs a signature melody, that's a human job.
+- **Good at:** coherent, pleasant, endlessly varied background music for apps and
+  games — harmony that resolves, melodies that sit on the chords, multiple
+  instruments and grooves, seamless looping.
+- **Not:** a hand-composed, memorable signature theme. It sounds genuinely
+  _musical_, but a hook your players will hum is still a human job.
 
 ## Development
 
@@ -148,6 +183,7 @@ Requires [`mise`](https://mise.jdx.dev) (pins Node, pnpm, and just).
 mise install
 just setup   # install dependencies
 just check   # format, lint, typecheck, test, build, zero-dep + size gates
+just e2e     # cross-browser audio tests (Playwright)
 ```
 
 ## License
