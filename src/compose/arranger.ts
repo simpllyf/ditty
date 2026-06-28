@@ -13,7 +13,7 @@ import { DEFAULT_ROOT_MIDI, OCTAVE, midiToFrequency, pitchClass } from "../theor
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
 import { SCALES, type Scale, degreeToFrequency } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
-import { generateHarmony } from "./harmony";
+import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { generateMelody } from "./melody";
 
 export type { DrumName, ScoreVoice } from "../voices";
@@ -60,6 +60,9 @@ export interface ArrangeOptions {
   rootMidi?: number;
   progression?: readonly number[];
   generateProgression?: boolean;
+  /** Reuse a pre-built harmony plan instead of generating one — lets a caller keep the
+   * chord progression fixed across loops while the melody/voicing varies (gentle evolve). */
+  plan?: HarmonicPlan;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -132,15 +135,22 @@ export function arrange(options: ArrangeOptions): Score {
   const bassRng = rng.fork();
   const arpRng = rng.fork();
 
-  const plan = generateHarmony({
-    rng: harmonyRng,
-    scale: parent,
-    rootMidi,
-    bars,
-    beatsPerBar,
-    ...(options.progression !== undefined ? { progression: options.progression } : {}),
-    ...(options.generateProgression !== undefined ? { generate: options.generateProgression } : {}),
-  });
+  // Reuse a caller-supplied plan (gentle evolve: fixed harmony, varying melody) or
+  // build one. The harmonyRng fork above is kept either way so the lead/bass/arp
+  // fork positions — and thus determinism for a given rng — don't shift.
+  const plan =
+    options.plan ??
+    generateHarmony({
+      rng: harmonyRng,
+      scale: parent,
+      rootMidi,
+      bars,
+      beatsPerBar,
+      ...(options.progression !== undefined ? { progression: options.progression } : {}),
+      ...(options.generateProgression !== undefined
+        ? { generate: options.generateProgression }
+        : {}),
+    });
 
   const parts: ScorePart[] = [];
 

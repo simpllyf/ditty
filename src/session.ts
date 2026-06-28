@@ -5,6 +5,7 @@
  * (the audio layer's `buildLoop` binds these Scores to a synth).
  */
 import { type ArrangeOptions, type Score, arrange } from "./compose/arranger";
+import { generateHarmony } from "./compose/harmony";
 import {
   DRUM_KITS,
   type DrumKitName,
@@ -115,17 +116,37 @@ export function createSession(options: SessionOptions): Session {
   const drumKit = DRUM_KITS[kitName];
   const noiseTable = makeNoiseTable(noiseRng);
 
+  // Resolve the (constant) musical params once.
+  const parent = options.parent ?? chosen.parent;
+  const raga = options.raga ?? chosen.raga;
+  const rootMidi = options.rootMidi ?? chosen.rootMidi;
+  const groove = options.groove ?? chosen.groove;
+  const density = options.density ?? chosen.density;
+  const swing = options.swing ?? chosen.swing;
+
+  // Gentle evolve: build ONE harmony plan and reuse it every loop, so the chord
+  // progression stays put while the melody/voicing re-draws — it develops instead
+  // of switching to a new piece. (evolve:false caches a single arrangement anyway.)
+  const harmonyPlan = generateHarmony({
+    rng: arrangeRng.fork(),
+    scale: parent,
+    rootMidi,
+    bars,
+    beatsPerBar,
+  });
+
   const arrangeOptions = (): ArrangeOptions => ({
     rng: arrangeRng,
     bpm,
     beatsPerBar,
     bars,
-    parent: options.parent ?? chosen.parent,
-    raga: options.raga ?? chosen.raga,
-    rootMidi: options.rootMidi ?? chosen.rootMidi,
-    groove: options.groove ?? chosen.groove,
-    density: options.density ?? chosen.density,
-    swing: options.swing ?? chosen.swing,
+    parent,
+    raga,
+    rootMidi,
+    groove,
+    density,
+    swing,
+    plan: harmonyPlan,
     ...(options.voices !== undefined ? { voices: options.voices } : {}),
   });
 

@@ -58,7 +58,7 @@ import { createEngine } from "@simpllyf/ditty";
 const engine = createEngine({
   style: "peppy", // "peppy" | "calm" | "playful" | "dreamy"
   seed: 1234, // omit for a fresh random track each session
-  volume: 0.35, // 0..1 — it's background music, keep it gentle
+  volume: 0.3, // 0..1 — it's background music, keep it gentle
 });
 
 // MUST be called from a user gesture (click/tap/keydown) — see below.
@@ -87,7 +87,7 @@ createEngine({ style: "calm", bpm: 84, voices: { arp: false } });
 | `bpm`                            | from style     | Beats per minute                                                                         |
 | `beatsPerBar`                    | `4`            | Time signature (beats per bar)                                                           |
 | `bars`                           | `8`            | Bars per loop                                                                            |
-| `volume`                         | `0.35`         | Master volume, 0..1                                                                      |
+| `volume`                         | `0.3`          | Master volume, 0..1                                                                      |
 | `evolve`                         | `true`         | Re-arrange each loop for endless variety; `false` repeats one loop                       |
 | `voices`                         | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
 | `parent` / `raga`                | from style     | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
