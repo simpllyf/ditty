@@ -63,6 +63,8 @@ export type {
   DrumKitName,
 } from "./instruments";
 export { makeNoiseTable, DEFAULT_NOISE_LENGTH } from "./noise";
+export { STYLES, pickStyle } from "./styles";
+export type { Style, ChosenStyle, StyleName } from "./styles";
 
 export {
   DEFAULT_MAX_LEAP,

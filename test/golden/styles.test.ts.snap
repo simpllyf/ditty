@@ -1,0 +1,179 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw order) 1`] = `
+[
+  {
+    "bpm": 123,
+    "density": 0.658,
+    "groove": "fourOnFloor",
+    "instruments": {
+      "arp": [
+        "pluck",
+        "bell",
+        "musicBox",
+      ],
+      "bass": [
+        "subBass",
+        "roundBass",
+      ],
+      "lead": [
+        "pluck",
+        "marimba",
+        "squareLead",
+      ],
+      "pad": [
+        "warmPad",
+        "glassPad",
+        "organ",
+      ],
+    },
+    "name": "peppy",
+    "parent": [
+      0,
+      2,
+      4,
+      5,
+      7,
+      9,
+      11,
+    ],
+    "raga": [
+      0,
+      2,
+      5,
+      7,
+      9,
+    ],
+    "rootMidi": 63,
+    "swing": 0.052,
+  },
+  {
+    "bpm": 84,
+    "density": 0.358,
+    "groove": "soft",
+    "instruments": {
+      "arp": [
+        "musicBox",
+        "bell",
+      ],
+      "bass": [
+        "subBass",
+        "roundBass",
+      ],
+      "lead": [
+        "sineLead",
+        "marimba",
+      ],
+      "pad": [
+        "warmPad",
+        "glassPad",
+      ],
+    },
+    "name": "calm",
+    "parent": [
+      0,
+      2,
+      3,
+      5,
+      7,
+      9,
+      10,
+    ],
+    "raga": [
+      0,
+      2,
+      3,
+      5,
+      9,
+    ],
+    "rootMidi": 61,
+    "swing": 0.07,
+  },
+  {
+    "bpm": 131,
+    "density": 0.758,
+    "groove": "busy",
+    "instruments": {
+      "arp": [
+        "synthArp",
+        "pluck",
+        "musicBox",
+      ],
+      "bass": [
+        "roundBass",
+        "subBass",
+      ],
+      "lead": [
+        "squareLead",
+        "pluck",
+        "synthArp",
+      ],
+      "pad": [
+        "organ",
+        "glassPad",
+      ],
+    },
+    "name": "playful",
+    "parent": [
+      0,
+      2,
+      4,
+      5,
+      7,
+      9,
+      10,
+    ],
+    "raga": [
+      0,
+      2,
+      5,
+      7,
+      10,
+    ],
+    "rootMidi": 63,
+    "swing": 0.152,
+  },
+  {
+    "bpm": 91,
+    "density": 0.458,
+    "groove": "halfTime",
+    "instruments": {
+      "arp": [
+        "bell",
+        "musicBox",
+      ],
+      "bass": [
+        "subBass",
+        "roundBass",
+      ],
+      "lead": [
+        "sineLead",
+        "marimba",
+      ],
+      "pad": [
+        "glassPad",
+        "warmPad",
+      ],
+    },
+    "name": "dreamy",
+    "parent": [
+      0,
+      2,
+      3,
+      5,
+      7,
+      9,
+      10,
+    ],
+    "raga": [
+      0,
+      2,
+      3,
+      5,
+      9,
+    ],
+    "rootMidi": 61,
+    "swing": 0.052,
+  },
+]
+`;
