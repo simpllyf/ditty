@@ -128,6 +128,22 @@ describe("Scheduler", () => {
     expect(providerCalls).toBe(1); // resumed the same loop — no fresh arrangement (unlike start())
   });
 
+  it("stop() after pause() fully resets, so a later resume() is a no-op", () => {
+    const ctx = new FakeAudioContext();
+    let providerCalls = 0;
+    const provider = () => {
+      providerCalls++;
+      return { events: [{ beat: 0, play: () => {} }], loopBeats: 4, secondsPerBeat: 0.5 };
+    };
+    const sch = new Scheduler({ context: ctx, provider, clock: new ManualClock() });
+    sch.start();
+    sch.pause();
+    sch.stop(); // must clear position even from the paused state
+    sch.resume(); // no-op: there is no kept loop to resume
+    expect(sch.isRunning).toBe(false);
+    expect(providerCalls).toBe(1); // resume did not restart from a stale position
+  });
+
   it("resume is a no-op before start()", () => {
     const ctx = new FakeAudioContext();
     const sch = new Scheduler({

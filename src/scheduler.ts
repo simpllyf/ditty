@@ -108,7 +108,7 @@ export class Scheduler {
 
   /** Stop scheduling and reset position. Already-scheduled audio still plays out. Idempotent. */
   stop(): void {
-    if (!this.running) return;
+    if (!this.running && !this.loop) return; // already fully stopped (vs merely paused)
     this.running = false;
     this.clock.stop();
     this.loop = null;
