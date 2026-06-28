@@ -153,6 +153,50 @@ describe("createEngine", () => {
     expect(() => engine.pause()).not.toThrow();
   });
 
+  it("resume swallows a failing context transition", async () => {
+    const ctx = new FakeAudioContext();
+    const engine = createEngine({ seed: 1, audioContext: ctx, clock: new TickClock() });
+    await engine.start();
+    ctx.failResume = true;
+    expect(() => engine.resume()).not.toThrow();
+    await Promise.resolve(); // let the swallowed rejection settle (no unhandled rejection)
+  });
+
+  it("dispose swallows a failing close on a context it owns", async () => {
+    const fake = new FakeAudioContext();
+    fake.failClose = true;
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        constructor() {
+          return fake;
+        }
+      },
+    );
+    try {
+      const engine = createEngine({ seed: 1, clock: new TickClock() }); // owns the context
+      await engine.start();
+      expect(() => engine.dispose()).not.toThrow();
+      await Promise.resolve();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("control methods are safe no-ops before start()", () => {
+    const ctx = new FakeAudioContext();
+    const engine = createEngine({ seed: 1, audioContext: ctx, clock: new TickClock() });
+    expect(() => {
+      engine.pause();
+      engine.resume();
+      engine.stop();
+      engine.setVolume(0.5);
+      engine.dispose();
+    }).not.toThrow();
+    expect(ctx.oscillators.length).toBe(0); // nothing scheduled
+    expect(ctx.suspendCount).toBe(0); // no graph → no transitions
+  });
+
   it("different styles produce different music for the same seed", async () => {
     const freqs = async (style: "calm" | "playful") => {
       const ctx = new FakeAudioContext();
