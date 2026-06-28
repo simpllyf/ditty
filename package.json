@@ -37,7 +37,8 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "size": "node scripts/measure-size.mjs",
-    "check": "just check"
+    "check": "just check",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [
     "web-audio",
@@ -62,6 +63,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.61.1",
     "@types/node": "24.12.4",
+    "@vitest/coverage-v8": "4.1.6",
     "@vitest/eslint-plugin": "1.6.17",
     "esbuild": "0.28.1",
     "eslint": "10.4.0",
