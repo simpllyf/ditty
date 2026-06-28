@@ -36,6 +36,8 @@ export interface RenderResult {
 const DEFAULT_SAMPLE_RATE = 44100;
 /** Upper bound on a single render — guards against an accidental huge allocation. */
 const MAX_RENDER_SECONDS = 3600;
+/** Extra render time for a loop's reverb/release ring-out, wrapped onto the head. */
+const TAIL_SECONDS = 2.5;
 
 const defaultOfflineContext = (channels: number, length: number, sampleRate: number) =>
   new OfflineAudioContext(channels, length, sampleRate) as OfflineContextLike;
@@ -82,12 +84,19 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
   }
 
   const length = Math.ceil(seconds * sampleRate);
-  const ctx = (options.createContext ?? defaultOfflineContext)(1, length, sampleRate);
+  // For loop renders, render an extra tail and wrap it back onto the head so the
+  // last loop's note-release and reverb don't truncate at the seam — a real gapless
+  // loop. (A free-length `seconds` render is a one-shot; its tail simply ends.)
+  const isLoopRender = loopCount !== null;
+  const renderLength = isLoopRender ? Math.ceil((seconds + TAIL_SECONDS) * sampleRate) : length;
+  const ctx = (options.createContext ?? defaultOfflineContext)(1, renderLength, sampleRate);
   const synth = new Synth(ctx, {
     noiseTable: session.noiseTable,
     masterGain: options.volume ?? 0.8,
   });
 
+  // Only one loop-span of events is scheduled (at < seconds); the tail window holds
+  // their natural ring-out, never extra notes.
   const schedule = (loop: ReturnType<typeof buildLoop>, loopStart: number) => {
     for (const event of loop.events) {
       const at = loopStart + event.beat * loop.secondsPerBeat;
@@ -113,6 +122,11 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
     }
   }
 
-  const buffer = await ctx.startRendering();
-  return { sampleRate, channelData: buffer.getChannelData(0) };
+  const rendered = (await ctx.startRendering()).getChannelData(0);
+  if (!isLoopRender) return { sampleRate, channelData: rendered };
+  // Overlap-add the overhang [length, renderLength) onto the head → seamless loop.
+  const channelData = rendered.slice(0, length);
+  const overhang = rendered.length - length;
+  for (let i = 0; i < overhang && i < length; i++) channelData[i]! += rendered[length + i]!;
+  return { sampleRate, channelData };
 }
