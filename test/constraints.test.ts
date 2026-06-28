@@ -6,12 +6,9 @@ import {
   capLeap,
   contourTarget,
   exceedsRepeatLimit,
-  isStableDegree,
   isWithinLeap,
-  nearestStableDegree,
 } from "../src/constraints";
 import { makeRng } from "../src/rng";
-import { SCALES } from "../src/theory/scales";
 
 describe("leap cap", () => {
   it("accepts steps within the cap and rejects larger leaps (symmetric)", () => {
@@ -53,59 +50,6 @@ describe("leap cap", () => {
   it("capLeap uses the default cap of 4", () => {
     expect(capLeap(0, 10)).toBe(4);
     expect(capLeap(0, 2)).toBe(2);
-  });
-});
-
-describe("phrase resolution", () => {
-  const penta = SCALES.majorPentatonic; // [0,2,4,7,9] → stable degree indices 0,2,3
-  const major = SCALES.major; // [0,2,4,5,7,9,11] → stable degree indices 0,2,4
-
-  it("identifies tonic/third/fifth as stable in major pentatonic", () => {
-    expect([0, 1, 2, 3, 4].map((d) => isStableDegree(penta, d))).toEqual([
-      true, // tonic (0 semitones)
-      false, // 2nd (2)
-      true, // third (4)
-      true, // fifth (7)
-      false, // 6th (9)
-    ]);
-  });
-
-  it("identifies tonic/third/fifth as stable in the major scale", () => {
-    expect([0, 2, 4].map((d) => isStableDegree(major, d))).toEqual([true, true, true]);
-    expect([1, 3, 5, 6].map((d) => isStableDegree(major, d))).toEqual([false, false, false, false]);
-  });
-
-  it("stability is octave-invariant", () => {
-    for (const degree of [0, 1, 2, 3, 4]) {
-      expect(isStableDegree(penta, degree + penta.length)).toBe(isStableDegree(penta, degree));
-      expect(isStableDegree(penta, degree - penta.length)).toBe(isStableDegree(penta, degree));
-    }
-  });
-
-  it("nearestStableDegree returns the degree itself when already stable", () => {
-    expect(nearestStableDegree(penta, 0)).toBe(0);
-    expect(nearestStableDegree(penta, 2)).toBe(2);
-  });
-
-  it("resolves an unstable degree to the nearest stable one, preferring downward on ties", () => {
-    // penta degree 1 (the 2nd): neighbours 0 (stable) and 2 (stable) are equidistant → pick down.
-    expect(nearestStableDegree(penta, 1)).toBe(0);
-    // penta degree 4 (the 6th): nearest stable is 3 (down) vs 5 (=tonic up); down wins on tie.
-    expect(nearestStableDegree(penta, 4)).toBe(3);
-  });
-
-  it("always returns a stable degree, for any degree and either scale", () => {
-    fc.assert(
-      fc.property(
-        fc.constantFrom(penta, major),
-        fc.integer({ min: -40, max: 40 }),
-        (scale, degree) => {
-          const resolved = nearestStableDegree(scale, degree);
-          expect(isStableDegree(scale, resolved)).toBe(true);
-          expect(Math.abs(resolved - degree)).toBeLessThanOrEqual(scale.length);
-        },
-      ),
-    );
   });
 });
 

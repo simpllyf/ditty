@@ -12,6 +12,11 @@ export const OCTAVE = 12;
 /** Default root: middle C (MIDI 60). A bright, neutral key. */
 export const DEFAULT_ROOT_MIDI = 60;
 
+/** Pitch class (0–11) of a semitone value, wrapping any integer into one octave. */
+export function pitchClass(semitone: number): number {
+  return ((semitone % OCTAVE) + OCTAVE) % OCTAVE;
+}
+
 /** Equal-temperament frequency, in Hz, of a MIDI note number. */
 export function midiToFrequency(midi: number): number {
   return A4_HZ * 2 ** ((midi - A4_MIDI) / OCTAVE);

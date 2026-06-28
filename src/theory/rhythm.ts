@@ -7,6 +7,7 @@
  * a bar's onsets tile it exactly with no floating-point drift; values are
  * converted to beats only at emit time.
  */
+import { clamp } from "../math";
 import type { Rng } from "../rng";
 
 /** Grid resolution: steps per beat (sixteenth notes). */
@@ -21,8 +22,6 @@ export interface Onset {
   /** Whether this onset lands on a strong metric position (for chord-tone placement). */
   readonly strong: boolean;
 }
-
-const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 
 /**
  * Metric strength of a position within a bar, 0..1: downbeat (1) > even-meter

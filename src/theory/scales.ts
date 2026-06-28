@@ -6,7 +6,7 @@
  * All of these are public-domain musical materials (modes, pentatonics, and
  * traditional ragas).
  */
-import { DEFAULT_ROOT_MIDI, OCTAVE, semitoneToFrequency } from "./pitch";
+import { DEFAULT_ROOT_MIDI, OCTAVE, pitchClass, semitoneToFrequency } from "./pitch";
 
 /** Semitone offsets within one octave, ascending, starting at the tonic (`0`). */
 export type Scale = readonly number[];
@@ -75,5 +75,5 @@ export function degreeToFrequency(
 
 /** Pitch class (0–11) of a scale degree. */
 export function degreePitchClass(scale: Scale, degree: number): number {
-  return ((degreeToSemitone(scale, degree) % OCTAVE) + OCTAVE) % OCTAVE;
+  return pitchClass(degreeToSemitone(scale, degree));
 }

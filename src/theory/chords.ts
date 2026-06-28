@@ -2,9 +2,8 @@
  * Chords — qualities, diatonic chord building, and chord-tone queries. Pure,
  * pitch-class based (octave-agnostic). The harmony layer builds on this.
  */
+import { pitchClass } from "./pitch";
 import { type Scale, degreePitchClass } from "./scales";
-
-const mod12 = (n: number): number => ((n % 12) + 12) % 12;
 
 /** Chord qualities as semitone intervals from the root. */
 export const CHORD_QUALITIES = {
@@ -46,12 +45,12 @@ function dedupe(values: readonly number[]): number[] {
 
 /** Pitch classes of a chord built from a root pitch class and a quality. */
 export function chordPitchClasses(rootPc: number, quality: ChordQuality): number[] {
-  return CHORD_QUALITIES[quality].map((interval) => mod12(rootPc + interval));
+  return CHORD_QUALITIES[quality].map((interval) => pitchClass(rootPc + interval));
 }
 
 /** Build a {@link Chord} from a root pitch class and a quality. */
 export function makeChord(rootPc: number, quality: ChordQuality): Chord {
-  return { root: mod12(rootPc), pcs: dedupe(chordPitchClasses(rootPc, quality)) };
+  return { root: pitchClass(rootPc), pcs: dedupe(chordPitchClasses(rootPc, quality)) };
 }
 
 /**
@@ -67,15 +66,15 @@ export function diatonicChord(scale: Scale, degree: number, size: 3 | 4 = 3): Ch
 }
 
 /** Whether a pitch class is a member of a chord. */
-export function isChordTone(pitchClass: number, chord: Chord): boolean {
-  return chord.pcs.includes(mod12(pitchClass));
+export function isChordTone(pc: number, chord: Chord): boolean {
+  return chord.pcs.includes(pitchClass(pc));
 }
 
 /** Identify a chord's quality by its interval signature, or null if unknown. */
 export function chordQualityOf(chord: Chord): ChordQuality | null {
-  const intervals = chord.pcs.map((p) => mod12(p - chord.root)).sort((a, b) => a - b);
+  const intervals = chord.pcs.map((p) => pitchClass(p - chord.root)).sort((a, b) => a - b);
   for (const name of Object.keys(CHORD_QUALITIES) as ChordQuality[]) {
-    const q = [...CHORD_QUALITIES[name]].map(mod12).sort((a, b) => a - b);
+    const q = [...CHORD_QUALITIES[name]].map(pitchClass).sort((a, b) => a - b);
     if (q.length === intervals.length && q.every((v, i) => v === intervals[i])) {
       return name;
     }

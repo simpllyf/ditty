@@ -13,7 +13,7 @@
 import type { Rng } from "../rng";
 import { type Chord, diatonicChord } from "../theory/chords";
 import { PROGRESSIONS, functionalProgression } from "../theory/progressions";
-import { DEFAULT_ROOT_MIDI } from "../theory/pitch";
+import { DEFAULT_ROOT_MIDI, pitchClass } from "../theory/pitch";
 import { SCALES, type Scale } from "../theory/scales";
 
 /** One bar of harmony: the chosen degree root and its triad (size-3 convenience). */
@@ -113,6 +113,6 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
 
 /** The raga pitch classes that coincide with a bar's chord — handy for melody. */
 export function chordTonesInScale(chord: Chord, melodyScale: Scale): number[] {
-  const ragaPcs = new Set(melodyScale.map((s) => ((s % 12) + 12) % 12));
+  const ragaPcs = new Set(melodyScale.map(pitchClass));
   return chord.pcs.filter((pc) => ragaPcs.has(pc));
 }

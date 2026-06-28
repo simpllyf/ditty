@@ -8,6 +8,7 @@
  * arrangement is regenerated each loop over the same tempo grid, so the music
  * never exactly repeats yet loops seamlessly.
  */
+import { clampSafe } from "./math";
 import { type PreparedLoop, Scheduler, type SchedulerClock } from "./scheduler";
 import { type Session, type SessionOptions, buildLoop, createSession } from "./session";
 import { type AudioContextLike, Synth } from "./synth";
@@ -44,8 +45,7 @@ export interface Engine {
   dispose(): void;
 }
 
-const clamp = (x: number, lo: number, hi: number): number =>
-  Number.isNaN(x) ? lo : Math.max(lo, Math.min(hi, x));
+const clamp = clampSafe;
 
 /** Create a generative music engine. See {@link EngineOptions}. */
 export function createEngine(options: EngineOptions = {}): Engine {
