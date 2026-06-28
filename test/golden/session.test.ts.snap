@@ -27,7 +27,7 @@ exports[`createSession > locks the seed→session mapping (golden — pins the s
     "arp": "pluck",
     "bass": "subBass",
     "lead": "marimba",
-    "pad": "organ",
+    "pad": "strings",
   },
   "noise": [
     -0.953918,

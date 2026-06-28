@@ -141,6 +141,30 @@ export const INSTRUMENTS = {
     noise: { gain: 0.05, highpass: 2000 }, // a wisp of air
     reverbSend: 0.3,
   },
+  clarinet: {
+    name: "clarinet",
+    // Reed: a hollow square (odd harmonics) with breath + gentle vibrato.
+    voices: ["lead"],
+    layers: [{ kind: "square" }],
+    amp: { attack: 0.04, decay: 0.1, sustain: 0.8, release: 0.15 },
+    filter: { type: "lowpass", cutoff: 1800, q: 0.7 },
+    vibrato: { rateHz: 5, depthCents: 7, delaySec: 0.5 },
+    noise: { gain: 0.03, highpass: 2500 }, // breath
+    gain: 0.7, // square runs hot
+    reverbSend: 0.25,
+  },
+  synthBrass: {
+    name: "synthBrass",
+    // Brass: bright detuned saws with a filter "bloom" on the attack + a wisp of air.
+    voices: ["lead", "pad"],
+    layers: [{ kind: "sawtooth" }, { kind: "sawtooth", detuneCents: 6, gain: 0.5 }],
+    amp: { attack: 0.04, decay: 0.2, sustain: 0.8, release: 0.2 },
+    filter: { type: "lowpass", cutoff: 1200, q: 1, envAmount: 2400, envDecay: 0.12 },
+    vibrato: { rateHz: 5, depthCents: 6, delaySec: 0.5 },
+    noise: { gain: 0.02, highpass: 4000 },
+    gain: 0.9,
+    reverbSend: 0.25,
+  },
 
   // ── pads ──
   warmPad: {
@@ -187,6 +211,22 @@ export const INSTRUMENTS = {
     amp: { attack: 0.005, decay: 0.7, sustain: 0.3, release: 0.5 },
     reverbSend: 0.32,
   },
+  strings: {
+    name: "strings",
+    // Ensemble strings: three detuned saws, slow swell, bow noise + vibrato.
+    voices: ["pad", "lead"],
+    layers: [
+      { kind: "sawtooth" },
+      { kind: "sawtooth", detuneCents: 11, gain: 0.7 },
+      { kind: "sawtooth", detuneCents: -7, gain: 0.5 },
+    ],
+    amp: { attack: 0.25, decay: 0.3, sustain: 0.85, release: 0.5 },
+    filter: { type: "lowpass", cutoff: 2400, q: 0.6 },
+    vibrato: { rateHz: 5.5, depthCents: 8, delaySec: 0.5 },
+    noise: { gain: 0.03, highpass: 3000 }, // bow
+    gain: 0.9,
+    reverbSend: 0.5,
+  },
 
   // ── bass ──
   subBass: {
@@ -223,6 +263,17 @@ export const INSTRUMENTS = {
     layers: [{ kind: "triangle" }, { kind: "triangle", ratio: 4, gain: 0.2 }],
     amp: { attack: 0.002, decay: 0.35, sustain: 0, release: 0.3 },
     reverbSend: 0.4,
+  },
+  glockenspiel: {
+    name: "glockenspiel",
+    // Bright metallic ping via inharmonic FM, fast tine decay.
+    voices: ["arp"],
+    layers: [
+      { kind: "sine", fm: { ratio: 3.5, index: 4, decay: 0.18 } },
+      { kind: "sine", gain: 0.5 },
+    ],
+    amp: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.45 },
+    reverbSend: 0.45,
   },
   synthArp: {
     name: "synthArp",

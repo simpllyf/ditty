@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ScoreVoice } from "../src/compose/arranger";
 import { createSession } from "../src/session";
+import { STYLES } from "../src/styles";
 
 const VOICES: ScoreVoice[] = ["lead", "bass", "pad", "arp"];
 const instrumentNames = (s: ReturnType<typeof createSession>) =>
@@ -32,7 +33,7 @@ describe("createSession", () => {
 
   it("draws instruments from the style's pools", () => {
     const s = createSession({ seed: 3, style: "calm" });
-    expect(["sineLead", "marimba", "epiano", "airLead"]).toContain(s.instruments.lead.name); // calm's lead pool
+    expect(STYLES.calm.instruments.lead).toContain(s.instruments.lead.name); // from calm's pool
   });
 
   it("locks the seed→session mapping (golden — pins the style/instrument/arrange/noise fork chain)", () => {
