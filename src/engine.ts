@@ -102,14 +102,14 @@ export function createEngine(options: EngineOptions = {}): Engine {
 
     pause(): void {
       if (disposed) return;
-      graph?.scheduler.stop();
+      graph?.scheduler.pause(); // keep position so resume() continues, not restarts
       void graph?.context.suspend().catch(() => {});
     },
 
     resume(): void {
       if (disposed || !graph) return;
       void graph.context.resume().catch(() => {});
-      graph.scheduler.start();
+      graph.scheduler.resume();
     },
 
     setVolume(value: number): void {

@@ -48,6 +48,13 @@ const DEFAULT_LOOK_AHEAD_SECONDS = 0.1;
 const DEFAULT_INTERVAL_MS = 25;
 /** Safety cap on iterations per tick: far above any real look-ahead/loop combination. */
 const MAX_STEPS_PER_TICK = 100_000;
+/**
+ * Events overdue by more than this are dropped rather than fired at "now". A
+ * throttled/backgrounded timer can wake with the audio clock far ahead; without
+ * this, every missed note would collapse onto the current instant — an audible
+ * burst. Normal timer jitter (< this) still plays, slightly late.
+ */
+const MAX_LATENESS_SECONDS = 0.25;
 
 function defaultClock(): SchedulerClock {
   let handle: ReturnType<typeof setInterval> | null = null;
@@ -99,12 +106,31 @@ export class Scheduler {
     this.tick(); // don't wait a full interval for the first notes
   }
 
-  /** Stop scheduling. Already-scheduled audio still plays out. Idempotent. */
+  /** Stop scheduling and reset position. Already-scheduled audio still plays out. Idempotent. */
   stop(): void {
-    if (!this.running) return;
+    if (!this.running && !this.loop) return; // already fully stopped (vs merely paused)
     this.running = false;
     this.clock.stop();
     this.loop = null;
+  }
+
+  /**
+   * Pause the timer but KEEP the position (anchor/loop/index), so {@link resume}
+   * continues from where it left off rather than restarting. Pair with suspending
+   * the audio context (which freezes the clock, so the anchor stays valid).
+   */
+  pause(): void {
+    if (!this.running) return;
+    this.running = false;
+    this.clock.stop();
+  }
+
+  /** Resume after {@link pause}, continuing from the kept position. No-op if never started. */
+  resume(): void {
+    if (this.running || !this.loop) return;
+    this.running = true;
+    this.clock.start(() => this.tick(), this.intervalMs);
+    this.tick();
   }
 
   private tick(): void {
@@ -116,7 +142,10 @@ export class Scheduler {
         const event = loop.events[this.index] as ScheduledEvent;
         const time = this.anchor + event.beat * loop.secondsPerBeat;
         if (time > horizon) break;
-        event.play(Math.max(time, this.context.currentTime)); // never schedule in the past
+        if (time >= this.context.currentTime - MAX_LATENESS_SECONDS) {
+          event.play(Math.max(time, this.context.currentTime)); // never schedule in the past
+        }
+        // else: badly overdue (timer stalled) → drop it instead of bursting at "now".
         this.index++;
         continue;
       }
