@@ -63,6 +63,55 @@ describe("Synth.playNote", () => {
     expect(ctx.gains.some((g) => g.disconnectCount > 0)).toBe(true);
   });
 
+  it("vibrato adds an LFO that drives each layer's detune (eased in)", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    const v: Instrument = {
+      name: "v",
+      voices: ["lead"],
+      layers: [{ kind: "sine" }],
+      amp: { attack: 0, decay: 0.1, sustain: 0.7, release: 0.1 },
+      vibrato: { rateHz: 5, depthCents: 20, delaySec: 0.2 },
+    };
+    s.playNote(v, { freq: 440, startTime: 0, durationSeconds: 0.5, velocity: 0.7 });
+    const lfo = ctx.oscillators.find((o) => o.frequency.events.some((e) => e.value === 5));
+    expect(lfo).toBeDefined(); // the 5 Hz LFO
+    const layerOsc = ctx.oscillators.find((o) => o.frequency.events.some((e) => e.value === 440));
+    // a depth gain feeds the layer oscillator's detune param, ramping 0 → 20 cents
+    const depth = ctx.gains.find((g) => g.connectedTo.includes(layerOsc!.detune));
+    expect(depth).toBeDefined();
+    expect(depth!.gain.events).toEqual([
+      { type: "set", value: 0, time: 0 },
+      { type: "linramp", value: 20, time: 0.2 },
+    ]);
+  });
+
+  it("tremolo adds an LFO-modulated gain stage", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    const t: Instrument = {
+      name: "t",
+      voices: ["pad"],
+      layers: [{ kind: "sine" }],
+      amp: { attack: 0, decay: 0.1, sustain: 0.8, release: 0.1 },
+      tremolo: { rateHz: 6, depth: 0.3 },
+    };
+    s.playNote(t, { freq: 220, startTime: 0, durationSeconds: 0.5, velocity: 0.7 });
+    const lfo = ctx.oscillators.find((o) => o.frequency.events.some((e) => e.value === 6));
+    expect(lfo).toBeDefined();
+    // a depth gain (0.3) modulates a tremolo gain's gain param
+    const tremGain = ctx.gains.find((g) => g.gain.events.some((e) => e.value === 1));
+    const depth = ctx.gains.find((g) => g.connectedTo.includes(tremGain!.gain));
+    expect(depth!.gain.events.some((e) => e.value === 0.3)).toBe(true);
+  });
+
+  it("a patch with neither vibrato nor tremolo adds no LFO", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    s.playNote(INSTRUMENTS.pluck, { freq: 440, startTime: 0, durationSeconds: 0.3, velocity: 0.7 });
+    expect(ctx.oscillators.length).toBe(INSTRUMENTS.pluck.layers.length); // no extra LFO osc
+  });
+
   it("guards NaN params: no NaN reaches any AudioParam", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);

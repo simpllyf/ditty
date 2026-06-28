@@ -23,9 +23,10 @@ export interface AudioParamLike {
   setTargetAtTime(target: number, startTime: number, timeConstant: number): void;
   cancelScheduledValues(startTime: number): void;
 }
-/** The slice of `AudioNode` the synth uses. */
+/** The slice of `AudioNode` the synth uses. A node can drive another node or an
+ * `AudioParam` (the latter is how an LFO modulates frequency/detune/gain). */
 export interface AudioNodeLike {
-  connect(destination: AudioNodeLike): void;
+  connect(destination: AudioNodeLike | AudioParamLike): void;
   disconnect(): void;
 }
 export interface GainNodeLike extends AudioNodeLike {
@@ -34,6 +35,7 @@ export interface GainNodeLike extends AudioNodeLike {
 export interface OscillatorNodeLike extends AudioNodeLike {
   type: OscillatorType;
   readonly frequency: AudioParamLike;
+  readonly detune: AudioParamLike; // cents; an LFO connects here for vibrato
   start(when: number): void;
   stop(when: number): void;
   onended: (() => void) | null;
@@ -189,7 +191,51 @@ export class Synth {
     const stopAt = releaseAt + r + 0.02;
 
     const nodes: AudioNodeLike[] = [env];
-    let sink: AudioNodeLike = env;
+    const oscs: OscillatorNodeLike[] = [];
+
+    // A sine LFO running for the note's lifetime — the vibrato/tremolo source.
+    const makeLfo = (rateHz: number): OscillatorNodeLike => {
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.setValueAtTime(clamp(rateHz, 0.01, 40), t0);
+      lfo.start(t0);
+      lfo.stop(stopAt);
+      oscs.push(lfo);
+      return lfo;
+    };
+
+    // Tremolo: an LFO-modulated gain (centered at 1) the amp chain feeds through.
+    let ampIn: AudioNodeLike = env;
+    if (patch.tremolo) {
+      const trem = ctx.createGain();
+      trem.gain.setValueAtTime(1, t0);
+      trem.connect(env);
+      const depth = ctx.createGain();
+      depth.gain.setValueAtTime(clamp(patch.tremolo.depth, 0, 1), t0);
+      makeLfo(patch.tremolo.rateHz).connect(depth);
+      depth.connect(trem.gain);
+      nodes.push(trem, depth);
+      ampIn = trem;
+    }
+
+    // Vibrato: an LFO on each layer's detune (cents), optionally eased in over delaySec.
+    let vibratoDepth: GainNodeLike | null = null;
+    if (patch.vibrato) {
+      const depth = ctx.createGain();
+      const cents = clamp(patch.vibrato.depthCents, 0, 1200);
+      const delay = Math.max(0, patch.vibrato.delaySec ?? 0);
+      if (delay > 0) {
+        depth.gain.setValueAtTime(0, t0);
+        depth.gain.linearRampToValueAtTime(cents, t0 + delay);
+      } else {
+        depth.gain.setValueAtTime(cents, t0);
+      }
+      makeLfo(patch.vibrato.rateHz).connect(depth);
+      nodes.push(depth);
+      vibratoDepth = depth;
+    }
+
+    let sink: AudioNodeLike = ampIn;
     if (patch.filter) {
       const filter = ctx.createBiquadFilter();
       filter.type = patch.filter.type;
@@ -202,12 +248,11 @@ export class Synth {
       } else {
         filter.frequency.setValueAtTime(base, t0);
       }
-      filter.connect(env);
+      filter.connect(ampIn);
       nodes.push(filter);
       sink = filter;
     }
 
-    const oscs: OscillatorNodeLike[] = [];
     for (const layer of patch.layers) {
       const osc = ctx.createOscillator();
       osc.type = layer.kind;
@@ -216,6 +261,7 @@ export class Synth {
         clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist),
         t0,
       );
+      if (vibratoDepth) vibratoDepth.connect(osc.detune);
       const layerGain = layer.gain ?? 1;
       if (layerGain !== 1) {
         const g = ctx.createGain();
