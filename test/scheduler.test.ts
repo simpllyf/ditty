@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type PreparedLoop, Scheduler, type SchedulerClock } from "../src/scheduler";
+import { type PreparedLoop, Scheduler, type SchedulerClock } from "../src/audio/scheduler";
 import { FakeAudioContext } from "./helpers/fake-audio-context";
 import { FakeClock } from "./helpers/fake-clock";
 

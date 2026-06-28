@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createEngine } from "../src/engine";
-import type { SchedulerClock } from "../src/scheduler";
+import { createEngine } from "../src/audio/engine";
+import type { SchedulerClock } from "../src/audio/scheduler";
 import { FakeAudioContext } from "./helpers/fake-audio-context";
 
 class TickClock implements SchedulerClock {

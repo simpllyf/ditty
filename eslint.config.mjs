@@ -64,4 +64,25 @@ export default tseslint.config(
       ...vitest.configs.recommended.rules,
     },
   },
+  {
+    // Pure-brain / thin-shell boundary: the pure layer must never import the
+    // Web-Audio shell (src/audio/*). Only the audio shell itself and the engine
+    // entry (src/index.ts) may. This keeps @simpllyf/ditty/core audio-free.
+    files: ["src/**/*.ts"],
+    ignores: ["src/audio/**", "src/index.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/audio/*", "**/audio/**"],
+              message:
+                "Pure layer must not import the audio shell (src/audio/*). Keep Web Audio in src/audio/ and the entry points.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -15,16 +15,17 @@ standalone.
 out, no side effects, no Web Audio:
 
 ```
-src/rng constraints noise wav instruments styles session     ← PURE (Node, no audio)
-src/theory/{pitch scales chords progressions rhythm}         ← PURE — music theory
-src/compose/{harmony melody arranger}                        ← PURE — composition → Score
-src/synth.ts                                                  ← thin Web-Audio shell (only audio file)
-src/scheduler.ts  engine.ts  render.ts                       ← glue / facades (inject AudioContext)
-src/index.ts (engine)   src/core.ts (pure layer)            ← entry points
+src/rng constraints noise wav voices instruments styles session  ← PURE (Node, no audio)
+src/theory/{pitch scales chords progressions rhythm}             ← PURE — music theory
+src/compose/{harmony melody arranger}                            ← PURE — composition → Score
+src/audio/{synth scheduler loop engine render}                   ← thin Web-Audio shell
+src/index.ts (engine)   src/core.ts (pure layer)                ← entry points
 ```
 
 - The pure layer must run in Node with **no `AudioContext`** and is exhaustively
-  tested there. `synth.ts` is the _only_ file that creates Web Audio nodes.
+  tested there. `src/audio/synth.ts` is the _only_ file that creates Web Audio
+  nodes; an eslint `no-restricted-imports` rule forbids the pure layer from
+  importing `src/audio/*`, so the boundary can't erode.
 - `synth`/`scheduler` take an **injected** `AudioContext` and clock — never
   reference the global `AudioContext`. That is what makes them testable against a
   `FakeAudioContext`.

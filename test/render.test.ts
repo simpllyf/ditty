@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderOffline } from "../src/render";
+import { renderOffline } from "../src/audio/render";
 import { FakeOfflineAudioContext } from "./helpers/fake-audio-context";
 
 interface Cap {

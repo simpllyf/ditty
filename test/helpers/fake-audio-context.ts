@@ -15,7 +15,7 @@ import type {
   GainNodeLike,
   OscillatorNodeLike,
   WaveShaperLike,
-} from "../../src/synth";
+} from "../../src/audio/synth";
 
 export type ParamEventType = "set" | "linramp" | "target" | "cancel";
 

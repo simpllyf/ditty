@@ -1,9 +1,8 @@
 /**
  * Session — the seed→music brain shared by the realtime engine and the offline
  * renderer. Chooses a style and instruments ONCE, then yields successive Scores
- * (re-arranged each loop when `evolve`, else a cached one). Pure: no Web Audio.
- * `buildLoop` is the one impure-adjacent helper (it binds a synth) and is not on
- * `/core`.
+ * (re-arranged each loop when `evolve`, else a cached one). Pure: no Web Audio
+ * (the audio layer's `buildLoop` binds these Scores to a synth).
  */
 import { type ArrangeOptions, type Score, arrange } from "./compose/arranger";
 import {
@@ -12,13 +11,10 @@ import {
   INSTRUMENTS,
   type Instrument,
   type InstrumentName,
-  REVERB_SEND_BY_VOICE,
 } from "./instruments";
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
-import type { PreparedLoop, ScheduledEvent } from "./scheduler";
 import { type StyleName, pickStyle } from "./styles";
-import type { Synth } from "./synth";
 import type { DrumName, ScoreVoice } from "./voices";
 
 /** The musical knobs shared by the engine and the renderer; each falls back to the style. */
@@ -133,40 +129,4 @@ export function createSession(options: SessionOptions): Session {
       return score;
     },
   };
-}
-
-/** Turn a Score + chosen instruments into a sorted, beat-stamped loop for the scheduler/renderer. */
-export function buildLoop(
-  score: Score,
-  synth: Synth,
-  instruments: Record<ScoreVoice, Instrument>,
-  drumKit: Record<DrumName, DrumVoice>,
-): PreparedLoop {
-  const secondsPerBeat = 60 / score.bpm;
-  const events: ScheduledEvent[] = [];
-  for (const part of score.parts) {
-    const patch = instruments[part.voice];
-    const reverbSend = patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice];
-    for (const note of part.notes) {
-      events.push({
-        beat: note.startBeat,
-        play: (time: number) =>
-          synth.playNote(patch, {
-            freq: note.freq,
-            startTime: time,
-            durationSeconds: note.durationBeats * secondsPerBeat,
-            velocity: note.velocity,
-            reverbSend,
-          }),
-      });
-    }
-  }
-  for (const hit of score.drums) {
-    events.push({
-      beat: hit.startBeat,
-      play: (time: number) => synth.playDrum(drumKit[hit.drum], time, hit.velocity),
-    });
-  }
-  events.sort((a, b) => a.beat - b.beat);
-  return { events, loopBeats: score.lengthBeats, secondsPerBeat };
 }

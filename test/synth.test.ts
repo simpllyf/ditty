@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DRUM_KITS, INSTRUMENTS, type Instrument } from "../src/instruments";
 import { makeNoiseTable } from "../src/noise";
 import { makeRng } from "../src/rng";
-import { Synth } from "../src/synth";
+import { Synth } from "../src/audio/synth";
 import { FakeAudioContext } from "./helpers/fake-audio-context";
 
 const noise = makeNoiseTable(makeRng(1), 256);

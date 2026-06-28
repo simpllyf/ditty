@@ -4,10 +4,11 @@
  * the realtime engine. Render by `seconds` (free length) or `loops` (exact loop
  * boundaries → gapless loop assets). Pair with {@link encodeWav} to write a file.
  */
-import { type Session, type SessionOptions, buildLoop, createSession } from "./session";
+import { type Session, type SessionOptions, createSession } from "../session";
+import { buildLoop } from "./loop";
 import { type AudioBufferLike, type AudioContextLike, Synth } from "./synth";
 
-export { encodeWav } from "./wav";
+export { encodeWav } from "../wav";
 
 /** An `OfflineAudioContext`-shaped context the renderer drives. */
 export interface OfflineContextLike extends AudioContextLike {

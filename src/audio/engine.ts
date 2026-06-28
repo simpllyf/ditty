@@ -8,10 +8,11 @@
  * arrangement is regenerated each loop over the same tempo grid, so the music
  * never exactly repeats yet loops seamlessly.
  */
-import type { Score } from "./compose/arranger";
-import { clampSafe } from "./math";
+import type { Score } from "../compose/arranger";
+import { clampSafe } from "../math";
+import { type Session, type SessionOptions, createSession } from "../session";
+import { buildLoop } from "./loop";
 import { type PreparedLoop, Scheduler, type SchedulerClock } from "./scheduler";
-import { type Session, type SessionOptions, buildLoop, createSession } from "./session";
 import { type AudioContextLike, Synth } from "./synth";
 
 /** The slice of `AudioContext` the engine drives; a real `AudioContext` satisfies it. */
