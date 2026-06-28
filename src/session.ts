@@ -5,7 +5,7 @@
  * looping the whole form (melodies re-draw each pass when `evolve`). Pure: no Web
  * Audio (the audio layer's `buildLoop` binds these Scores to a synth).
  */
-import { type ArrangeOptions, type Score, arrange } from "./compose/arranger";
+import { type ArpRole, type ArrangeOptions, type Score, arrange } from "./compose/arranger";
 import { type SectionProfile, buildForm } from "./compose/form";
 import {
   DRUM_KITS,
@@ -52,6 +52,16 @@ export interface SessionOptions {
   evolve?: boolean;
 }
 
+/** A read-only view of one section of the piece's form (for display/inspection). */
+export interface SectionView {
+  /** Section part: "A" (home), "B" (bridge), "C" (climax). */
+  readonly label: string;
+  /** Semitone shift from the home key (0 = home; e.g. +5 = bridge up a fourth). */
+  readonly keyShift: number;
+  /** How the arp is orchestrated this section: arpeggio / harmony / tutti double. */
+  readonly arpRole: ArpRole;
+}
+
 export interface Session {
   readonly noiseTable: Float32Array;
   readonly bpm: number;
@@ -59,6 +69,8 @@ export interface Session {
   readonly bars: number;
   readonly instruments: Record<ScoreVoice, Instrument>;
   readonly drumKit: Record<DrumName, DrumVoice>;
+  /** The piece's form: the sections in play order (nextScore() walks and loops these). */
+  readonly sections: readonly SectionView[];
   /** Next section of the form (advances through it and loops); cached when `evolve` is off. */
   nextScore(): Score;
 }
@@ -163,6 +175,12 @@ export function createSession(options: SessionOptions): Session {
       ...(options.voices !== undefined ? { voices: options.voices } : {}),
     });
 
+  const sections: readonly SectionView[] = form.sections.map((s) => ({
+    label: s.label,
+    keyShift: s.rootMidi - rootMidi, // relative to the home key
+    arpRole: s.arpRole,
+  }));
+
   let cursor = 0;
   const cache: (Score | null)[] = form.sections.map(() => null);
   return {
@@ -172,6 +190,7 @@ export function createSession(options: SessionOptions): Session {
     bars,
     instruments,
     drumKit,
+    sections,
     nextScore(): Score {
       const i = cursor % form.sections.length;
       cursor += 1;

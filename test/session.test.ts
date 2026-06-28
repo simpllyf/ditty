@@ -39,6 +39,19 @@ describe("createSession", () => {
     expect(() => createSession({ bars: 7.5 })).toThrow(RangeError);
   });
 
+  it("exposes the form as sections (labels, key shifts, arp roles)", () => {
+    const s = createSession({ seed: 13, style: "peppy" });
+    expect(s.sections.length).toBeGreaterThanOrEqual(4); // a real multi-section form
+    expect(s.sections[0]).toEqual({ label: "A", keyShift: 0, arpRole: "arp" }); // opens home
+    for (const sec of s.sections) {
+      const role = sec.label === "A" ? "arp" : sec.label === "B" ? "harmony" : "double";
+      expect(sec.arpRole).toBe(role); // arp orchestration tracks the section label
+    }
+    for (const home of s.sections.filter((x) => x.label === "A")) {
+      expect(home.keyShift).toBe(0); // home sections never modulate
+    }
+  });
+
   it("draws instruments from the style's pools", () => {
     const s = createSession({ seed: 3, style: "calm" });
     expect(STYLES.calm.instruments.lead).toContain(s.instruments.lead.name); // from calm's pool

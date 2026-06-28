@@ -682,6 +682,20 @@
               />
             </div>
           </div>
+          <div
+            id="formStrip"
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+              padding: 0 22px 20px;
+              font-family: var(--font-mono);
+              font-size: 12px;
+              color: var(--ink3);
+              min-height: 18px;
+            "
+          ></div>
         </div>
       </section>
 
@@ -1070,6 +1084,9 @@
         swing: 14,
         volume: 32,
         rendering: false,
+        form: [], // the piece's sections (for the live form strip)
+        bars: 8,
+        beatsPerBar: 4,
       };
       let engine = null,
         audio = null,
@@ -1078,7 +1095,9 @@
         rebuildT = 0,
         shareT = 0,
         instT = 0,
-        gen = 0; // rebuild generation — guards against overlapping option changes
+        gen = 0, // rebuild generation — guards against overlapping option changes
+        formAnchor = 0, // audio time the current engine's form started (section 0)
+        lastFormIdx = -1; // last highlighted section (re-render the strip only on change)
       const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
       // ---- audio context with an analyser tap (engine.destination → analyser → speakers) ----
@@ -1140,6 +1159,8 @@
             await next.start();
             if (myGen !== gen) return;
             next.setVolume(state.volume / 100); // gentle fade-in
+            formAnchor = audio.raw.currentTime; // the new form starts at section 0 now
+            lastFormIdx = -1;
           } catch (e) {}
         }
       }
@@ -1165,6 +1186,9 @@
             pad: sess.instruments.pad.name,
             arp: sess.instruments.arp.name,
           },
+          sections: sess.sections,
+          bars: sess.bars,
+          beatsPerBar: sess.beatsPerBar,
         };
       }
       function applyDerived() {
@@ -1172,8 +1196,52 @@
         state.bpm = d.bpm;
         state.density = d.density;
         state.swing = d.swing;
+        state.form = d.sections;
+        state.bars = d.bars;
+        state.beatsPerBar = d.beatsPerBar;
+        lastFormIdx = -1;
         renderKnobs();
         renderRecipe(d);
+        renderFormStrip(state.playing ? lastFormIdx : -1);
+      }
+      // The live form strip: section chips (A A B A) with the current one lit, plus
+      // a one-line "now" descriptor (part · key shift · arp role).
+      function renderFormStrip(curIdx) {
+        const f = state.form;
+        const el = $("formStrip");
+        if (!f || !f.length) {
+          el.innerHTML = "";
+          return;
+        }
+        const tint = (l) => (l === "A" ? "var(--ink2)" : l === "B" ? "#b8860b" : "#1a8f5a");
+        const chips = f
+          .map((s, i) => {
+            const on = i === curIdx;
+            const style = on
+              ? "background:var(--accent);color:#fff"
+              : `background:var(--bg2);border:1px solid var(--line);color:${tint(s.label)}`;
+            return `<span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;font-weight:700;${style}">${s.label}</span>`;
+          })
+          .join("");
+        let now = "";
+        const s = curIdx >= 0 ? f[curIdx] : null;
+        if (s) {
+          const part = s.label === "A" ? "home" : s.label === "B" ? "bridge" : "climax";
+          const key =
+            s.keyShift === 0
+              ? "home key"
+              : s.keyShift > 0
+                ? `key +${s.keyShift}`
+                : `key ${s.keyShift}`;
+          const arp =
+            s.arpRole === "harmony"
+              ? "arp: harmony"
+              : s.arpRole === "double"
+                ? "arp: double"
+                : "arp";
+          now = `<span style="margin-left:6px;color:var(--ink2)">${part} · ${key} · ${arp}</span>`;
+        }
+        el.innerHTML = `<span>form</span>${chips}${now}`;
       }
       function renderRecipe(d) {
         const rows = [
@@ -1258,6 +1326,8 @@
           else {
             try {
               await engine.start();
+              formAnchor = audio.raw.currentTime; // (re)start the form clock from this section
+              lastFormIdx = -1;
             } catch (e) {}
           }
         } else {
@@ -1383,6 +1453,16 @@
         const cv = $("viz");
         const draw = () => {
           raf = requestAnimationFrame(draw);
+          // Live form-strip highlight: which section is playing now (by elapsed audio time).
+          if (state.playing && audio && state.form.length) {
+            const secPerLoop = (state.bars * state.beatsPerBar * 60) / state.bpm;
+            const elapsed = audio.raw.currentTime - formAnchor;
+            const idx = elapsed >= 0 ? Math.floor(elapsed / secPerLoop) % state.form.length : 0;
+            if (idx !== lastFormIdx) {
+              lastFormIdx = idx;
+              renderFormStrip(idx);
+            }
+          }
           const ctx = cv.getContext("2d");
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
           const w = cv.clientWidth,
