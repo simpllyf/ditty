@@ -1,0 +1,1533 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ditty — background music that writes itself</title>
+    <meta
+      name="description"
+      content="A tiny, zero-dependency engine that generates endless, seamless, peppy background music in the browser. Seed it once; it never repeats."
+    />
+    <meta name="theme-color" content="#15A06A" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ditty — background music that writes itself" />
+    <meta
+      property="og:description"
+      content="Endless, seamless, peppy generative background music — in a few lines of code."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23161510'/%3E%3Crect x='28' y='44' width='9' height='22' rx='4' fill='%2315A06A'/%3E%3Crect x='45.5' y='28' width='9' height='44' rx='4' fill='%23F0B429'/%3E%3Crect x='63' y='38' width='9' height='30' rx='4' fill='%23FF6A43'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #faf7f1;
+        --bg2: #f1ece2;
+        --surface: #ffffff;
+        --surface2: #fbf8f2;
+        --ink: #161510;
+        --ink2: #6b675c;
+        --ink3: #94907f;
+        --line: #e7e1d4;
+        --line2: #d8d1c0;
+        --accent: #15a06a;
+        --accent-ink: #0b6e48;
+        --accent-soft: #e3f4eb;
+        --coral: #ff6a43;
+        --coral-ink: #d9491f;
+        --violet: #6b5be6;
+        --gold: #f0b429;
+        --panel: #14181c;
+        --panel-fg: #ecefe8;
+        --shadow: 0 1px 2px rgba(30, 28, 20, 0.04), 0 12px 32px -12px rgba(30, 28, 20, 0.16);
+        --shadow-lg: 0 2px 4px rgba(30, 28, 20, 0.05), 0 30px 60px -24px rgba(30, 28, 20, 0.28);
+        --font-display: "Baloo 2", sans-serif;
+        --font-body: "Onest", system-ui, sans-serif;
+        --font-mono: "IBM Plex Mono", monospace;
+      }
+      :root[data-theme="dark"] {
+        --bg: #0c100e;
+        --bg2: #101614;
+        --surface: #141b18;
+        --surface2: #101714;
+        --ink: #ecf1ed;
+        --ink2: #9daba4;
+        --ink3: #6c7c74;
+        --line: #23302b;
+        --line2: #2e3d37;
+        --accent: #2fd08c;
+        --accent-ink: #74e7b2;
+        --accent-soft: #13251d;
+        --coral: #ff7e5a;
+        --coral-ink: #ff9374;
+        --violet: #9486f3;
+        --gold: #f4c842;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+        --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 40px 80px -30px rgba(0, 0, 0, 0.75);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-body);
+        -webkit-font-smoothing: antialiased;
+        transition:
+          background 0.4s ease,
+          color 0.4s ease;
+      }
+      ::selection {
+        background: var(--accent);
+        color: #fff;
+      }
+      a {
+        color: inherit;
+      }
+      button {
+        font-family: inherit;
+      }
+      @keyframes eq {
+        0%,
+        100% {
+          transform: scaleY(0.35);
+        }
+        50% {
+          transform: scaleY(1);
+        }
+      }
+      @keyframes pulsering {
+        0% {
+          transform: scale(1);
+          opacity: 0.5;
+        }
+        100% {
+          transform: scale(1.9);
+          opacity: 0;
+        }
+      }
+      .frame {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 clamp(16px, 4vw, 28px);
+        container-type: inline-size;
+      }
+    </style>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("ditty-theme");
+          if (!t)
+            t =
+              window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="frame">
+      <!-- NAV -->
+      <nav
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          min-height: 78px;
+          padding: 12px 0;
+        "
+      >
+        <a
+          href="#top"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            text-decoration: none;
+            color: var(--ink);
+          "
+        >
+          <span
+            style="
+              display: flex;
+              align-items: flex-end;
+              gap: 2.5px;
+              width: 38px;
+              height: 38px;
+              padding: 9px 8px;
+              background: var(--ink);
+              border-radius: 11px;
+              justify-content: center;
+            "
+          >
+            <i
+              style="
+                display: block;
+                width: 3.5px;
+                height: 9px;
+                background: var(--accent);
+                border-radius: 2px;
+                transform-origin: bottom;
+                animation: eq 1.1s ease-in-out infinite;
+              "
+            ></i>
+            <i
+              style="
+                display: block;
+                width: 3.5px;
+                height: 16px;
+                background: var(--gold);
+                border-radius: 2px;
+                transform-origin: bottom;
+                animation: eq 1.1s ease-in-out 0.18s infinite;
+              "
+            ></i>
+            <i
+              style="
+                display: block;
+                width: 3.5px;
+                height: 12px;
+                background: var(--coral);
+                border-radius: 2px;
+                transform-origin: bottom;
+                animation: eq 1.1s ease-in-out 0.36s infinite;
+              "
+            ></i>
+            <i
+              style="
+                display: block;
+                width: 3.5px;
+                height: 7px;
+                background: var(--accent);
+                border-radius: 2px;
+                transform-origin: bottom;
+                animation: eq 1.1s ease-in-out 0.52s infinite;
+              "
+            ></i>
+          </span>
+          <span
+            style="
+              font-family: var(--font-display);
+              font-weight: 700;
+              font-size: 25px;
+              letter-spacing: -0.02em;
+            "
+            >ditty</span
+          >
+        </a>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <a
+            href="#playground"
+            style="
+              text-decoration: none;
+              color: var(--ink2);
+              font-weight: 600;
+              font-size: 15px;
+              padding: 8px 14px;
+              border-radius: 9px;
+            "
+            >Playground</a
+          >
+          <a
+            href="#docs"
+            style="
+              text-decoration: none;
+              color: var(--ink2);
+              font-weight: 600;
+              font-size: 15px;
+              padding: 8px 14px;
+              border-radius: 9px;
+            "
+            >Quickstart</a
+          >
+          <a
+            href="https://github.com/simpllyf/ditty"
+            target="_blank"
+            rel="noopener"
+            style="
+              text-decoration: none;
+              color: var(--ink2);
+              font-weight: 600;
+              font-size: 15px;
+              padding: 8px 14px;
+              border-radius: 9px;
+            "
+            >GitHub</a
+          >
+          <button
+            id="themeBtn"
+            aria-label="Toggle theme"
+            style="
+              display: grid;
+              place-items: center;
+              width: 40px;
+              height: 40px;
+              border: 1px solid var(--line);
+              background: var(--surface);
+              border-radius: 11px;
+              cursor: pointer;
+              color: var(--ink);
+            "
+          >
+            <span id="themeIcon" style="font-size: 17px; line-height: 1">☾</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- HERO -->
+      <header id="top" style="padding: 64px 0 36px; text-align: center; position: relative">
+        <div
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px 6px 10px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            border-radius: 999px;
+            font-size: clamp(12px, 2.6cqi, 13.5px);
+            font-weight: 600;
+            color: var(--ink2);
+            margin-bottom: 26px;
+            max-width: 100%;
+          "
+        >
+          <span
+            style="
+              flex: none;
+              width: 7px;
+              height: 7px;
+              border-radius: 50%;
+              background: var(--accent);
+            "
+          ></span>
+          <span style="min-width: 0; text-align: center"
+            >Generative background-music engine ·
+            <span style="font-family: var(--font-mono); color: var(--accent-ink)"
+              >@simpllyf/ditty</span
+            ></span
+          >
+        </div>
+        <h1
+          style="
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(34px, 8.4cqi, 76px);
+            line-height: 1.03;
+            letter-spacing: -0.02em;
+            margin: 0 auto;
+            max-width: min(15ch, 94%);
+            text-wrap: balance;
+          "
+        >
+          Background music that <span style="color: var(--accent-ink)">writes itself.</span>
+        </h1>
+        <p
+          style="
+            font-size: clamp(16px, 2.4cqi, 20px);
+            line-height: 1.55;
+            color: var(--ink2);
+            max-width: min(52ch, 94%);
+            margin: 24px auto 0;
+            text-wrap: balance;
+          "
+        >
+          Endless, seamless, peppy background music — generated live in the browser. Seed it once;
+          it never repeats, never wears thin.
+        </p>
+        <div
+          style="
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 34px;
+          "
+        >
+          <a
+            href="#playground"
+            style="
+              display: inline-flex;
+              align-items: center;
+              gap: 9px;
+              text-decoration: none;
+              background: var(--accent);
+              color: #fff;
+              font-weight: 700;
+              font-size: 16px;
+              padding: 14px 24px;
+              border-radius: 12px;
+              box-shadow: var(--shadow);
+            "
+            >Try the playground <span style="font-size: 13px">▼</span></a
+          >
+          <a
+            href="https://github.com/simpllyf/ditty"
+            target="_blank"
+            rel="noopener"
+            style="
+              display: inline-flex;
+              align-items: center;
+              gap: 9px;
+              text-decoration: none;
+              background: var(--surface);
+              color: var(--ink);
+              font-weight: 700;
+              font-size: 16px;
+              padding: 14px 22px;
+              border-radius: 12px;
+              border: 1px solid var(--line);
+            "
+          >
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+            GitHub
+          </a>
+        </div>
+        <div
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 22px;
+            padding: 11px 12px 11px 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            font-family: var(--font-mono);
+            font-size: 14.5px;
+            color: #edefe9;
+          "
+        >
+          <span style="color: var(--accent)">$</span>
+          <span>npm i @simpllyf/ditty</span>
+          <button
+            id="copyInstall"
+            style="
+              display: grid;
+              place-items: center;
+              width: 32px;
+              height: 32px;
+              border: none;
+              background: rgba(255, 255, 255, 0.1);
+              border-radius: 8px;
+              cursor: pointer;
+              color: #edefe9;
+              font-size: 13px;
+            "
+          >
+            ⧉
+          </button>
+        </div>
+      </header>
+
+      <!-- PLAYGROUND -->
+      <section id="playground" style="scroll-margin-top: 20px; padding: 34px 0 20px">
+        <div
+          style="
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 16px;
+              padding: 18px 22px;
+              border-bottom: 1px solid var(--line);
+              flex-wrap: wrap;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 13px">
+              <button
+                id="playBtn"
+                aria-label="Play or pause"
+                style="
+                  position: relative;
+                  display: grid;
+                  place-items: center;
+                  width: 54px;
+                  height: 54px;
+                  border-radius: 50%;
+                  border: none;
+                  cursor: pointer;
+                  background: var(--accent);
+                  color: #fff;
+                  box-shadow: var(--shadow);
+                "
+              >
+                <span id="playIcon" style="font-size: 21px; line-height: 1; margin-left: 3px"
+                  >▶</span
+                >
+                <span
+                  id="playRing"
+                  style="
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 50%;
+                    border: 2px solid var(--accent);
+                    pointer-events: none;
+                    opacity: 0;
+                  "
+                ></span>
+              </button>
+              <div>
+                <div
+                  style="
+                    font-family: var(--font-display);
+                    font-weight: 700;
+                    font-size: 19px;
+                    letter-spacing: -0.02em;
+                    line-height: 1.1;
+                  "
+                >
+                  Live playground
+                </div>
+                <div style="font-size: 13.5px; color: var(--ink2)">
+                  Real engine · generated in your browser
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+              <button
+                id="shuffleBtn"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  border: 1px solid var(--line);
+                  background: var(--surface2);
+                  color: var(--ink);
+                  font-weight: 600;
+                  font-size: 14px;
+                  padding: 9px 14px;
+                  border-radius: 10px;
+                  cursor: pointer;
+                  white-space: nowrap;
+                "
+              >
+                <span style="font-size: 14px">⤮</span> New track
+              </button>
+              <button
+                id="wavBtn"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  border: 1px solid var(--line);
+                  background: var(--surface2);
+                  color: var(--ink);
+                  font-weight: 600;
+                  font-size: 14px;
+                  padding: 9px 14px;
+                  border-radius: 10px;
+                  cursor: pointer;
+                  white-space: nowrap;
+                "
+              >
+                <span id="wavIcon" style="font-size: 13px">↓</span> <span id="wavLabel">WAV</span>
+              </button>
+              <button
+                id="shareBtn"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  border: 1px solid var(--line);
+                  background: var(--surface2);
+                  color: var(--ink);
+                  font-weight: 600;
+                  font-size: 14px;
+                  padding: 9px 14px;
+                  border-radius: 10px;
+                  cursor: pointer;
+                  white-space: nowrap;
+                "
+              >
+                <span id="shareIcon" style="font-size: 13px">↗</span>
+                <span id="shareLabel">Share</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="position: relative; background: var(--bg2)">
+            <canvas id="viz" style="display: block; width: 100%; height: 200px"></canvas>
+            <div
+              style="
+                position: absolute;
+                left: 22px;
+                bottom: 14px;
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                font-family: var(--font-mono);
+                font-size: 12.5px;
+                color: var(--ink3);
+                white-space: nowrap;
+              "
+            >
+              <span
+                id="liveDot"
+                style="
+                  display: inline-block;
+                  width: 7px;
+                  height: 7px;
+                  border-radius: 50%;
+                  background: var(--ink3);
+                  transition: background 0.3s;
+                "
+              ></span>
+              <span id="statusText">paused — press play</span>
+            </div>
+          </div>
+
+          <div style="padding: 20px 22px 6px">
+            <div
+              style="
+                font-size: 12.5px;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--ink3);
+                margin-bottom: 11px;
+              "
+            >
+              Vibe
+            </div>
+            <div
+              id="styleRow"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
+                gap: 8px;
+              "
+            ></div>
+          </div>
+
+          <div
+            id="knobRow"
+            style="
+              padding: 18px 22px 8px;
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+              gap: 22px;
+            "
+          ></div>
+
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 16px;
+              flex-wrap: wrap;
+              padding: 8px 22px 22px;
+            "
+          >
+            <div
+              id="recipe"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                flex-wrap: wrap;
+                font-family: var(--font-mono);
+                font-size: 12.5px;
+                color: var(--ink2);
+              "
+            ></div>
+            <div style="display: flex; align-items: center; gap: 9px">
+              <label for="seedInput" style="font-size: 13.5px; font-weight: 600; color: var(--ink2)"
+                >seed</label
+              >
+              <input
+                id="seedInput"
+                type="text"
+                spellcheck="false"
+                style="
+                  width: 130px;
+                  font-family: var(--font-mono);
+                  font-size: 13.5px;
+                  padding: 8px 11px;
+                  border: 1px solid var(--line);
+                  background: var(--bg2);
+                  color: var(--ink);
+                  border-radius: 9px;
+                  outline: none;
+                  text-align: center;
+                "
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FEATURES -->
+      <section style="padding: 64px 0 16px">
+        <h2
+          style="
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(25px, 4.6cqi, 38px);
+            letter-spacing: -0.02em;
+            text-align: center;
+            margin: 0;
+          "
+        >
+          Small library, serious engine.
+        </h2>
+        <p
+          style="
+            text-align: center;
+            color: var(--ink2);
+            font-size: 17px;
+            margin: 14px auto 0;
+            max-width: 52ch;
+          "
+        >
+          Pure TypeScript, no samples, no dependencies. The whole thing is built to disappear into
+          your product.
+        </p>
+        <div
+          id="features"
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+            gap: 16px;
+            margin-top: 40px;
+          "
+        ></div>
+      </section>
+
+      <!-- WHY -->
+      <section style="padding: 56px 0 16px">
+        <div
+          style="
+            background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: clamp(28px, 4vw, 48px);
+          "
+        >
+          <div
+            style="
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+              gap: 40px;
+              align-items: center;
+            "
+          >
+            <div>
+              <div
+                style="
+                  font-size: 12.5px;
+                  font-weight: 700;
+                  letter-spacing: 0.07em;
+                  text-transform: uppercase;
+                  color: var(--accent-ink);
+                "
+              >
+                Why ditty
+              </div>
+              <h2
+                style="
+                  font-family: var(--font-display);
+                  font-weight: 700;
+                  font-size: clamp(23px, 4cqi, 36px);
+                  letter-spacing: -0.02em;
+                  margin: 12px 0 0;
+                  text-wrap: balance;
+                "
+              >
+                Ambient sound, without the licensing or the loop fatigue.
+              </h2>
+              <p style="font-size: 16.5px; line-height: 1.6; color: var(--ink2); margin: 18px 0 0">
+                Looped audio files get old in minutes and cost money to license. ditty composes
+                fresh music continuously from a few kilobytes of code — perfect for anything a user
+                keeps open for a while.
+              </p>
+            </div>
+            <div
+              id="useCases"
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+                gap: 14px;
+              "
+            ></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUICKSTART -->
+      <section id="docs" style="scroll-margin-top: 20px; padding: 56px 0 16px">
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+            gap: 40px;
+            align-items: start;
+          "
+        >
+          <div>
+            <div
+              style="
+                font-size: 12.5px;
+                font-weight: 700;
+                letter-spacing: 0.07em;
+                text-transform: uppercase;
+                color: var(--accent-ink);
+              "
+            >
+              Quickstart
+            </div>
+            <h2
+              style="
+                font-family: var(--font-display);
+                font-weight: 700;
+                font-size: clamp(23px, 4cqi, 36px);
+                letter-spacing: -0.02em;
+                margin: 12px 0 0;
+              "
+            >
+              Two lines to a soundtrack.
+            </h2>
+            <p style="font-size: 16px; line-height: 1.6; color: var(--ink2); margin: 16px 0 0">
+              Construct an engine and start it from a user gesture. That's the whole integration.
+              Everything else — scale, tempo, instruments — is optional.
+            </p>
+          </div>
+          <div
+            style="
+              background: var(--panel);
+              border: 1px solid var(--line);
+              border-radius: 18px;
+              overflow: hidden;
+              box-shadow: var(--shadow-lg);
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding: 13px 17px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+              "
+            >
+              <span
+                style="width: 11px; height: 11px; border-radius: 50%; background: #ff5f57"
+              ></span>
+              <span
+                style="width: 11px; height: 11px; border-radius: 50%; background: #febc2e"
+              ></span>
+              <span
+                style="width: 11px; height: 11px; border-radius: 50%; background: #28c840"
+              ></span>
+              <span
+                style="
+                  margin-left: 8px;
+                  font-family: var(--font-mono);
+                  font-size: 12.5px;
+                  color: rgba(237, 239, 233, 0.5);
+                "
+                >app.ts</span
+              >
+            </div>
+            <pre
+              id="code"
+              style="
+                margin: 0;
+                padding: 22px 20px;
+                overflow-x: auto;
+                font-family: var(--font-mono);
+                font-size: 13.5px;
+                line-height: 1.75;
+                color: #edefe9;
+              "
+            ></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section style="padding: 60px 0 16px; text-align: center">
+        <h2
+          style="
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(26px, 6.4cqi, 46px);
+            letter-spacing: -0.02em;
+            margin: 0 auto;
+            max-width: min(680px, 94%);
+            text-wrap: balance;
+            line-height: 1.08;
+          "
+        >
+          Give your app a soundtrack in an afternoon.
+        </h2>
+        <div
+          style="
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 28px;
+          "
+        >
+          <a
+            href="#playground"
+            style="
+              text-decoration: none;
+              background: var(--accent);
+              color: #fff;
+              font-weight: 700;
+              font-size: 16px;
+              padding: 14px 26px;
+              border-radius: 12px;
+              box-shadow: var(--shadow);
+              white-space: nowrap;
+            "
+            >Play with it</a
+          >
+          <a
+            href="https://github.com/simpllyf/ditty"
+            target="_blank"
+            rel="noopener"
+            style="
+              text-decoration: none;
+              background: var(--surface);
+              color: var(--ink);
+              font-weight: 700;
+              font-size: 16px;
+              padding: 14px 24px;
+              border-radius: 12px;
+              border: 1px solid var(--line);
+              white-space: nowrap;
+            "
+            >Read the docs</a
+          >
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer
+        style="
+          margin-top: 56px;
+          border-top: 1px solid var(--line);
+          padding: 34px 0 56px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 11px">
+          <span
+            style="
+              display: flex;
+              align-items: flex-end;
+              gap: 2.5px;
+              width: 34px;
+              height: 34px;
+              padding: 8px 7px;
+              background: var(--ink);
+              border-radius: 10px;
+              justify-content: center;
+            "
+          >
+            <i
+              style="
+                display: block;
+                width: 3px;
+                height: 8px;
+                background: var(--accent);
+                border-radius: 2px;
+              "
+            ></i>
+            <i
+              style="
+                display: block;
+                width: 3px;
+                height: 14px;
+                background: var(--gold);
+                border-radius: 2px;
+              "
+            ></i>
+            <i
+              style="
+                display: block;
+                width: 3px;
+                height: 10px;
+                background: var(--coral);
+                border-radius: 2px;
+              "
+            ></i>
+          </span>
+          <div>
+            <div
+              style="
+                font-family: var(--font-display);
+                font-weight: 700;
+                font-size: 18px;
+                letter-spacing: -0.02em;
+              "
+            >
+              ditty
+            </div>
+            <div style="font-size: 12.5px; color: var(--ink3)">© 2026 simpllyf · MIT licensed</div>
+          </div>
+        </div>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+            font-size: 14.5px;
+            font-weight: 600;
+          "
+        >
+          <a
+            href="https://github.com/simpllyf/ditty"
+            target="_blank"
+            rel="noopener"
+            style="text-decoration: none; color: var(--ink2)"
+            >GitHub</a
+          >
+          <a
+            href="https://www.npmjs.com/package/@simpllyf/ditty"
+            target="_blank"
+            rel="noopener"
+            style="text-decoration: none; color: var(--ink2)"
+            >npm</a
+          >
+          <a href="#docs" style="text-decoration: none; color: var(--ink2)">Quickstart</a>
+          <a href="#playground" style="text-decoration: none; color: var(--ink2)">Playground</a>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module">
+      // Engine source = the CURRENT branch, built into ./lib by `just site` (gitignored).
+      // POST-PUBLISH: swap these two lines to a CDN to auto-track the released version, e.g.
+      //   import { createEngine, renderOffline, encodeWav } from "https://esm.sh/@simpllyf/ditty";
+      //   import { makeRng, pickStyle, SCALES, createSession } from "https://esm.sh/@simpllyf/ditty/core";
+      import { createEngine, renderOffline, encodeWav } from "./lib/index.js";
+      import { makeRng, pickStyle, SCALES, createSession } from "./lib/core.js";
+
+      const $ = (id) => document.getElementById(id);
+      const STYLE_META = {
+        peppy: { label: "Peppy", desc: "bright & upbeat" },
+        playful: { label: "Playful", desc: "busy & bouncy" },
+        calm: { label: "Calm", desc: "soft & easy" },
+        dreamy: { label: "Dreamy", desc: "slow & airy" },
+      };
+      const STYLE_NAMES = Object.keys(STYLE_META);
+      const KNOBS = [
+        { key: "bpm", label: "Tempo", min: 50, max: 170, step: 1, unit: " bpm" },
+        { key: "density", label: "Density", min: 0, max: 100, step: 1, unit: "%" },
+        { key: "swing", label: "Swing", min: 0, max: 100, step: 1, unit: "%" },
+        { key: "volume", label: "Volume", min: 0, max: 100, step: 1, unit: "%" },
+      ];
+
+      const scaleName = (arr) => {
+        for (const [n, a] of Object.entries(SCALES)) if (a === arr) return n;
+        return "—";
+      };
+
+      const state = {
+        theme: document.documentElement.getAttribute("data-theme") || "light",
+        playing: false,
+        style: "peppy",
+        seed: 0,
+        bpm: 118,
+        density: 65,
+        swing: 14,
+        volume: 32,
+        rendering: false,
+      };
+      let engine = null,
+        audio = null,
+        freq = null,
+        raf = 0,
+        rebuildT = 0,
+        shareT = 0,
+        instT = 0;
+
+      // ---- audio context with an analyser tap (engine.destination → analyser → speakers) ----
+      function ensureAudio() {
+        if (audio) return audio;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const raw = new AC();
+        const analyser = raw.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.82;
+        analyser.connect(raw.destination);
+        const ctx = new Proxy(raw, {
+          get(t, p) {
+            if (p === "destination") return analyser;
+            const v = t[p];
+            return typeof v === "function" ? v.bind(t) : v;
+          },
+        });
+        audio = { raw, analyser, ctx };
+        freq = new Uint8Array(analyser.frequencyBinCount);
+        return audio;
+      }
+
+      // ---- engine ----
+      const engineOpts = () => ({
+        seed: state.seed,
+        style: state.style,
+        bpm: state.bpm,
+        density: state.density / 100,
+        swing: state.swing / 100,
+        volume: state.volume / 100,
+        audioContext: ensureAudio().ctx,
+      });
+
+      async function buildEngine(autostart) {
+        if (engine) {
+          try {
+            engine.dispose();
+          } catch (e) {}
+          engine = null;
+        }
+        engine = createEngine(engineOpts());
+        if (autostart || state.playing) {
+          try {
+            await engine.start();
+          } catch (e) {}
+        }
+      }
+      const rebuildSoon = () => {
+        clearTimeout(rebuildT);
+        rebuildT = setTimeout(() => buildEngine(false), 90);
+      };
+
+      // ---- derive the recipe (exact: pickStyle for key/raga/groove, createSession for instruments) ----
+      function derive(seed, style) {
+        const chosen = pickStyle(makeRng(seed).fork(), style); // styleRng = master's first fork
+        const sess = createSession({ seed, style });
+        return {
+          bpm: chosen.bpm,
+          density: Math.round(chosen.density * 100),
+          swing: Math.round(chosen.swing * 100),
+          groove: chosen.groove,
+          key: scaleName(chosen.parent),
+          raga: scaleName(chosen.raga),
+          instruments: {
+            lead: sess.instruments.lead.name,
+            bass: sess.instruments.bass.name,
+            pad: sess.instruments.pad.name,
+            arp: sess.instruments.arp.name,
+          },
+        };
+      }
+      function applyDerived() {
+        const d = derive(state.seed, state.style);
+        state.bpm = d.bpm;
+        state.density = d.density;
+        state.swing = d.swing;
+        renderKnobs();
+        renderRecipe(d);
+      }
+      function renderRecipe(d) {
+        const rows = [
+          ["key", d.key],
+          ["raga", d.raga],
+          ["groove", d.groove],
+          ["lead", d.instruments.lead],
+          ["pad", d.instruments.pad],
+          ["bass", d.instruments.bass],
+          ["arp", d.instruments.arp],
+        ];
+        $("recipe").innerHTML = rows
+          .map(
+            ([k, v]) =>
+              `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:8px"><span style="color:var(--ink3)">${k}</span><span style="color:var(--accent-ink);font-weight:500">${v}</span></span>`,
+          )
+          .join("");
+      }
+
+      // ---- dynamic UI ----
+      function renderStyles() {
+        const row = $("styleRow");
+        row.innerHTML = "";
+        for (const name of STYLE_NAMES) {
+          const active = state.style === name;
+          const b = document.createElement("button");
+          const base =
+            "display:flex;flex-direction:column;align-items:center;gap:2px;padding:13px 8px;border-radius:13px;cursor:pointer;font-family:inherit;transition:all .18s ease;";
+          b.setAttribute(
+            "style",
+            base +
+              (active
+                ? "background:var(--accent);color:#fff;border:1px solid var(--accent);box-shadow:var(--shadow);"
+                : "background:var(--surface2);color:var(--ink);border:1px solid var(--line);"),
+          );
+          b.innerHTML = `<span style="font-family:var(--font-display);font-weight:700;font-size:16px">${STYLE_META[name].label}</span><span style="font-size:12px;font-weight:500;opacity:.72">${STYLE_META[name].desc}</span>`;
+          b.onclick = () => setStyle(name);
+          row.appendChild(b);
+        }
+      }
+      function renderKnobs() {
+        const row = $("knobRow");
+        row.innerHTML = "";
+        for (const k of KNOBS) {
+          const wrap = document.createElement("div");
+          wrap.innerHTML =
+            `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px"><label style="font-size:13.5px;font-weight:600;color:var(--ink2)">${k.label}</label><span data-disp="${k.key}" style="font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--accent-ink)">${state[k.key]}${k.unit}</span></div>` +
+            `<input data-knob="${k.key}" type="range" min="${k.min}" max="${k.max}" step="${k.step}" value="${state[k.key]}" style="width:100%;accent-color:var(--accent);cursor:pointer;height:22px">`;
+          const input = wrap.querySelector("input");
+          input.oninput = (e) => setKnob(k, e.target.value, wrap);
+          row.appendChild(wrap);
+        }
+      }
+
+      // ---- handlers ----
+      function setStyle(name) {
+        if (name === state.style) return;
+        state.style = name;
+        renderStyles();
+        applyDerived();
+        buildEngine(false);
+        updateStatus();
+      }
+      function setKnob(k, raw, wrap) {
+        const value = Number(raw);
+        state[k.key] = value;
+        wrap.querySelector(`[data-disp="${k.key}"]`).textContent = value + k.unit;
+        if (k.key === "volume") {
+          try {
+            engine && engine.setVolume(value / 100);
+          } catch (e) {}
+        } else {
+          rebuildSoon();
+        }
+      }
+      async function togglePlay() {
+        state.playing = !state.playing;
+        updatePlay();
+        updateStatus();
+        if (state.playing) {
+          if (!engine) await buildEngine(true);
+          else {
+            try {
+              await engine.start();
+            } catch (e) {}
+          }
+        } else {
+          try {
+            engine && engine.pause();
+          } catch (e) {}
+        }
+      }
+      function shuffle() {
+        commitSeed(String((Math.random() * 0xffffffff) >>> 0));
+      }
+      function commitSeed(str) {
+        let seed = parseInt(str, 10);
+        if (!Number.isFinite(seed)) {
+          let h = 2166136261;
+          for (let i = 0; i < str.length; i++) {
+            h ^= str.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          seed = h >>> 0;
+        }
+        state.seed = seed >>> 0;
+        $("seedInput").value = str;
+        applyDerived();
+        buildEngine(false);
+        updateStatus();
+      }
+      function toggleTheme() {
+        state.theme = state.theme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", state.theme);
+        try {
+          localStorage.setItem("ditty-theme", state.theme);
+        } catch (e) {}
+        $("themeIcon").textContent = state.theme === "dark" ? "☀" : "☾";
+      }
+      function shareSeed() {
+        const u = new URL(location.href);
+        u.searchParams.set("seed", String(state.seed));
+        u.searchParams.set("style", state.style);
+        const done = () => {
+          $("shareLabel").textContent = "Copied!";
+          $("shareIcon").textContent = "✓";
+          clearTimeout(shareT);
+          shareT = setTimeout(() => {
+            $("shareLabel").textContent = "Share";
+            $("shareIcon").textContent = "↗";
+          }, 1600);
+        };
+        if (navigator.clipboard) navigator.clipboard.writeText(u.toString()).then(done, done);
+        else done();
+      }
+      function copyInstall() {
+        const done = () => {
+          $("copyInstall").textContent = "✓";
+          clearTimeout(instT);
+          instT = setTimeout(() => {
+            $("copyInstall").textContent = "⧉";
+          }, 1600);
+        };
+        if (navigator.clipboard)
+          navigator.clipboard.writeText("npm i @simpllyf/ditty").then(done, done);
+        else done();
+      }
+      async function downloadWav() {
+        if (state.rendering) return;
+        state.rendering = true;
+        $("wavLabel").textContent = "Rendering…";
+        $("wavIcon").textContent = "◌";
+        try {
+          const res = await renderOffline({
+            seed: state.seed,
+            style: state.style,
+            bpm: state.bpm,
+            density: state.density / 100,
+            swing: state.swing / 100,
+            loops: 2,
+            volume: 0.85,
+          });
+          const blob = new Blob([encodeWav(res.channelData, res.sampleRate)], {
+            type: "audio/wav",
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `ditty-${state.style}-${state.seed}.wav`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 4000);
+        } catch (e) {}
+        state.rendering = false;
+        $("wavLabel").textContent = "WAV";
+        $("wavIcon").textContent = "↓";
+      }
+
+      // ---- small view updates ----
+      function updatePlay() {
+        $("playIcon").textContent = state.playing ? "⏸" : "▶";
+        $("playIcon").style.marginLeft = state.playing ? "0" : "3px";
+        $("playRing").style.animation = state.playing ? "pulsering 1.6s ease-out infinite" : "";
+        $("playRing").style.opacity = state.playing ? "" : "0";
+      }
+      function updateStatus() {
+        $("liveDot").style.background = state.playing ? "var(--accent)" : "var(--ink3)";
+        $("statusText").textContent = state.playing
+          ? `playing — ${state.style} · seed ${state.seed}`
+          : "paused — press play";
+      }
+
+      // ---- visualizer ----
+      const cssVar = (n) =>
+        getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#15A06A";
+      function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+      function startViz() {
+        const cv = $("viz");
+        const draw = () => {
+          raf = requestAnimationFrame(draw);
+          const ctx = cv.getContext("2d");
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const w = cv.clientWidth,
+            h = cv.clientHeight;
+          if (cv.width !== w * dpr || cv.height !== h * dpr) {
+            cv.width = w * dpr;
+            cv.height = h * dpr;
+          }
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          const accent = cssVar("--accent"),
+            coral = cssVar("--coral"),
+            gold = cssVar("--gold"),
+            ink3 = cssVar("--ink3");
+          const N = 64;
+          const playing = state.playing && audio;
+          let data;
+          if (playing) {
+            audio.analyser.getByteFrequencyData(freq);
+            data = freq;
+          }
+          const t = performance.now() / 1000;
+          const grad = ctx.createLinearGradient(0, 0, w, 0);
+          grad.addColorStop(0, accent);
+          grad.addColorStop(0.55, gold);
+          grad.addColorStop(1, coral);
+          const gap = 3,
+            bw = (w - gap * (N - 1)) / N,
+            mid = h * 0.5;
+          const usable = data ? Math.floor(data.length * 0.7) : 0;
+          for (let i = 0; i < N; i++) {
+            let v;
+            if (playing) {
+              v = Math.pow(data[Math.floor((i / N) * usable)] / 255, 1.35);
+            } else {
+              v =
+                0.1 +
+                0.06 *
+                  (Math.sin(t * 1.4 + i * 0.4) * 0.5 + 0.5) *
+                  (0.4 + 0.6 * Math.sin((i / N) * Math.PI));
+            }
+            const bh = Math.max(3, v * (h * 0.86));
+            ctx.fillStyle = playing ? grad : ink3;
+            ctx.globalAlpha = playing ? 1 : 0.5;
+            roundRect(ctx, i * (bw + gap), mid - bh / 2, bw, bh, Math.min(bw / 2, 3));
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        };
+        draw();
+      }
+
+      // ---- static content ----
+      function renderStatic() {
+        const features = [
+          {
+            icon: "◇",
+            title: "Zero dependencies",
+            body: "No samples, no audio files, no third-party packages. Pure synthesis through the Web Audio API.",
+          },
+          {
+            icon: "⬡",
+            title: "Deterministic seeds",
+            body: "Every seed yields the exact same stream, byte-for-byte. Reproducible, shareable, testable.",
+          },
+          {
+            icon: "↺",
+            title: "Endless & seamless",
+            body: "Re-arranges each loop over a fixed grid — it never exactly repeats, yet loops without a seam.",
+          },
+          {
+            icon: "⚡",
+            title: "Tiny & SSR-safe",
+            body: "A few kilobytes. No AudioContext until you start it from a gesture, so it imports anywhere.",
+          },
+        ];
+        $("features").innerHTML = features
+          .map(
+            (f) =>
+              `<div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px 22px;box-shadow:var(--shadow)"><div style="width:42px;height:42px;border-radius:12px;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent-ink);margin-bottom:16px"><span style="font-size:20px">${f.icon}</span></div><h3 style="font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 7px">${f.title}</h3><p style="font-size:14.5px;line-height:1.5;color:var(--ink2);margin:0">${f.body}</p></div>`,
+          )
+          .join("");
+
+        const useCases = [
+          {
+            icon: "🎮",
+            title: "Games",
+            body: "Adaptive background scores that never grate on repeat play.",
+          },
+          {
+            icon: "✺",
+            title: "Focus & learning",
+            body: "Gentle, non-distracting beds for study and productivity apps.",
+          },
+          {
+            icon: "◳",
+            title: "Apps & UIs",
+            body: "A signature sonic identity that scales with no asset budget.",
+          },
+          {
+            icon: "◷",
+            title: "Loading screens",
+            body: "Fill the wait with something alive instead of silence.",
+          },
+        ];
+        $("useCases").innerHTML = useCases
+          .map(
+            (u) =>
+              `<div style="background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:18px"><div style="font-size:22px;margin-bottom:9px">${u.icon}</div><div style="font-family:var(--font-display);font-weight:700;font-size:15.5px;margin-bottom:3px">${u.title}</div><div style="font-size:13px;color:var(--ink2);line-height:1.45">${u.body}</div></div>`,
+          )
+          .join("");
+
+        $("code").textContent =
+          'import { createEngine } from "@simpllyf/ditty";\n\n' +
+          "// Construct once — no audio work until you start it.\n" +
+          "const ditty = createEngine({\n" +
+          '  style: "peppy",   // peppy · playful · calm · dreamy\n' +
+          "  volume: 0.3,\n" +
+          "});\n\n" +
+          "// Browsers require a user gesture to start audio.\n" +
+          'playButton.addEventListener("click", () => ditty.start());\n\n' +
+          "// Later…\n" +
+          "ditty.pause();\n" +
+          "ditty.setVolume(0.15);\n" +
+          "ditty.dispose();";
+      }
+
+      // ---- init ----
+      function init() {
+        const params = new URLSearchParams(location.search);
+        let style = params.get("style");
+        if (!STYLE_NAMES.includes(style)) style = "peppy";
+        let seed = parseInt(params.get("seed"), 10);
+        if (!Number.isFinite(seed)) seed = (Math.random() * 0xffffffff) >>> 0;
+        state.style = style;
+        state.seed = seed >>> 0;
+
+        $("themeIcon").textContent = state.theme === "dark" ? "☀" : "☾";
+        $("seedInput").value = String(state.seed);
+        renderStatic();
+        renderStyles();
+        applyDerived();
+        updatePlay();
+        updateStatus();
+        startViz();
+        buildEngine(false);
+
+        $("themeBtn").onclick = toggleTheme;
+        $("copyInstall").onclick = copyInstall;
+        $("playBtn").onclick = togglePlay;
+        $("shuffleBtn").onclick = shuffle;
+        $("wavBtn").onclick = downloadWav;
+        $("shareBtn").onclick = shareSeed;
+        $("seedInput").onchange = (e) => commitSeed(e.target.value.trim());
+        $("seedInput").onkeydown = (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commitSeed(e.target.value.trim());
+            e.target.blur();
+          }
+        };
+      }
+      init();
+    </script>
+  </body>
+</html>
