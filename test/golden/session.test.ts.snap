@@ -1,0 +1,38 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`createSession > locks the seed→session mapping (golden — pins the style/instrument/arrange/noise fork chain) 1`] = `
+{
+  "bars": 8,
+  "beatsPerBar": 4,
+  "bpm": 107,
+  "firstFreqs": [
+    392,
+    294,
+    330,
+    392,
+    131,
+    196,
+    175,
+    175,
+    262,
+    330,
+    392,
+    349,
+    784,
+    659,
+    523,
+    784,
+  ],
+  "instruments": {
+    "arp": "pluck",
+    "bass": "subBass",
+    "lead": "marimba",
+    "pad": "organ",
+  },
+  "noise": [
+    -0.953918,
+    0.961943,
+    -0.433331,
+  ],
+}
+`;

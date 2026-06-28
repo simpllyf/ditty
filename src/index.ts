@@ -12,6 +12,8 @@
  */
 export { createEngine } from "./engine";
 export type { Engine, EngineOptions, EngineAudioContext } from "./engine";
+export { renderOffline, encodeWav } from "./render";
+export type { RenderOptions, RenderResult, OfflineContextLike } from "./render";
 
 // Composition + config knobs, re-exported for convenience.
 export { arrange } from "./compose/arranger";

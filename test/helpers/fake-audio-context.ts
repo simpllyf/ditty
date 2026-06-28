@@ -123,7 +123,7 @@ class FakeDestination extends FakeNode {}
 
 export class FakeAudioContext implements AudioContextLike {
   currentTime = 0;
-  readonly sampleRate = 44100;
+  readonly sampleRate: number;
   state: AudioContextState = "suspended";
   readonly destination = new FakeDestination();
   readonly oscillators: FakeOscillator[] = [];
@@ -140,6 +140,10 @@ export class FakeAudioContext implements AudioContextLike {
   failClose = false;
   deferResume = false;
   private pendingResume: (() => void) | null = null;
+
+  constructor(sampleRate = 44100) {
+    this.sampleRate = sampleRate;
+  }
 
   createOscillator(): FakeOscillator {
     const osc = new FakeOscillator();
@@ -213,5 +217,21 @@ export class FakeAudioContext implements AudioContextLike {
   /** Advance the controllable clock. */
   advance(seconds: number): void {
     this.currentTime += seconds;
+  }
+}
+
+/** A FakeAudioContext that also satisfies the offline-render contract. */
+export class FakeOfflineAudioContext extends FakeAudioContext {
+  readonly length: number;
+  renderCount = 0;
+
+  constructor(length: number, sampleRate = 44100) {
+    super(sampleRate);
+    this.length = length;
+  }
+
+  startRendering(): Promise<FakeBuffer> {
+    this.renderCount++;
+    return Promise.resolve(new FakeBuffer(this.length));
   }
 }
