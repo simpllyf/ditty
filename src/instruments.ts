@@ -165,6 +165,22 @@ export const INSTRUMENTS = {
     gain: 0.9,
     reverbSend: 0.25,
   },
+  supersaw: {
+    name: "supersaw",
+    // Lush stacked detuned saws — a rich synth lead/pad.
+    voices: ["lead", "pad"],
+    layers: [
+      { kind: "sawtooth" },
+      { kind: "sawtooth", detuneCents: 12, gain: 0.7 },
+      { kind: "sawtooth", detuneCents: -12, gain: 0.7 },
+      { kind: "sawtooth", detuneCents: 24, gain: 0.4 },
+    ],
+    amp: { attack: 0.02, decay: 0.2, sustain: 0.75, release: 0.25 },
+    filter: { type: "lowpass", cutoff: 2600, q: 0.6 },
+    vibrato: { rateHz: 4.5, depthCents: 6, delaySec: 0.6 },
+    gain: 0.8, // four saws sum hot
+    reverbSend: 0.3,
+  },
 
   // ── pads ──
   warmPad: {
@@ -274,6 +290,37 @@ export const INSTRUMENTS = {
     ],
     amp: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.45 },
     reverbSend: 0.45,
+  },
+  celesta: {
+    name: "celesta",
+    // Sweet mallet-bell: harmonic FM, gentler index than the glock, soft decay.
+    voices: ["arp", "pad"],
+    layers: [
+      { kind: "sine", fm: { ratio: 3, index: 2, decay: 0.3 } },
+      { kind: "sine", gain: 0.4 },
+    ],
+    amp: { attack: 0.002, decay: 0.6, sustain: 0, release: 0.5 },
+    reverbSend: 0.42,
+  },
+  tubularBell: {
+    name: "tubularBell",
+    // Big church bell: inharmonic FM partials, long ring.
+    voices: ["arp", "pad"],
+    layers: [
+      { kind: "sine", fm: { ratio: 1.4, index: 5, decay: 0.6 } },
+      { kind: "sine", ratio: 2.8, gain: 0.3 },
+    ],
+    amp: { attack: 0.002, decay: 1.2, sustain: 0, release: 1.0 },
+    reverbSend: 0.55,
+  },
+  harp: {
+    name: "harp",
+    // Soft plucked string: warm triangle, quick bloom, gentle decay.
+    voices: ["arp", "lead"],
+    layers: [{ kind: "triangle" }, { kind: "sine", ratio: 2, gain: 0.3 }],
+    amp: { attack: 0.002, decay: 0.6, sustain: 0, release: 0.5 },
+    filter: { type: "lowpass", cutoff: 3000, q: 0.5 },
+    reverbSend: 0.4,
   },
   synthArp: {
     name: "synthArp",
