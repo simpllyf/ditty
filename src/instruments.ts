@@ -58,6 +58,13 @@ export interface Tremolo {
   readonly depth: number; // 0..1 — fraction of the signal the LFO swings
 }
 
+/** A breath/bow noise component mixed into a note (follows the amp envelope). */
+export interface NoiseLayer {
+  readonly gain: number; // mix level 0..1 (subtle — a few %)
+  readonly highpass?: number; // Hz — air/breath sits up high
+  readonly lowpass?: number; // Hz — optional top roll-off
+}
+
 export interface Instrument {
   readonly name: string;
   readonly voices: readonly ScoreVoice[]; // roles this patch suits → randomizer pool
@@ -68,6 +75,7 @@ export interface Instrument {
   readonly reverbSend?: number; // 0..1 wet send (default = REVERB_SEND_BY_VOICE)
   readonly vibrato?: Vibrato; // pitch LFO (flute/strings/voice)
   readonly tremolo?: Tremolo; // amplitude LFO (organ/pad shimmer)
+  readonly noise?: NoiseLayer; // breath/bow noise (flute/strings/reed)
 }
 
 /** Default reverb send per voice when a patch doesn't specify one. */
@@ -111,6 +119,15 @@ export const INSTRUMENTS = {
     amp: { attack: 0.02, decay: 0.12, sustain: 0.6, release: 0.18 },
     vibrato: { rateHz: 5, depthCents: 9, delaySec: 0.6 }, // a gentle, late shimmer (not a wobble)
     reverbSend: 0.25,
+  },
+  flute: {
+    name: "flute",
+    voices: ["lead"],
+    layers: [{ kind: "sine" }, { kind: "sine", ratio: 2, gain: 0.06 }],
+    amp: { attack: 0.06, decay: 0.1, sustain: 0.7, release: 0.18 }, // soft breathy onset
+    vibrato: { rateHz: 5, depthCents: 12, delaySec: 0.4 },
+    noise: { gain: 0.05, highpass: 2000 }, // airy breath
+    reverbSend: 0.3,
   },
 
   // ── pads ──
