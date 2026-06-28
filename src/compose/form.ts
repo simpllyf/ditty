@@ -12,7 +12,7 @@
  */
 import type { Rng } from "../rng";
 import type { Scale } from "../theory/scales";
-import type { ArpRole, BassPatternName, TextureName } from "./arranger";
+import type { ArpRole, BassPatternName, PadPattern, TextureName } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
 
@@ -27,6 +27,7 @@ export interface SectionProfile {
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
   readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
   readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
+  readonly padPattern: PadPattern; // how the pad voices chords (sustain / broken / stabs)
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
 }
 
@@ -98,6 +99,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       dynamics: 0.82,
       bpmScale: 0.96, // bridge eases back a touch
       arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
+      padPattern: "broken", // pad drifts through the chord — gentle bridge movement
     };
   }
   if (label === "C") {
@@ -112,6 +114,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       dynamics: 1.12,
       bpmScale: 1.06, // climax pushes ahead
       arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
+      padPattern: "stabs", // pad punches on each beat — drives the climax
     };
   }
   // A — home: full texture, steady bass, base density, reference level, home key.
@@ -125,6 +128,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     dynamics: 1,
     bpmScale: 1, // home tempo
     arpRole: "arp", // the arp keeps the running figure — the bed
+    padPattern: "sustain", // pad holds the chord — the steady bed
   };
 }
 

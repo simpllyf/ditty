@@ -260,6 +260,21 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
 
+  it("padPattern voices chords: sustained block (default), stabs, or broken", () => {
+    const o = { bars: 8, beatsPerBar: 4 } as const;
+    const pad = (p?: "stabs" | "broken") =>
+      part(arrange({ rng: makeRng(1), ...o, ...(p ? { padPattern: p } : {}) }), "pad")!.notes;
+    const base = pad();
+    for (const n of base) expect(n.startBeat % 4).toBe(0); // sustain: block on each bar downbeat
+    const stabs = pad("stabs");
+    expect(stabs.length).toBeGreaterThan(base.length); // a chord on every beat
+    expect(stabs.every((n) => n.durationBeats <= 0.4 + 1e-9)).toBe(true); // short hits
+    const bar0 = pad("broken")
+      .filter((n) => n.startBeat < 4)
+      .map((n) => n.startBeat);
+    expect(new Set(bar0).size).toBeGreaterThan(1); // broken: tones staggered across the bar
+  });
+
   it("arpRole orchestrates the arp: arpeggio (default), tutti double, or harmony", () => {
     const o = { bars: 8, beatsPerBar: 4 } as const;
     const arpNotes = (role?: "double" | "harmony") =>

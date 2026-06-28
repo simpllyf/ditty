@@ -89,6 +89,16 @@ describe("buildForm", () => {
     }
   });
 
+  it("orchestrates the pad per section: A sustains, B broken, C stabs", () => {
+    for (let s = 1; s < 30; s++) {
+      const form = buildForm({ rng: makeRng(s), ...base });
+      for (const sec of form.sections) {
+        const expected = sec.label === "A" ? "sustain" : sec.label === "B" ? "broken" : "stabs";
+        expect(sec.padPattern).toBe(expected);
+      }
+    }
+  });
+
   it("carries a recurring theme stated within its motif span", () => {
     const form = buildForm({ rng: makeRng(1), ...base });
     expect(form.motif.length).toBeGreaterThan(0); // a real theme

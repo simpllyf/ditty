@@ -170,6 +170,7 @@ export function createSession(options: SessionOptions): Session {
       dynamics: section.dynamics,
       fill: section.fill,
       arpRole: section.arpRole, // orchestration: arp arpeggiates / harmonises / doubles the theme
+      padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)
       motif: form.motif, // the recurring theme, stated at the head of every section
       motifBars: form.motifBars,
       ...(options.voices !== undefined ? { voices: options.voices } : {}),
