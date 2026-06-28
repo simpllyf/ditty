@@ -28,6 +28,10 @@ coverage:
 build:
     pnpm exec tsup
 
+# Build the landing-page engine bundle into site/lib/ (gitignored). Serve `site/`.
+site: build
+    node scripts/build-site.mjs
+
 # Fail if the package ever grows a runtime dependency (spec §12).
 deps-check:
     node scripts/check-no-deps.mjs
