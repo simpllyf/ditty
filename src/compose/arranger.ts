@@ -63,6 +63,8 @@ export interface ArrangeOptions {
   /** Reuse a pre-built harmony plan instead of generating one — lets a caller keep the
    * chord progression fixed across loops while the melody/voicing varies (gentle evolve). */
   plan?: HarmonicPlan;
+  /** Dynamic arc: which sections the arp/drums play. Default "full" (no gating). */
+  texture?: TextureName;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -74,6 +76,20 @@ export interface ArrangeOptions {
 const MIN_ROOT_MIDI = 36;
 const MAX_ROOT_MIDI = 84;
 const ARP_PATTERNS = ["up", "down", "updown"] as const;
+
+const TEXTURE_SECTIONS = 4;
+/**
+ * Per-section on/off for the arp & drums, carving a dynamic arc across the loop
+ * (sparse intro → build, a mid-loop breakdown, …). Lead/pad/bass stay continuous
+ * so the melody and harmonic bed never drop out. `full` = no gating (the default).
+ */
+const TEXTURES = {
+  full: { arp: [1, 1, 1, 1], drums: [1, 1, 1, 1] },
+  build: { arp: [0, 0, 1, 1], drums: [0, 1, 1, 1] },
+  breakdown: { arp: [1, 1, 0, 1], drums: [1, 1, 0, 1] },
+  pulse: { arp: [0, 1, 0, 1], drums: [1, 1, 1, 1] },
+} as const satisfies Record<string, { arp: readonly number[]; drums: readonly number[] }>;
+export type TextureName = keyof typeof TEXTURES;
 
 /** Cycle order of a chord's pitch classes for an arpeggio. */
 function arpSequence(pcs: readonly number[], pattern: (typeof ARP_PATTERNS)[number]): number[] {
@@ -128,6 +144,11 @@ export function arrange(options: ArrangeOptions): Score {
   // Clamp a note so it never rings past the loop point (after swing has shifted its start).
   const fit = (start: number, dur: number) => Math.min(dur, lengthBeats - start);
   const swung = (beat: number) => applySwing(beat, swing);
+  // Dynamic arc: is the arp/drums lane active in the section a beat falls in?
+  const texture = TEXTURES[options.texture ?? "full"];
+  const sectionOf = (beat: number) =>
+    Math.min(TEXTURE_SECTIONS - 1, Math.floor((beat / lengthBeats) * TEXTURE_SECTIONS));
+  const active = (lane: readonly number[], beat: number) => lane[sectionOf(beat)] !== 0;
 
   // Fork per voice in a fixed order so toggling/retuning one voice can't reshuffle another.
   const harmonyRng = rng.fork();
@@ -223,6 +244,7 @@ export function arrange(options: ArrangeOptions): Score {
       for (let s = 0; s < stepsPerBar; s++) {
         const pc = seq[s % seq.length]!;
         const start = swung(bar * beatsPerBar + s * 0.5);
+        if (!active(texture.arp, start)) continue; // gated out this section
         notes.push({
           startBeat: start,
           durationBeats: fit(start, 0.45),
@@ -246,7 +268,9 @@ export function arrange(options: ArrangeOptions): Score {
       for (const [drum, positions, velocity] of lanes) {
         for (const pos of positions) {
           const raw = bar * beatsPerBar + pos;
-          drums.push({ startBeat: drum === "hat" ? swung(raw) : raw, drum, velocity });
+          const beat = drum === "hat" ? swung(raw) : raw;
+          if (!active(texture.drums, beat)) continue; // gated out this section
+          drums.push({ startBeat: beat, drum, velocity });
         }
       }
     }
