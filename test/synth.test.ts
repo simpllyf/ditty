@@ -128,6 +128,38 @@ describe("Synth.playDrum", () => {
     tone.onended!();
     expect(ctx.gains.some((g) => g.disconnectCount > 0)).toBe(true);
   });
+
+  // The data-driven kinds (custom kits are a stated extension path).
+  it("a custom 'tone' voice is a pitch-dropping sine with no noise", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    s.playDrum({ kind: "tone", gain: 0.8, ampDecay: 0.2, freqStart: 200, freqEnd: 60 }, 0, 1);
+    expect(ctx.oscillators.length).toBe(1);
+    expect(ctx.oscillators[0]!.type).toBe("sine");
+    expect(ctx.bufferSources.length).toBe(0);
+  });
+
+  it("a custom 'noise' voice is filtered noise with no tone (highpass optional)", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    s.playDrum({ kind: "noise", gain: 0.5, ampDecay: 0.1, noiseGain: 1 }, 0, 1); // no highpass
+    expect(ctx.bufferSources.length).toBe(1);
+    expect(ctx.oscillators.length).toBe(0);
+    expect(ctx.filters.some((f) => f.type === "highpass")).toBe(false);
+  });
+
+  it("a custom 'mixed' voice layers noise and a body tone", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    s.playDrum(
+      { kind: "mixed", gain: 0.5, ampDecay: 0.15, freqStart: 180, noiseGain: 0.6, toneGain: 0.4 },
+      0,
+      0.9,
+    );
+    expect(ctx.bufferSources.length).toBe(1);
+    expect(ctx.oscillators.length).toBe(1);
+    expect(ctx.oscillators[0]!.type).toBe("triangle");
+  });
 });
 
 describe("Synth lifecycle", () => {

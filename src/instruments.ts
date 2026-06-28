@@ -178,21 +178,38 @@ export function instrumentsForVoice(voice: ScoreVoice): InstrumentName[] {
 }
 
 /**
- * A synthesized drum hit. `kind` drives synthesis (so the synth is data-driven,
- * not keyed off the drum name): `tone` = a pitch-dropping body (kick), `noise` =
- * filtered noise (hat), `mixed` = noise + a body tone (snare).
+ * A synthesized drum hit, as a discriminated union on `kind` so each variant
+ * carries exactly the fields its synthesis needs (illegal patches don't typecheck;
+ * the synth is data-driven, not keyed off the drum name):
+ * - `tone`  — a pitch-dropping body (kick): a sine swept `freqStart → freqEnd`.
+ * - `noise` — filtered noise (hat).
+ * - `mixed` — noise + a body tone (snare).
  */
-export interface DrumVoice {
-  readonly kind: "tone" | "noise" | "mixed";
-  readonly gain: number;
-  readonly ampDecay: number; // seconds
-  readonly freqStart?: number; // tone start (kick/snare body)
-  readonly freqEnd?: number; // tone end (kick pitch drop)
-  readonly pitchDecay?: number; // seconds
-  readonly noiseGain?: number; // noise mix (snare/hat)
-  readonly toneGain?: number; // tone mix (snare)
-  readonly highpass?: number; // Hz, for noise (snare/hat)
-}
+export type DrumVoice =
+  | {
+      readonly kind: "tone";
+      readonly gain: number;
+      readonly ampDecay: number; // seconds
+      readonly freqStart: number; // tone start
+      readonly freqEnd: number; // tone end (pitch drop)
+      readonly pitchDecay?: number; // seconds
+    }
+  | {
+      readonly kind: "noise";
+      readonly gain: number;
+      readonly ampDecay: number;
+      readonly noiseGain: number; // noise mix 0..1
+      readonly highpass?: number; // Hz
+    }
+  | {
+      readonly kind: "mixed";
+      readonly gain: number;
+      readonly ampDecay: number;
+      readonly freqStart: number; // body tone frequency
+      readonly noiseGain: number; // noise mix 0..1
+      readonly toneGain: number; // body tone mix 0..1
+      readonly highpass?: number; // Hz
+    };
 
 export const DRUM_KITS = {
   default: {

@@ -7,6 +7,7 @@
 import { type ArrangeOptions, type Score, arrange } from "./compose/arranger";
 import {
   DRUM_KITS,
+  type DrumKitName,
   type DrumVoice,
   INSTRUMENTS,
   type Instrument,
@@ -37,6 +38,8 @@ export interface SessionOptions {
   rootMidi?: number;
   /** Drum groove name. Default: from the style. */
   groove?: ArrangeOptions["groove"];
+  /** Drum kit. Default "default". */
+  kit?: DrumKitName;
   /** Melodic note density 0..1 (sparser→busier). Default: from the style. */
   density?: number;
   /** Swing amount 0..1. Default: from the style. */
@@ -105,7 +108,11 @@ export function createSession(options: SessionOptions): Session {
     pad: pickInstrument(instrumentRng, chosen.instruments.pad),
     arp: pickInstrument(instrumentRng, chosen.instruments.arp),
   };
-  const drumKit = DRUM_KITS.default;
+  const kitName = options.kit ?? "default";
+  if (!(kitName in DRUM_KITS)) {
+    throw new RangeError(`createSession: unknown drum kit "${kitName}"`);
+  }
+  const drumKit = DRUM_KITS[kitName];
   const noiseTable = makeNoiseTable(noiseRng);
 
   const arrangeOptions = (): ArrangeOptions => ({

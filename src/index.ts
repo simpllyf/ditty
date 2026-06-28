@@ -10,12 +10,19 @@
  *
  * The pure composition layer (no Web Audio) is available at `@simpllyf/ditty/core`.
  */
+// Audio shell — the realtime engine, the offline renderer, and the Web-Audio
+// port types for bring-your-own-context.
 export { createEngine } from "./audio/engine";
 export type { Engine, EngineOptions, EngineAudioContext } from "./audio/engine";
 export { renderOffline, encodeWav } from "./audio/render";
 export type { RenderOptions, RenderResult, OfflineContextLike } from "./audio/render";
+export type { AudioContextLike } from "./audio/synth";
 
-// Composition + config knobs, re-exported for convenience.
+// A curated slice of the pure brain — the config knobs + the Session/Score types an
+// engine user touches. The FULL pure surface (theory, constraints, all registries)
+// lives at `@simpllyf/ditty/core`; we keep this entry lean for the size budget.
+export { createSession } from "./session";
+export type { Session, SessionOptions } from "./session";
 export { arrange } from "./compose/arranger";
 export type {
   Score,
@@ -31,8 +38,8 @@ export { SCALES } from "./theory/scales";
 export type { Scale, ScaleName } from "./theory/scales";
 export { DRUM_GROOVES } from "./theory/rhythm";
 export type { DrumGrooveName } from "./theory/rhythm";
-export { INSTRUMENTS, instrumentsForVoice } from "./instruments";
-export type { Instrument, InstrumentName } from "./instruments";
+export { INSTRUMENTS, instrumentsForVoice, DRUM_KITS } from "./instruments";
+export type { Instrument, InstrumentName, DrumVoice, DrumKitName } from "./instruments";
 export { STYLES } from "./styles";
 export type { Style, StyleName } from "./styles";
 export { makeRng } from "./rng";

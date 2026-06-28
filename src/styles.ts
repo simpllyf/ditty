@@ -15,7 +15,8 @@ import type { Rng } from "./rng";
 import type { DrumGrooveName } from "./theory/rhythm";
 import { SCALES, type Scale } from "./theory/scales";
 
-interface ScaleKey {
+/** A parent-scale + raga pairing a style may draw on (raga ⊆ parent). */
+export interface ScaleKey {
   readonly parent: Scale;
   readonly raga: Scale;
 }
