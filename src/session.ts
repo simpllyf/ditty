@@ -1,17 +1,12 @@
 /**
  * Session — the seed→music brain shared by the realtime engine and the offline
- * renderer. Chooses a style and instruments ONCE, then yields successive Scores
- * (re-arranged each loop when `evolve`, else a cached one). Pure: no Web Audio
- * (the audio layer's `buildLoop` binds these Scores to a synth).
+ * renderer. Chooses a style and instruments ONCE, builds a piece-level FORM (a
+ * sequence of contrasting sections), then yields its Scores section by section,
+ * looping the whole form (melodies re-draw each pass when `evolve`). Pure: no Web
+ * Audio (the audio layer's `buildLoop` binds these Scores to a synth).
  */
-import {
-  type ArrangeOptions,
-  type BassPatternName,
-  type Score,
-  type TextureName,
-  arrange,
-} from "./compose/arranger";
-import { generateHarmony } from "./compose/harmony";
+import { type ArrangeOptions, type Score, arrange } from "./compose/arranger";
+import { type SectionProfile, buildForm } from "./compose/form";
 import {
   DRUM_KITS,
   type DrumKitName,
@@ -64,7 +59,7 @@ export interface Session {
   readonly bars: number;
   readonly instruments: Record<ScoreVoice, Instrument>;
   readonly drumKit: Record<DrumName, DrumVoice>;
-  /** Arrange the next loop (advances the rng), or the cached one when `evolve` is off. */
+  /** Next section of the form (advances through it and loops); cached when `evolve` is off. */
   nextScore(): Score;
 }
 
@@ -130,49 +125,40 @@ export function createSession(options: SessionOptions): Session {
   const density = options.density ?? chosen.density;
   const swing = options.swing ?? chosen.swing;
 
-  // Gentle evolve: build ONE harmony plan and reuse it every loop, so the chord
-  // progression stays put while the melody/voicing re-draws — it develops instead
-  // of switching to a new piece. (evolve:false caches a single arrangement anyway.)
-  const harmonyPlan = generateHarmony({
+  // Phase E — build the piece-level FORM once: an ordered set of contrasting
+  // sections (A/B/C, each with its own progression + texture + density + bass).
+  // nextScore() walks them in order and loops the whole form, so the music has
+  // real shape (verse/bridge/return). The chord progressions stay put; with
+  // `evolve` the melodies re-draw on each pass through the form (gentle evolve).
+  const form = buildForm({
     rng: arrangeRng.fork(),
     scale: parent,
     rootMidi,
     bars,
     beatsPerBar,
-  });
-
-  // Pick one dynamic arc (texture) for the whole session — a stable "form" the
-  // arp/drums follow, so the piece has shape; "full" is weighted to stay common.
-  const TEXTURE_POOL: readonly TextureName[] = ["full", "full", "build", "breakdown", "pulse"];
-  const texture = arrangeRng.fork().pick(TEXTURE_POOL);
-  // …and one bass groove (rootFifth weighted common).
-  const BASS_POOL: readonly BassPatternName[] = [
-    "rootFifth",
-    "rootFifth",
-    "walking",
-    "pulse",
-    "sustained",
-  ];
-  const bassPattern = arrangeRng.fork().pick(BASS_POOL);
-
-  const arrangeOptions = (): ArrangeOptions => ({
-    rng: arrangeRng,
-    bpm,
-    beatsPerBar,
-    bars,
-    parent,
-    raga,
-    rootMidi,
-    groove,
     density,
-    swing,
-    plan: harmonyPlan,
-    texture,
-    bassPattern,
-    ...(options.voices !== undefined ? { voices: options.voices } : {}),
   });
 
-  let cachedScore: Score | null = null;
+  const arrangeSection = (section: SectionProfile): Score =>
+    arrange({
+      rng: arrangeRng,
+      bpm,
+      beatsPerBar,
+      bars,
+      parent,
+      raga,
+      rootMidi,
+      groove,
+      density: section.density,
+      swing,
+      plan: section.plan,
+      texture: section.texture,
+      bassPattern: section.bassPattern,
+      ...(options.voices !== undefined ? { voices: options.voices } : {}),
+    });
+
+  let cursor = 0;
+  const cache: (Score | null)[] = form.sections.map(() => null);
   return {
     noiseTable,
     bpm,
@@ -181,9 +167,13 @@ export function createSession(options: SessionOptions): Session {
     instruments,
     drumKit,
     nextScore(): Score {
-      if (!evolve && cachedScore) return cachedScore;
-      const score = arrange(arrangeOptions());
-      if (!evolve) cachedScore = score;
+      const i = cursor % form.sections.length;
+      cursor += 1;
+      if (evolve) return arrangeSection(form.sections[i]!);
+      const cached = cache[i];
+      if (cached) return cached;
+      const score = arrangeSection(form.sections[i]!);
+      cache[i] = score;
       return score;
     },
   };

@@ -16,11 +16,19 @@ describe("createSession", () => {
     expect(a.nextScore()).toEqual(b.nextScore());
   });
 
-  it("evolve:false caches one score; evolve:true advances", () => {
-    const stable = createSession({ seed: 1, evolve: false });
-    expect(stable.nextScore()).toBe(stable.nextScore()); // same cached object
-    const evolving = createSession({ seed: 1, evolve: true });
-    expect(evolving.nextScore()).not.toEqual(evolving.nextScore());
+  it("evolve:false replays the form identically; evolve:true develops it", () => {
+    const N = 16; // longer than any form template (max 6 sections)
+    const stream = (s: ReturnType<typeof createSession>) =>
+      Array.from({ length: N }, () => JSON.stringify(s.nextScore()));
+    // deterministic + cached: two fresh stable sessions yield the same stream…
+    expect(stream(createSession({ seed: 1, evolve: false }))).toEqual(
+      stream(createSession({ seed: 1, evolve: false })),
+    );
+    // …and it is periodic — the whole form repeats (a later score equals the first)
+    const stable = stream(createSession({ seed: 1, evolve: false }));
+    expect(stable.slice(1).includes(stable[0]!)).toBe(true);
+    // evolving: same form, but melodies re-draw each pass → many distinct scores
+    expect(new Set(stream(createSession({ seed: 1, evolve: true }))).size).toBeGreaterThan(8);
   });
 
   it("validates bpm, beatsPerBar, and bars eagerly", () => {
