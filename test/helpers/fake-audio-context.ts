@@ -52,9 +52,9 @@ export class FakeParam implements AudioParamLike {
 }
 
 class FakeNode implements AudioNodeLike {
-  readonly connectedTo: AudioNodeLike[] = [];
+  readonly connectedTo: (AudioNodeLike | AudioParamLike)[] = [];
   disconnectCount = 0;
-  connect(destination: AudioNodeLike): void {
+  connect(destination: AudioNodeLike | AudioParamLike): void {
     this.connectedTo.push(destination);
   }
   disconnect(): void {
@@ -69,6 +69,7 @@ export class FakeGain extends FakeNode implements GainNodeLike {
 export class FakeOscillator extends FakeNode implements OscillatorNodeLike {
   type: OscillatorType = "sine";
   readonly frequency = new FakeParam(440);
+  readonly detune = new FakeParam(0);
   startedAt: number | null = null;
   stoppedAt: number | null = null;
   onended: (() => void) | null = null;

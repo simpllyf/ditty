@@ -23,9 +23,10 @@ export interface AudioParamLike {
   setTargetAtTime(target: number, startTime: number, timeConstant: number): void;
   cancelScheduledValues(startTime: number): void;
 }
-/** The slice of `AudioNode` the synth uses. */
+/** The slice of `AudioNode` the synth uses. A node can drive another node or an
+ * `AudioParam` (the latter is how an LFO modulates frequency/detune/gain). */
 export interface AudioNodeLike {
-  connect(destination: AudioNodeLike): void;
+  connect(destination: AudioNodeLike | AudioParamLike): void;
   disconnect(): void;
 }
 export interface GainNodeLike extends AudioNodeLike {
@@ -34,6 +35,7 @@ export interface GainNodeLike extends AudioNodeLike {
 export interface OscillatorNodeLike extends AudioNodeLike {
   type: OscillatorType;
   readonly frequency: AudioParamLike;
+  readonly detune: AudioParamLike; // cents; an LFO connects here for vibrato
   start(when: number): void;
   stop(when: number): void;
   onended: (() => void) | null;
@@ -87,6 +89,8 @@ export interface SynthOptions {
   noiseTable: Float32Array;
   /** Master volume 0..1. Default 0.35 (background music). */
   masterGain?: number;
+  /** Master high-cut in Hz (default 6000) — lower = warmer/further back. */
+  toneHz?: number;
   reverb?: { decay?: number; damping?: number; mix?: number };
 }
 
@@ -111,10 +115,13 @@ interface LiveNote {
 }
 
 const REVERB_DELAYS = [0.0297, 0.0419, 0.0537]; // prime-ish spacing → diffuse tail, not slapback
+/** Master tone roll-off: a gentle high cut so the mix sits BACK (background), not forward. */
+const MASTER_TONE_HZ = 6000;
 
 export class Synth {
   private readonly ctx: AudioContextLike;
   private readonly master: GainNodeLike;
+  private readonly tone: BiquadFilterLike;
   private readonly limiter: WaveShaperLike;
   private readonly reverbIn: GainNodeLike;
   private readonly reverbNodes: AudioNodeLike[] = [];
@@ -129,9 +136,16 @@ export class Synth {
 
     this.master = ctx.createGain();
     this.master.gain.value = clamp(options.masterGain ?? 0.35, 0, 1);
+    // A gentle master high-cut: rolling off the top end pushes the whole mix back
+    // (bright = forward), so it reads as background rather than "in your face".
+    this.tone = ctx.createBiquadFilter();
+    this.tone.type = "lowpass";
+    this.tone.frequency.value = clamp(options.toneHz ?? MASTER_TONE_HZ, 500, this.nyquist);
+    this.tone.Q.value = 0.5;
     this.limiter = ctx.createWaveShaper();
     this.limiter.curve = softClipCurve();
-    this.master.connect(this.limiter);
+    this.master.connect(this.tone);
+    this.tone.connect(this.limiter);
     this.limiter.connect(ctx.destination);
 
     this.reverbIn = this.buildReverb(options.reverb ?? {});
@@ -149,8 +163,8 @@ export class Synth {
     const input = this.ctx.createGain();
     const wet = this.ctx.createGain();
     wet.gain.value = clamp(opts.mix ?? 0.9, 0, 1);
-    const feedback = clamp(opts.decay ?? 0.6, 0, 0.92);
-    const damping = clamp(opts.damping ?? 3200, 20, this.nyquist);
+    const feedback = clamp(opts.decay ?? 0.68, 0, 0.92); // a touch longer → more room
+    const damping = clamp(opts.damping ?? 2600, 20, this.nyquist); // darker tail → sits back
     for (const time of REVERB_DELAYS) {
       const delay = this.ctx.createDelay(1);
       delay.delayTime.value = time;
@@ -189,7 +203,51 @@ export class Synth {
     const stopAt = releaseAt + r + 0.02;
 
     const nodes: AudioNodeLike[] = [env];
-    let sink: AudioNodeLike = env;
+    const oscs: OscillatorNodeLike[] = [];
+
+    // A sine LFO running for the note's lifetime — the vibrato/tremolo source.
+    const makeLfo = (rateHz: number): OscillatorNodeLike => {
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.setValueAtTime(clamp(rateHz, 0.01, 40), t0);
+      lfo.start(t0);
+      lfo.stop(stopAt);
+      oscs.push(lfo);
+      return lfo;
+    };
+
+    // Tremolo: an LFO-modulated gain (centered at 1) the amp chain feeds through.
+    let ampIn: AudioNodeLike = env;
+    if (patch.tremolo) {
+      const trem = ctx.createGain();
+      trem.gain.setValueAtTime(1, t0);
+      trem.connect(env);
+      const depth = ctx.createGain();
+      depth.gain.setValueAtTime(clamp(patch.tremolo.depth, 0, 1), t0);
+      makeLfo(patch.tremolo.rateHz).connect(depth);
+      depth.connect(trem.gain);
+      nodes.push(trem, depth);
+      ampIn = trem;
+    }
+
+    // Vibrato: an LFO on each layer's detune (cents), optionally eased in over delaySec.
+    let vibratoDepth: GainNodeLike | null = null;
+    if (patch.vibrato) {
+      const depth = ctx.createGain();
+      const cents = clamp(patch.vibrato.depthCents, 0, 1200);
+      const delay = Math.max(0, patch.vibrato.delaySec ?? 0);
+      if (delay > 0) {
+        depth.gain.setValueAtTime(0, t0);
+        depth.gain.linearRampToValueAtTime(cents, t0 + delay);
+      } else {
+        depth.gain.setValueAtTime(cents, t0);
+      }
+      makeLfo(patch.vibrato.rateHz).connect(depth);
+      nodes.push(depth);
+      vibratoDepth = depth;
+    }
+
+    let sink: AudioNodeLike = ampIn;
     if (patch.filter) {
       const filter = ctx.createBiquadFilter();
       filter.type = patch.filter.type;
@@ -202,12 +260,11 @@ export class Synth {
       } else {
         filter.frequency.setValueAtTime(base, t0);
       }
-      filter.connect(env);
+      filter.connect(ampIn);
       nodes.push(filter);
       sink = filter;
     }
 
-    const oscs: OscillatorNodeLike[] = [];
     for (const layer of patch.layers) {
       const osc = ctx.createOscillator();
       osc.type = layer.kind;
@@ -216,6 +273,7 @@ export class Synth {
         clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist),
         t0,
       );
+      if (vibratoDepth) vibratoDepth.connect(osc.detune);
       const layerGain = layer.gain ?? 1;
       if (layerGain !== 1) {
         const g = ctx.createGain();
@@ -346,6 +404,7 @@ export class Synth {
     }
     this.live.clear();
     this.master.disconnect();
+    this.tone.disconnect();
     this.limiter.disconnect();
     this.reverbIn.disconnect();
     for (const node of this.reverbNodes) node.disconnect(); // stop the feedback taps recirculating

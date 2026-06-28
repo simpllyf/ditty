@@ -37,6 +37,19 @@ export interface FilterPatch {
   readonly envDecay?: number; // seconds
 }
 
+/** Pitch vibrato: an LFO on each layer's detune, optionally eased in after onset. */
+export interface Vibrato {
+  readonly rateHz: number; // LFO speed (≈ 4–7 Hz is natural)
+  readonly depthCents: number; // peak pitch deviation in cents
+  readonly delaySec?: number; // ease the depth in over this long (0 = immediate)
+}
+
+/** Amplitude tremolo: an LFO on the note's gain. */
+export interface Tremolo {
+  readonly rateHz: number;
+  readonly depth: number; // 0..1 — fraction of the signal the LFO swings
+}
+
 export interface Instrument {
   readonly name: string;
   readonly voices: readonly ScoreVoice[]; // roles this patch suits → randomizer pool
@@ -45,6 +58,8 @@ export interface Instrument {
   readonly filter?: FilterPatch;
   readonly gain?: number; // output trim 0..1 (default 1)
   readonly reverbSend?: number; // 0..1 wet send (default = REVERB_SEND_BY_VOICE)
+  readonly vibrato?: Vibrato; // pitch LFO (flute/strings/voice)
+  readonly tremolo?: Tremolo; // amplitude LFO (organ/pad shimmer)
 }
 
 /** Default reverb send per voice when a patch doesn't specify one. */
@@ -86,6 +101,7 @@ export const INSTRUMENTS = {
     voices: ["lead"],
     layers: [{ kind: "sine" }, { kind: "sine", ratio: 2, gain: 0.25 }],
     amp: { attack: 0.02, decay: 0.12, sustain: 0.6, release: 0.18 },
+    vibrato: { rateHz: 5, depthCents: 9, delaySec: 0.6 }, // a gentle, late shimmer (not a wobble)
     reverbSend: 0.25,
   },
 
@@ -119,6 +135,7 @@ export const INSTRUMENTS = {
       { kind: "sine", ratio: 3, gain: 0.35 },
     ],
     amp: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.2 },
+    tremolo: { rateHz: 4.5, depth: 0.16 }, // subtle Leslie-ish shimmer
     reverbSend: 0.3,
   },
 
