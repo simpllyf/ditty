@@ -76,15 +76,28 @@ describe("createEngine", () => {
     expect(kinds(loop2)).toEqual(kinds(loop1));
   });
 
-  it("evolve:false repeats the same loop verbatim", async () => {
-    const { ctx, clock, engine } = setup({ seed: 3, bpm: 120, bars: 8, evolve: false });
-    await engine.start();
-    runLoops(ctx, clock, 34);
-    const inLoop = (lo: number, hi: number) =>
-      ctx.oscillators
-        .filter((o) => o.startedAt! >= lo && o.startedAt! < hi)
-        .map((o) => o.frequency.value);
-    expect(inLoop(16, 32)).toEqual(inLoop(0, 16));
+  it("evolve:false loops the form (periodic); evolve:true keeps changing", async () => {
+    const secondsPerLoop = 16; // 8 bars @ 120 bpm
+    const windows = 12; // ≥ 2 full forms (max template length is 6)
+    const distinctLoops = async (evolve: boolean) => {
+      const { ctx, clock, engine } = setup({ seed: 3, bpm: 120, bars: 8, evolve });
+      await engine.start();
+      runLoops(ctx, clock, secondsPerLoop * windows);
+      const fps = new Set<string>();
+      for (let k = 0; k < windows; k++) {
+        const f = ctx.oscillators
+          .filter(
+            (o) => o.startedAt! >= k * secondsPerLoop && o.startedAt! < (k + 1) * secondsPerLoop,
+          )
+          .map((o) => o.frequency.value);
+        if (f.length) fps.add(JSON.stringify(f));
+      }
+      return fps.size;
+    };
+    const repeating = await distinctLoops(false);
+    const evolving = await distinctLoops(true);
+    expect(repeating).toBeLessThanOrEqual(6); // only the form's sections recur
+    expect(evolving).toBeGreaterThan(repeating); // melodies re-draw on each pass
   });
 
   it("pause suspends + stops; resume re-resumes", async () => {

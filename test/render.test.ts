@@ -65,29 +65,36 @@ describe("renderOffline", () => {
     expect(cap.ctx!.length).toBe(r.channelData.length);
   });
 
-  it("evolves each loop by default but repeats identically with evolve:false", async () => {
-    const loopFreqs = async (evolve: boolean) => {
+  it("evolve:true keeps changing; evolve:false loops the form (periodic)", async () => {
+    const secondsPerLoop = 16;
+    const windows = 12; // ≥ 2 full forms (max template length is 6)
+    const distinctLoops = async (evolve: boolean) => {
       const cap: Cap = {};
       await renderOffline({
         seed: 5,
-        loops: 2,
+        loops: windows,
         bpm: 120,
         bars: 8,
         beatsPerBar: 4,
         evolve,
         createContext: factory(cap),
       });
-      const secondsPerLoop = 16;
       const osc = cap.ctx!.oscillators;
-      return {
-        loop1: osc.filter((o) => o.startedAt! < secondsPerLoop).map((o) => o.frequency.value),
-        loop2: osc.filter((o) => o.startedAt! >= secondsPerLoop).map((o) => o.frequency.value),
-      };
+      const fps = new Set<string>();
+      for (let k = 0; k < windows; k++) {
+        const f = osc
+          .filter(
+            (o) => o.startedAt! >= k * secondsPerLoop && o.startedAt! < (k + 1) * secondsPerLoop,
+          )
+          .map((o) => o.frequency.value);
+        if (f.length) fps.add(JSON.stringify(f));
+      }
+      return fps.size;
     };
-    const evolving = await loopFreqs(true);
-    expect(evolving.loop2).not.toEqual(evolving.loop1); // re-arranged each loop
-    const repeating = await loopFreqs(false);
-    expect(repeating.loop2).toEqual(repeating.loop1); // gapless identical loop asset
+    const evolving = await distinctLoops(true);
+    const repeating = await distinctLoops(false);
+    expect(repeating).toBeLessThanOrEqual(6); // only the form's sections recur
+    expect(evolving).toBeGreaterThan(repeating); // re-arranged each pass
   });
 
   it("plumbs volume to the master gain (default 0.8)", async () => {
