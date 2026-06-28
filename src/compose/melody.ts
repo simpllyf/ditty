@@ -4,7 +4,8 @@
  * cadence bars resolve. Pure and deterministic; the arranger turns degrees into
  * sound. Coherence comes from following the {@link HarmonicPlan}.
  */
-import { exceedsRepeatLimit } from "../constraints";
+import { contourTarget, exceedsRepeatLimit } from "../constraints";
+import { clamp } from "../math";
 import type { Rng } from "../rng";
 import { melodyRhythm } from "../theory/rhythm";
 import { type Scale, degreePitchClass } from "../theory/scales";
@@ -43,7 +44,6 @@ export interface MelodyOptions {
   velocity?: number;
 }
 
-const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 const DEFAULT_RANGE: readonly [number, number] = [0, 7];
 
 /** Generate the lead line for a whole {@link HarmonicPlan}. Absolute start beats. */
@@ -122,7 +122,8 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
       const onset = onsets[i] as (typeof onsets)[number];
       const isLast = i === onsets.length - 1;
       const phraseT = ((bar % 4) + onset.startBeat / plan.beatsPerBar) / 4; // 0..1 across a 4-bar phrase
-      const target = clamp(home + Math.round(Math.sin(Math.PI * phraseT) * amplitude), lo, hi);
+      // contourTarget("arch", t, 2, amp) === sin(π·t)·amp — an arch peaking mid-phrase.
+      const target = clamp(home + Math.round(contourTarget("arch", phraseT, 2, amplitude)), lo, hi);
 
       let degree: number;
       if (isLast && bar === plan.cadences.final) {

@@ -1,21 +1,18 @@
 /**
- * Musicality — the pure constraints that turn a raw random walk into something
- * intentional. This is where "pleasant by constraint, not cleverness" lives: a
- * leap cap for mostly-stepwise motion, phrase resolution onto stable tones, a
- * gentle contour bias, and anti-repeat guards so motifs recur without staling.
+ * Musicality — pure constraints that turn a raw walk into something intentional:
+ * a leap cap for mostly-stepwise motion, a gentle contour bias, and anti-repeat
+ * guards so motifs recur without staling. "Pleasant by constraint, not cleverness."
  *
- * Everything here operates on integer **scale degrees** (indices into a
- * {@link Scale}); the melody layer composes these helpers.
+ * Everything operates on integer **scale degrees**. The melody composes the
+ * contour and anti-repeat helpers; the leap/shuffle utilities are exposed on
+ * `/core` for building custom layers.
  */
 import type { Rng } from "./rng";
-import { type Scale, degreeToSemitone } from "./theory/scales";
 
 /** Default maximum jump between consecutive notes, in scale degrees. */
 export const DEFAULT_MAX_LEAP = 4;
 /** Default cap on how many times one note may sound in a row. */
 export const DEFAULT_MAX_NOTE_REPEAT = 2;
-/** Stable resolution targets, as pitch classes: the major triad (1, 3, 5). */
-export const STABLE_PITCH_CLASSES: readonly number[] = [0, 4, 7];
 
 // --- Leap cap -------------------------------------------------------------
 
@@ -38,41 +35,6 @@ export function capLeap(
   if (delta > maxLeap) return prevDegree + maxLeap;
   if (delta < -maxLeap) return prevDegree - maxLeap;
   return candidateDegree;
-}
-
-// --- Phrase resolution ----------------------------------------------------
-
-/** Pitch class (0–11) of a scale degree. */
-function pitchClass(scale: Scale, degree: number): number {
-  return ((degreeToSemitone(scale, degree) % 12) + 12) % 12;
-}
-
-/** Whether a degree lands on a stable tone (default: the tonic triad). */
-export function isStableDegree(
-  scale: Scale,
-  degree: number,
-  stable: readonly number[] = STABLE_PITCH_CLASSES,
-): boolean {
-  return stable.includes(pitchClass(scale, degree));
-}
-
-/**
- * The stable degree nearest to `degree` — used to resolve the last note of a
- * phrase onto a restful tone while keeping the contour. Searches outward; ties
- * resolve downward (a gentle landing toward the tonic). A scale always contains
- * its tonic, so a stable degree is always found within one octave either way.
- */
-export function nearestStableDegree(
-  scale: Scale,
-  degree: number,
-  stable: readonly number[] = STABLE_PITCH_CLASSES,
-): number {
-  for (let d = 0; d <= scale.length; d++) {
-    if (isStableDegree(scale, degree - d, stable)) return degree - d;
-    if (isStableDegree(scale, degree + d, stable)) return degree + d;
-  }
-  /* c8 ignore next -- unreachable: a scale's tonic is always stable and recurs each octave */
-  return degree;
 }
 
 // --- Contour shaping ------------------------------------------------------

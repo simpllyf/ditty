@@ -14,6 +14,7 @@
  */
 import type { DrumName } from "./compose/arranger";
 import type { DrumVoice, Instrument } from "./instruments";
+import { clampSafe } from "./math";
 
 /** The slice of `AudioParam` the synth uses. */
 export interface AudioParamLike {
@@ -90,10 +91,8 @@ export interface SynthOptions {
   reverb?: { decay?: number; damping?: number; mix?: number };
 }
 
-// NaN must not slip through to an AudioParam (it silently corrupts the value);
-// fall back to the low bound. Infinity clamps correctly via min/max.
-const clamp = (x: number, lo: number, hi: number): number =>
-  Number.isNaN(x) ? lo : Math.max(lo, Math.min(hi, x));
+// NaN must not slip through to an AudioParam (clampSafe maps it to the low bound).
+const clamp = clampSafe;
 
 /** Gentle soft-clip curve so summed voices can't hard-clip the master. */
 function softClipCurve(n = 1024): Float32Array {
