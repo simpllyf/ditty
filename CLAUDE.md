@@ -3,8 +3,9 @@
 ## Project
 
 Ditty is a zero-dependency, framework-agnostic generative music engine for the
-browser: endless _peppy_ background music plus one-shot reward stingers, all
-synthesized via the Web Audio API. Published as `@simpllyf/ditty` (OSS, MIT).
+browser: endless, harmony-led, multi-instrument background music — pick a _style_
+and it arranges a lead, bass, pad, arpeggio, and drums that follow the chords —
+all synthesized via the Web Audio API. Published as `@simpllyf/ditty` (OSS, MIT).
 Reference consumer is the `learnwithoslo` kids' learning app, but the library is
 standalone.
 
@@ -14,10 +15,12 @@ standalone.
 out, no side effects, no Web Audio:
 
 ```
-src/rng.ts  scale.ts  rhythm.ts  constraints.ts  melody.ts   ← PURE (Node, no audio)
-src/synth.ts  scheduler.ts                                    ← thin Web-Audio shell
-src/presets.ts  engine.ts                                     ← glue / public facade
-src/index.ts (engine)   src/core.ts (pure layer)             ← entry points
+src/rng constraints noise wav instruments styles session     ← PURE (Node, no audio)
+src/theory/{pitch scales chords progressions rhythm}         ← PURE — music theory
+src/compose/{harmony melody arranger}                        ← PURE — composition → Score
+src/synth.ts                                                  ← thin Web-Audio shell (only audio file)
+src/scheduler.ts  engine.ts  render.ts                       ← glue / facades (inject AudioContext)
+src/index.ts (engine)   src/core.ts (pure layer)            ← entry points
 ```
 
 - The pure layer must run in Node with **no `AudioContext`** and is exhaustively

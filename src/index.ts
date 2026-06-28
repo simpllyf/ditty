@@ -4,7 +4,7 @@
  *
  * ```ts
  * import { createEngine } from "@simpllyf/ditty";
- * const engine = createEngine({ raga: SCALES.mohanam });
+ * const engine = createEngine({ style: "calm" });
  * playButton.addEventListener("click", () => engine.start()); // start from a gesture
  * ```
  *
