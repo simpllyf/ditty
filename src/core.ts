@@ -26,6 +26,16 @@ export type { ProgressionName, HarmonicFunction } from "./theory/progressions";
 export { generateHarmony, chordTonesInScale } from "./compose/harmony";
 export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
 export {
+  STEPS_PER_BEAT,
+  metricStrength,
+  melodyRhythm,
+  DRUM_GROOVES,
+  fitGroove,
+  applySwing,
+  SWING_MAX,
+} from "./theory/rhythm";
+export type { Onset, DrumGroove, DrumGrooveName } from "./theory/rhythm";
+export {
   DEFAULT_RHYTHM,
   barLengthSteps,
   stepsToBeats,
