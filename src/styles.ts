@@ -9,7 +9,7 @@
  * madhyamavati needs mixolydian (b7), hindolam needs naturalMinor (b6), abhogi
  * needs dorian (natural 6) — do not "simplify" these to a major parent.
  */
-import { type ScoreVoice } from "./compose/arranger";
+import { type ScoreVoice } from "./voices";
 import { type InstrumentName, instrumentsForVoice } from "./instruments";
 import type { Rng } from "./rng";
 import type { DrumGrooveName } from "./theory/rhythm";

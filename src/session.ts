@@ -5,13 +5,7 @@
  * `buildLoop` is the one impure-adjacent helper (it binds a synth) and is not on
  * `/core`.
  */
-import {
-  type ArrangeOptions,
-  type DrumName,
-  type Score,
-  type ScoreVoice,
-  arrange,
-} from "./compose/arranger";
+import { type ArrangeOptions, type Score, arrange } from "./compose/arranger";
 import {
   DRUM_KITS,
   type DrumVoice,
@@ -25,6 +19,7 @@ import { type Rng, makeRng } from "./rng";
 import type { PreparedLoop, ScheduledEvent } from "./scheduler";
 import { type StyleName, pickStyle } from "./styles";
 import type { Synth } from "./synth";
+import type { DrumName, ScoreVoice } from "./voices";
 
 /** The musical knobs shared by the engine and the renderer; each falls back to the style. */
 export interface SessionOptions {
@@ -169,7 +164,7 @@ export function buildLoop(
   for (const hit of score.drums) {
     events.push({
       beat: hit.startBeat,
-      play: (time: number) => synth.playDrum(hit.drum, drumKit[hit.drum], time, hit.velocity),
+      play: (time: number) => synth.playDrum(drumKit[hit.drum], time, hit.velocity),
     });
   }
   events.sort((a, b) => a.beat - b.beat);

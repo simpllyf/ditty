@@ -8,7 +8,7 @@
  * Palette is synthesized, not sampled (zero-dep + size budget): plucks, pads,
  * bells, organ, mallets, sub bass, etc. Broad on purpose.
  */
-import type { DrumName, ScoreVoice } from "./compose/arranger";
+import type { DrumName, ScoreVoice } from "./voices";
 
 export type OscKind = "sine" | "triangle" | "sawtooth" | "square";
 
@@ -177,8 +177,13 @@ export function instrumentsForVoice(voice: ScoreVoice): InstrumentName[] {
   );
 }
 
-/** A synthesized drum hit's parameters (synthesis method is keyed by drum name). */
+/**
+ * A synthesized drum hit. `kind` drives synthesis (so the synth is data-driven,
+ * not keyed off the drum name): `tone` = a pitch-dropping body (kick), `noise` =
+ * filtered noise (hat), `mixed` = noise + a body tone (snare).
+ */
 export interface DrumVoice {
+  readonly kind: "tone" | "noise" | "mixed";
   readonly gain: number;
   readonly ampDecay: number; // seconds
   readonly freqStart?: number; // tone start (kick/snare body)
@@ -191,8 +196,16 @@ export interface DrumVoice {
 
 export const DRUM_KITS = {
   default: {
-    kick: { gain: 0.9, ampDecay: 0.16, freqStart: 120, freqEnd: 48, pitchDecay: 0.03 },
+    kick: {
+      kind: "tone",
+      gain: 0.9,
+      ampDecay: 0.16,
+      freqStart: 120,
+      freqEnd: 48,
+      pitchDecay: 0.03,
+    },
     snare: {
+      kind: "mixed",
       gain: 0.5,
       ampDecay: 0.14,
       freqStart: 190,
@@ -200,7 +213,7 @@ export const DRUM_KITS = {
       toneGain: 0.3,
       highpass: 1200,
     },
-    hat: { gain: 0.4, ampDecay: 0.05, noiseGain: 1, highpass: 7000 },
+    hat: { kind: "noise", gain: 0.4, ampDecay: 0.05, noiseGain: 1, highpass: 7000 },
   },
 } as const satisfies Record<string, Record<DrumName, DrumVoice>>;
 

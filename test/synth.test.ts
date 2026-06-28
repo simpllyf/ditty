@@ -97,7 +97,7 @@ describe("Synth.playDrum", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);
     const before = ctx.oscillators.length;
-    s.playDrum("kick", DRUM_KITS.default.kick, 2, 1);
+    s.playDrum(DRUM_KITS.default.kick, 2, 1);
     expect(ctx.oscillators.length).toBe(before + 1);
     const osc = ctx.oscillators[ctx.oscillators.length - 1]!;
     expect(osc.type).toBe("sine");
@@ -108,7 +108,7 @@ describe("Synth.playDrum", () => {
   it("hat plays the shared noise buffer through a highpass", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);
-    s.playDrum("hat", DRUM_KITS.default.hat, 0, 1);
+    s.playDrum(DRUM_KITS.default.hat, 0, 1);
     expect(ctx.bufferSources.length).toBe(1);
     expect(ctx.bufferSources[0]!.buffer).not.toBeNull();
     expect(ctx.filters.some((f) => f.type === "highpass")).toBe(true);
@@ -118,7 +118,7 @@ describe("Synth.playDrum", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);
     const oscBefore = ctx.oscillators.length;
-    s.playDrum("snare", DRUM_KITS.default.snare, 0, 0.9);
+    s.playDrum(DRUM_KITS.default.snare, 0, 0.9);
     expect(ctx.bufferSources.length).toBe(1); // noise component
     expect(ctx.oscillators.length).toBe(oscBefore + 1); // body tone
     const tone = ctx.oscillators[ctx.oscillators.length - 1]!;
