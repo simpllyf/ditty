@@ -1,7 +1,7 @@
 {
   "name": "@simpllyf/ditty",
   "version": "0.0.0",
-  "description": "Zero-dependency generative music engine for the browser — endless peppy game-feel background music and reward stingers, synthesized via the Web Audio API.",
+  "description": "Zero-dependency, harmony-led generative music engine for the browser — endless, seamlessly-looping multi-instrument background music, synthesized via the Web Audio API.",
   "type": "module",
   "license": "MIT",
   "author": "Simpllyf",
@@ -45,7 +45,7 @@
     "procedural",
     "music",
     "synthesizer",
-    "chiptune",
+    "raga",
     "game-audio",
     "background-music",
     "zero-dependency"
