@@ -10,8 +10,8 @@
  *  - a "start" button wired to a real `createEngine` proves the realtime path
  *    resumes and runs from a genuine user gesture.
  */
-import { createEngine, type EngineAudioContext } from "../src/engine";
-import { encodeWav, renderOffline } from "../src/render";
+import { createEngine, type EngineAudioContext } from "../src/audio/engine";
+import { encodeWav, renderOffline } from "../src/audio/render";
 import type { DittyE2E, OfflineRenderResult } from "./types";
 
 const SAMPLE_RATE = 44100;

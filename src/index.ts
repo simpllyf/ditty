@@ -10,10 +10,10 @@
  *
  * The pure composition layer (no Web Audio) is available at `@simpllyf/ditty/core`.
  */
-export { createEngine } from "./engine";
-export type { Engine, EngineOptions, EngineAudioContext } from "./engine";
-export { renderOffline, encodeWav } from "./render";
-export type { RenderOptions, RenderResult, OfflineContextLike } from "./render";
+export { createEngine } from "./audio/engine";
+export type { Engine, EngineOptions, EngineAudioContext } from "./audio/engine";
+export { renderOffline, encodeWav } from "./audio/render";
+export type { RenderOptions, RenderResult, OfflineContextLike } from "./audio/render";
 
 // Composition + config knobs, re-exported for convenience.
 export { arrange } from "./compose/arranger";

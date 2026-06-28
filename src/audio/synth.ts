@@ -12,8 +12,8 @@
  * The `AudioContext` is INJECTED (never the global) so the whole thing runs
  * against a fake context in Node tests — no real audio required.
  */
-import type { DrumVoice, Instrument } from "./instruments";
-import { clampSafe } from "./math";
+import type { DrumVoice, Instrument } from "../instruments";
+import { clampSafe } from "../math";
 
 /** The slice of `AudioParam` the synth uses. */
 export interface AudioParamLike {

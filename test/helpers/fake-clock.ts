@@ -1,5 +1,5 @@
 /** A manually-driven repeating timer for testing the scheduler's look-ahead. */
-import type { SchedulerClock } from "../../src/scheduler";
+import type { SchedulerClock } from "../../src/audio/scheduler";
 
 export class FakeClock implements SchedulerClock {
   callback: (() => void) | null = null;
