@@ -155,7 +155,7 @@ export function createSession(options: SessionOptions): Session {
   const arrangeSection = (section: SectionProfile): Score =>
     arrange({
       rng: arrangeRng,
-      bpm,
+      bpm: Math.round(bpm * section.bpmScale), // per-section tempo (B pulls back, C pushes)
       beatsPerBar,
       bars,
       parent,
