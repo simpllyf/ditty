@@ -89,6 +89,8 @@ export interface SynthOptions {
   noiseTable: Float32Array;
   /** Master volume 0..1. Default 0.35 (background music). */
   masterGain?: number;
+  /** Master high-cut in Hz (default 6000) — lower = warmer/further back. */
+  toneHz?: number;
   reverb?: { decay?: number; damping?: number; mix?: number };
 }
 
@@ -113,10 +115,13 @@ interface LiveNote {
 }
 
 const REVERB_DELAYS = [0.0297, 0.0419, 0.0537]; // prime-ish spacing → diffuse tail, not slapback
+/** Master tone roll-off: a gentle high cut so the mix sits BACK (background), not forward. */
+const MASTER_TONE_HZ = 6000;
 
 export class Synth {
   private readonly ctx: AudioContextLike;
   private readonly master: GainNodeLike;
+  private readonly tone: BiquadFilterLike;
   private readonly limiter: WaveShaperLike;
   private readonly reverbIn: GainNodeLike;
   private readonly reverbNodes: AudioNodeLike[] = [];
@@ -131,9 +136,16 @@ export class Synth {
 
     this.master = ctx.createGain();
     this.master.gain.value = clamp(options.masterGain ?? 0.35, 0, 1);
+    // A gentle master high-cut: rolling off the top end pushes the whole mix back
+    // (bright = forward), so it reads as background rather than "in your face".
+    this.tone = ctx.createBiquadFilter();
+    this.tone.type = "lowpass";
+    this.tone.frequency.value = clamp(options.toneHz ?? MASTER_TONE_HZ, 500, this.nyquist);
+    this.tone.Q.value = 0.5;
     this.limiter = ctx.createWaveShaper();
     this.limiter.curve = softClipCurve();
-    this.master.connect(this.limiter);
+    this.master.connect(this.tone);
+    this.tone.connect(this.limiter);
     this.limiter.connect(ctx.destination);
 
     this.reverbIn = this.buildReverb(options.reverb ?? {});
@@ -151,8 +163,8 @@ export class Synth {
     const input = this.ctx.createGain();
     const wet = this.ctx.createGain();
     wet.gain.value = clamp(opts.mix ?? 0.9, 0, 1);
-    const feedback = clamp(opts.decay ?? 0.6, 0, 0.92);
-    const damping = clamp(opts.damping ?? 3200, 20, this.nyquist);
+    const feedback = clamp(opts.decay ?? 0.68, 0, 0.92); // a touch longer → more room
+    const damping = clamp(opts.damping ?? 2600, 20, this.nyquist); // darker tail → sits back
     for (const time of REVERB_DELAYS) {
       const delay = this.ctx.createDelay(1);
       delay.delayTime.value = time;
@@ -392,6 +404,7 @@ export class Synth {
     }
     this.live.clear();
     this.master.disconnect();
+    this.tone.disconnect();
     this.limiter.disconnect();
     this.reverbIn.disconnect();
     for (const node of this.reverbNodes) node.disconnect(); // stop the feedback taps recirculating

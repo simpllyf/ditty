@@ -101,7 +101,7 @@ export const INSTRUMENTS = {
     voices: ["lead"],
     layers: [{ kind: "sine" }, { kind: "sine", ratio: 2, gain: 0.25 }],
     amp: { attack: 0.02, decay: 0.12, sustain: 0.6, release: 0.18 },
-    vibrato: { rateHz: 5.5, depthCents: 16, delaySec: 0.3 }, // eases into a gentle sing
+    vibrato: { rateHz: 5, depthCents: 9, delaySec: 0.6 }, // a gentle, late shimmer (not a wobble)
     reverbSend: 0.25,
   },
 
@@ -135,7 +135,7 @@ export const INSTRUMENTS = {
       { kind: "sine", ratio: 3, gain: 0.35 },
     ],
     amp: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.2 },
-    tremolo: { rateHz: 5, depth: 0.25 }, // Leslie-ish shimmer
+    tremolo: { rateHz: 4.5, depth: 0.16 }, // subtle Leslie-ish shimmer
     reverbSend: 0.3,
   },
 
