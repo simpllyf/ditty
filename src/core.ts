@@ -25,6 +25,16 @@ export { PROGRESSIONS, FUNCTION_OF, functionalProgression } from "./theory/progr
 export type { ProgressionName, HarmonicFunction } from "./theory/progressions";
 export { generateHarmony, chordTonesInScale } from "./compose/harmony";
 export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
+export { arrange } from "./compose/arranger";
+export type {
+  Score,
+  ScoreNote,
+  ScorePart,
+  ScoreVoice,
+  DrumHit,
+  DrumName,
+  ArrangeOptions,
+} from "./compose/arranger";
 export {
   STEPS_PER_BEAT,
   metricStrength,
