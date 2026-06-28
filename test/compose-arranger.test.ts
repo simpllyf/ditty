@@ -260,6 +260,18 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
 
+  it("bass patterns vary the low-end shape; default is rootFifth (unchanged)", () => {
+    const o = { bars: 8, beatsPerBar: 4 } as const;
+    const bass = (p?: "rootFifth" | "walking" | "pulse" | "sustained") =>
+      part(arrange({ rng: makeRng(1), ...o, ...(p ? { bassPattern: p } : {}) }), "bass")!.notes;
+    expect(bass()).toEqual(bass("rootFifth")); // default === rootFifth, byte-identical
+    expect(bass("rootFifth").length).toBe(8 * 2);
+    expect(bass("pulse").length).toBe(8 * 4); // a hit every beat
+    expect(bass("walking").length).toBe(8 * 4);
+    expect(bass("sustained").length).toBe(8); // one held note per bar
+    for (const n of bass("walking")) expect(n.freq).toBeLessThan(midiToFrequency(DEFAULT_ROOT)); // stays under the pad
+  });
+
   it("texture gates the arp/drums by section (dynamic arc); full leaves them intact", () => {
     const opts = { bars: 8, beatsPerBar: 4 } as const; // lengthBeats 32 → sections of 8 beats
     const full = arrange({ rng: makeRng(1), ...opts, texture: "full" });
