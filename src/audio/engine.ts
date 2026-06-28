@@ -47,6 +47,7 @@ export interface Engine {
   dispose(): void;
 }
 
+// NaN-guarded clamp — a NaN volume must never reach the master AudioParam.
 const clamp = clampSafe;
 
 /** The audio graph, built lazily on first start(); null until then (SSR-safe). */
