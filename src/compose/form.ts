@@ -12,7 +12,7 @@
  */
 import type { Rng } from "../rng";
 import type { Scale } from "../theory/scales";
-import type { BassPatternName, TextureName } from "./arranger";
+import type { ArpRole, BassPatternName, TextureName } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
 
@@ -25,6 +25,7 @@ export interface SectionProfile {
   readonly bassPattern: BassPatternName;
   readonly density: number; // melodic density 0..1 (contrast: B sparser, C busier)
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
+  readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
 }
 
@@ -94,6 +95,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       bassPattern: o.rng.pick(["sustained", "walking", "rootFifth"]),
       density: clampDensity(o.density * 0.6),
       dynamics: 0.82,
+      arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
     };
   }
   if (label === "C") {
@@ -106,6 +108,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       bassPattern: "pulse",
       density: clampDensity(o.density * 1.25),
       dynamics: 1.12,
+      arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
     };
   }
   // A — home: full texture, steady bass, base density, reference level, home key.
@@ -117,6 +120,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     bassPattern: o.rng.pick(["rootFifth", "rootFifth", "walking"]),
     density: clampDensity(o.density),
     dynamics: 1,
+    arpRole: "arp", // the arp keeps the running figure — the bed
   };
 }
 
