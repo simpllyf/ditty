@@ -67,6 +67,10 @@ export interface ArrangeOptions {
   texture?: TextureName;
   /** Bass rhythm/shape. Default "rootFifth". */
   bassPattern?: BassPatternName;
+  /** Velocity scale for the whole section — the loud/soft arc. Default 1. */
+  dynamics?: number;
+  /** End the last bar with a drum fill (a buildup into the next section). Default false. */
+  fill?: boolean;
   groove?: DrumGrooveName;
   /** Per-voice toggles; each defaults to on. */
   voices?: VoiceToggles;
@@ -294,7 +298,7 @@ export function arrange(options: ArrangeOptions): Score {
     parts.push({ voice: "arp", notes });
   }
 
-  const drums: DrumHit[] = [];
+  let drums: DrumHit[] = [];
   if (drumsOn) {
     const g = fitGroove(DRUM_GROOVES[groove], beatsPerBar);
     const lanes: ReadonlyArray<readonly [DrumName, readonly number[], number]> = [
@@ -312,6 +316,38 @@ export function arrange(options: ArrangeOptions): Score {
         }
       }
     }
+    if (options.fill) {
+      // Replace the final bar with a snare buildup → announces the part change.
+      const lastBar = (bars - 1) * beatsPerBar;
+      drums = drums.filter((h) => h.startBeat < lastBar);
+      drums.push({ startBeat: lastBar, drum: "kick", velocity: 1 });
+      const steps = beatsPerBar * 2; // eighth notes
+      for (let s = 0; s < steps; s++) {
+        drums.push({
+          startBeat: lastBar + s * 0.5,
+          drum: "snare",
+          velocity: 0.45 + 0.55 * (s / Math.max(1, steps - 1)), // crescendo into the next section
+        });
+      }
+    }
+  }
+
+  // Dynamics: scale the whole section's velocities for the loud/soft arc.
+  const dynamics = options.dynamics ?? 1;
+  if (dynamics !== 1) {
+    const scale = (v: number) => Math.min(1, v * dynamics);
+    return {
+      bpm,
+      beatsPerBar,
+      bars,
+      lengthBeats,
+      rootMidi,
+      parts: parts.map((p) => ({
+        voice: p.voice,
+        notes: p.notes.map((n) => ({ ...n, velocity: scale(n.velocity) })),
+      })),
+      drums: drums.map((h) => ({ ...h, velocity: scale(h.velocity) })),
+    };
   }
 
   return { bpm, beatsPerBar, bars, lengthBeats, rootMidi, parts, drums };
