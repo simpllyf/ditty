@@ -34,11 +34,14 @@ async function renderStats(seed: number, seconds: number): Promise<OfflineRender
     if (abs > peak) peak = abs;
     sumSquares += value * value;
   }
-  const fingerprint: number[] = [];
+  // A sparse, RAW (un-rounded) sample of the waveform. Real-browser audio DSP is
+  // not bit-reproducible across renders, so the suite compares these with a
+  // tolerance — never by exact float equality.
+  const samples: number[] = [];
   for (let i = 0; i < data.length; i += 997) {
-    fingerprint.push(Math.round(data[i]! * 1e6) / 1e6);
+    samples.push(data[i]!);
   }
-  return { length: data.length, peak, rms: Math.sqrt(sumSquares / data.length), fingerprint };
+  return { length: data.length, peak, rms: Math.sqrt(sumSquares / data.length), samples };
 }
 
 async function wavBytes(seed: number, seconds: number): Promise<Uint8Array> {
