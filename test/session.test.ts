@@ -32,7 +32,7 @@ describe("createSession", () => {
 
   it("draws instruments from the style's pools", () => {
     const s = createSession({ seed: 3, style: "calm" });
-    expect(["sineLead", "marimba"]).toContain(s.instruments.lead.name); // calm's lead pool
+    expect(["sineLead", "marimba", "epiano"]).toContain(s.instruments.lead.name); // calm's lead pool
   });
 
   it("locks the seed→session mapping (golden — pins the style/instrument/arrange/noise fork chain)", () => {

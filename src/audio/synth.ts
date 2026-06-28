@@ -269,11 +269,31 @@ export class Synth {
       const osc = ctx.createOscillator();
       osc.type = layer.kind;
       const detune = Math.pow(2, (layer.detuneCents ?? 0) / 1200);
-      osc.frequency.setValueAtTime(
-        clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist),
-        t0,
-      );
+      const carrierHz = clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist);
+      osc.frequency.setValueAtTime(carrierHz, t0);
       if (vibratoDepth) vibratoDepth.connect(osc.detune);
+
+      // FM: a sine modulator bends the carrier's frequency; peak deviation =
+      // index × modulator freq, optionally decaying (the e-piano/bell "tine").
+      if (layer.fm) {
+        const modHz = clamp(carrierHz * layer.fm.ratio, 0, this.nyquist);
+        const mod = ctx.createOscillator();
+        mod.type = "sine";
+        mod.frequency.setValueAtTime(modHz, t0);
+        const modGain = ctx.createGain();
+        const peak = Math.max(0, layer.fm.index) * modHz;
+        modGain.gain.setValueAtTime(peak, t0);
+        if (layer.fm.decay !== undefined && layer.fm.decay > 0) {
+          modGain.gain.setTargetAtTime(0, t0, layer.fm.decay / 3);
+        }
+        mod.connect(modGain);
+        modGain.connect(osc.frequency); // modulate the carrier
+        mod.start(t0);
+        mod.stop(stopAt);
+        nodes.push(modGain);
+        oscs.push(mod);
+      }
+
       const layerGain = layer.gain ?? 1;
       if (layerGain !== 1) {
         const g = ctx.createGain();

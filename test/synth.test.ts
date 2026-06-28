@@ -105,6 +105,27 @@ describe("Synth.playNote", () => {
     expect(depth!.gain.events.some((e) => e.value === 0.3)).toBe(true);
   });
 
+  it("an fm layer adds a modulator that bends the carrier frequency, decaying", () => {
+    const ctx = new FakeAudioContext();
+    const s = make(ctx);
+    const p: Instrument = {
+      name: "fm",
+      voices: ["lead"],
+      layers: [{ kind: "sine", fm: { ratio: 2, index: 3, decay: 0.3 } }],
+      amp: { attack: 0, decay: 0.1, sustain: 0.7, release: 0.1 },
+    };
+    s.playNote(p, { freq: 200, startTime: 0, durationSeconds: 0.5, velocity: 0.7 });
+    const carrier = ctx.oscillators.find((o) => o.frequency.events.some((e) => e.value === 200));
+    const mod = ctx.oscillators.find((o) => o.frequency.events.some((e) => e.value === 400)); // 200×ratio
+    expect(carrier).toBeDefined();
+    expect(mod).toBeDefined();
+    // peak deviation = index×modHz = 3×400 = 1200, driving the carrier frequency, decaying to 0
+    const modGain = ctx.gains.find((g) => g.connectedTo.includes(carrier!.frequency));
+    expect(modGain).toBeDefined();
+    expect(modGain!.gain.events.some((e) => e.type === "set" && e.value === 1200)).toBe(true);
+    expect(modGain!.gain.events.some((e) => e.type === "target" && e.value === 0)).toBe(true);
+  });
+
   it("a patch with neither vibrato nor tremolo adds no LFO", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);

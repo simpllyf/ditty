@@ -12,12 +12,20 @@ import type { DrumName, ScoreVoice } from "./voices";
 
 export type OscKind = "sine" | "triangle" | "sawtooth" | "square";
 
+/** An FM (phase-modulation) operator: a sine modulator bends a layer's frequency. */
+export interface FmOp {
+  readonly ratio: number; // modulator frequency ÷ carrier frequency (1 = unison, inharmonic = bell)
+  readonly index: number; // modulation depth (brightness); peak deviation = index × modulator freq
+  readonly decay?: number; // seconds for the index to fall toward 0 — the e-piano/bell "tine"
+}
+
 /** One summed oscillator layer. `ratio` multiplies the note frequency; detune folds into frequency. */
 export interface OscLayer {
   readonly kind: OscKind;
   readonly ratio?: number; // frequency multiple (1 = unison, 2 = octave, 2.76 = inharmonic bell)
   readonly detuneCents?: number;
   readonly gain?: number; // layer mix 0..1
+  readonly fm?: FmOp; // optional FM modulator → metallic/e-piano/bell timbres
 }
 
 /** Amplitude ADSR, in seconds (sustain is a 0..1 level). */
@@ -137,6 +145,18 @@ export const INSTRUMENTS = {
     amp: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.2 },
     tremolo: { rateHz: 4.5, depth: 0.16 }, // subtle Leslie-ish shimmer
     reverbSend: 0.3,
+  },
+  epiano: {
+    name: "epiano",
+    voices: ["lead", "pad"],
+    // FM Rhodes: a sine carrier with a unison modulator whose brightness decays
+    // into a soft tine, plus a faint octave shimmer.
+    layers: [
+      { kind: "sine", fm: { ratio: 1, index: 2.5, decay: 0.35 } },
+      { kind: "sine", ratio: 2, gain: 0.12 },
+    ],
+    amp: { attack: 0.005, decay: 0.7, sustain: 0.3, release: 0.5 },
+    reverbSend: 0.32,
   },
 
   // ── bass ──
