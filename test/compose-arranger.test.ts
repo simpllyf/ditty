@@ -260,6 +260,23 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
 
+  it("texture gates the arp/drums by section (dynamic arc); full leaves them intact", () => {
+    const opts = { bars: 8, beatsPerBar: 4 } as const; // lengthBeats 32 → sections of 8 beats
+    const full = arrange({ rng: makeRng(1), ...opts, texture: "full" });
+    const build = arrange({ rng: makeRng(1), ...opts, texture: "build" }); // arp [0,0,1,1] drums [0,1,1,1]
+    const arp = (s: ReturnType<typeof arrange>) => part(s, "arp")!.notes;
+    const inSec0 = (beats: readonly { startBeat: number }[]) =>
+      beats.filter((n) => n.startBeat < 8);
+    // lead/pad/bass are never gated — identical across textures
+    expect(part(build, "lead")!.notes).toEqual(part(full, "lead")!.notes);
+    expect(part(build, "pad")!.notes).toEqual(part(full, "pad")!.notes);
+    // arp + drums: present in section 0 for full, gated out for build
+    expect(inSec0(arp(full)).length).toBeGreaterThan(0);
+    expect(inSec0(arp(build)).length).toBe(0);
+    expect(inSec0(full.drums).length).toBeGreaterThan(0);
+    expect(inSec0(build.drums).length).toBe(0);
+  });
+
   it("keeps the bass in key over diminished chords (no blind perfect fifth)", () => {
     // progression hits vii° (degree 6 = a diminished triad in major); the bass's
     // alternating fifth must be the chord's real fifth, not a perfect fifth (out of key).
