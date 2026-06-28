@@ -24,7 +24,7 @@ export interface EngineAudioContext extends AudioContextLike {
 }
 
 export interface EngineOptions extends SessionOptions {
-  /** Master volume, 0..1. Default 0.35. */
+  /** Master volume, 0..1. Default 0.3 — gentle, with headroom so dense mixes don't slam the limiter. */
   volume?: number;
   /** Bring your own `AudioContext` (or compatible). Created internally if omitted. */
   audioContext?: EngineAudioContext;
@@ -61,7 +61,7 @@ interface Graph {
 /** Create a generative music engine. See {@link EngineOptions}. */
 export function createEngine(options: EngineOptions = {}): Engine {
   const session: Session = createSession(options); // chooses style/instruments once; validates bpm
-  let volume = clamp(options.volume ?? 0.35, 0, 1);
+  let volume = clamp(options.volume ?? 0.3, 0, 1);
   let graph: Graph | null = null;
   let disposed = false;
 

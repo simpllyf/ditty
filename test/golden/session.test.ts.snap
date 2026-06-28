@@ -6,10 +6,10 @@ exports[`createSession > locks the seed→session mapping (golden — pins the s
   "beatsPerBar": 4,
   "bpm": 107,
   "firstFreqs": [
-    392,
+    523,
+    440,
     294,
-    330,
-    392,
+    294,
     131,
     196,
     175,
