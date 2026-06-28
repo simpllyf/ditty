@@ -14,6 +14,7 @@ import type { Rng } from "../rng";
 import type { Scale } from "../theory/scales";
 import type { BassPatternName, TextureName } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
+import { type MelodyNote, generateMelody } from "./melody";
 
 /** One section's arrangement recipe: its harmony plus how it's played. */
 export interface SectionProfile {
@@ -30,19 +31,25 @@ export interface SectionProfile {
 /** The per-label musical recipe, before the per-position `fill` is assigned. */
 type SectionRecipe = Omit<SectionProfile, "fill">;
 
-/** A whole piece: sections in play order; the session loops the entire list. */
+/** A whole piece: sections in play order, plus the recurring theme they share. */
 export interface Form {
   readonly sections: readonly SectionProfile[];
+  readonly motif: readonly MelodyNote[]; // the piece's theme, stated at each section's head
+  readonly motifBars: number; // bars the motif spans
 }
 
 export interface FormOptions {
   readonly rng: Rng;
   readonly scale: Scale; // harmony parent
+  readonly raga: Scale; // melody scale (for the theme)
   readonly rootMidi: number;
   readonly bars: number; // bars per section
   readonly beatsPerBar: number;
   readonly density: number; // base melodic density (section A's level)
 }
+
+/** Bars the recurring theme spans (stated at the head of every section). */
+const MOTIF_BARS = 2;
 
 /** Song shapes, by section label. A = home, B = contrast/bridge, C = climax. */
 const FORM_TEMPLATES: readonly (readonly string[])[] = [
@@ -128,5 +135,19 @@ export function buildForm(o: FormOptions): Form {
     ...recipes.get(label)!,
     fill: template[(i + 1) % template.length] !== label, // fill into a part change (incl. the loop wrap)
   }));
-  return { sections };
+
+  // The theme: a short phrase over the home section's opening bars, stated verbatim
+  // at the head of every section (auto-transposing with each section's key).
+  const home = recipes.get("A")!;
+  const motif = generateMelody({
+    rng: o.rng.fork(),
+    plan: {
+      ...home.plan,
+      bars: home.plan.bars.slice(0, MOTIF_BARS),
+      cadences: { half: -1, final: -1 },
+    },
+    scale: o.raga,
+    density: o.density,
+  });
+  return { sections, motif, motifBars: MOTIF_BARS };
 }

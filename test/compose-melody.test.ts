@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { chordTonesInScale, generateHarmony } from "../src/compose/harmony";
-import { type MelodyOptions, generateMelody } from "../src/compose/melody";
+import { type MelodyNote, type MelodyOptions, generateMelody } from "../src/compose/melody";
 import { makeRng } from "../src/rng";
 import { SCALES, type Scale, degreePitchClass } from "../src/theory/scales";
 
@@ -51,6 +51,25 @@ describe("generateMelody — invariants", () => {
       ),
       { numRuns: 200 },
     );
+  });
+
+  it("states a motif verbatim at the head, then generates the continuation", () => {
+    const plan = generateHarmony({ rng: makeRng(1), scale: SCALES.major, bars: 8 });
+    const motif: MelodyNote[] = [
+      { startBeat: 0, durationBeats: 1, degree: 0, velocity: 0.7, strong: true },
+      { startBeat: 1, durationBeats: 1, degree: 2, velocity: 0.6, strong: false },
+    ];
+    const withMotif = generateMelody({
+      rng: makeRng(9),
+      plan,
+      scale: SCALES.mohanam,
+      motif,
+      motifBars: 1,
+    });
+    expect(withMotif.slice(0, 2)).toEqual(motif); // head is the theme, verbatim
+    expect(withMotif[2]!.startBeat).toBeGreaterThanOrEqual(4); // continuation starts after bar 0
+    const withoutMotif = generateMelody({ rng: makeRng(9), plan, scale: SCALES.mohanam });
+    expect(withMotif).not.toEqual(withoutMotif); // the motif actually shaped the line
   });
 
   it("lands a chord tone on every strong beat (mohanam over major, default leap)", () => {

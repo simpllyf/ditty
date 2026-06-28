@@ -43,6 +43,14 @@ export interface MelodyOptions {
   density?: number;
   /** Base lead velocity 0..1. Default 0.7. */
   velocity?: number;
+  /**
+   * The piece's theme: a fixed opening phrase stated VERBATIM at the head, before
+   * generated continuation takes over. Degrees are raga-relative, so the same motif
+   * auto-transposes when a section modulates — a recurring, recognisable tune.
+   */
+  motif?: readonly MelodyNote[];
+  /** Bars the {@link motif} spans; continuation generates from here on. Default 0. */
+  motifBars?: number;
 }
 
 const DEFAULT_RANGE: readonly [number, number] = [0, 7];
@@ -112,7 +120,20 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
     }
   }
 
-  for (let bar = 0; bar < plan.bars.length; bar++) {
+  // State the theme verbatim at the head (if any), then generate the continuation
+  // from where it left off — so every section opens with the recognisable tune.
+  let startBar = 0;
+  const motif = options.motif;
+  if (motif && motif.length > 0) {
+    for (const n of motif) {
+      notes.push(n);
+      remember(n.degree);
+      prev = n.degree;
+    }
+    startBar = options.motifBars ?? 0;
+  }
+
+  for (let bar = startBar; bar < plan.bars.length; bar++) {
     const chord = plan.bars[bar]!.chord;
     const chordRagaPcs = chord.pcs.filter((pc) => ragaPcs.has(pc)); // raga ∩ chord (set hoisted)
     const onsets = melodyRhythm(rng, plan.beatsPerBar, { density });
