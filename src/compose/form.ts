@@ -5,9 +5,10 @@
  * instead of one bar-loop repainted forever.
  *
  * Each distinct section gets its OWN chord progression plus a contrasting texture,
- * melodic density, and bass pattern — so B genuinely sounds like a different part
- * from A, not a tweak. The instruments (the "band") stay fixed across sections;
- * only the arrangement changes. Pure brain: data in, data out, no Web Audio.
+ * melodic density, bass pattern, dynamics, and even key (the bridge may modulate, the
+ * climax may lift) — so B genuinely sounds like a different part from A, not a tweak.
+ * The instruments (the "band") stay fixed across sections; only the arrangement
+ * changes. Pure brain: data in, data out, no Web Audio.
  */
 import type { Rng } from "../rng";
 import type { Scale } from "../theory/scales";
@@ -17,6 +18,7 @@ import { type HarmonicPlan, generateHarmony } from "./harmony";
 /** One section's arrangement recipe: its harmony plus how it's played. */
 export interface SectionProfile {
   readonly label: string; // "A" | "B" | "C" — which part this is
+  readonly rootMidi: number; // this section's tonic — may modulate away from home (key change)
   readonly plan: HarmonicPlan; // this section's own chord progression
   readonly texture: TextureName; // arp/drums dynamic arc
   readonly bassPattern: BassPatternName;
@@ -52,19 +54,34 @@ const FORM_TEMPLATES: readonly (readonly string[])[] = [
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
 
+/** Apply a modulation interval, but stay home if it would leave the safe tonic range. */
+const modulate = (base: number, shift: number) => {
+  const m = base + shift;
+  return m >= 40 && m <= 78 ? m : base;
+};
+
+/** This section's tonic: home for A; a related key for the bridge; a lift for the climax. */
+function sectionRoot(label: string, o: FormOptions): number {
+  if (label === "B") return modulate(o.rootMidi, o.rng.pick([0, 5, 7, -5])); // bridge → a related key
+  if (label === "C") return modulate(o.rootMidi, o.rng.pick([0, 2, 5])); // climax → a step/4th lift
+  return o.rootMidi; // A — home key
+}
+
 /** Build one section's recipe with deliberate contrast from the home section. */
 function buildSection(label: string, o: FormOptions): SectionRecipe {
+  const rootMidi = sectionRoot(label, o); // may modulate to a new key
   const plan = generateHarmony({
     rng: o.rng.fork(),
     scale: o.scale,
-    rootMidi: o.rootMidi,
+    rootMidi,
     bars: o.bars,
     beatsPerBar: o.beatsPerBar,
   });
   if (label === "B") {
-    // Bridge/breakdown: thinner, gentler, and quieter than home.
+    // Bridge/breakdown: thinner, gentler, and quieter than home (often a new key).
     return {
       label,
+      rootMidi,
       plan,
       texture: o.rng.pick(["breakdown", "build", "pulse"]),
       bassPattern: o.rng.pick(["sustained", "walking", "rootFifth"]),
@@ -73,9 +90,10 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     };
   }
   if (label === "C") {
-    // Climax: full, driving, busier and louder than home.
+    // Climax: full, driving, busier and louder than home (often a key lift).
     return {
       label,
+      rootMidi,
       plan,
       texture: "full",
       bassPattern: "pulse",
@@ -83,9 +101,10 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       dynamics: 1.12,
     };
   }
-  // A — home: full texture, steady bass, base density, reference level.
+  // A — home: full texture, steady bass, base density, reference level, home key.
   return {
     label,
+    rootMidi,
     plan,
     texture: "full",
     bassPattern: o.rng.pick(["rootFifth", "rootFifth", "walking"]),

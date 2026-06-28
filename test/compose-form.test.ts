@@ -39,6 +39,21 @@ describe("buildForm", () => {
     expect(A.plan).not.toBe(B.plan); // distinct sections → distinct progressions
   });
 
+  it("modulates some sections to a related key while A stays home", () => {
+    let form = buildForm({ rng: makeRng(1), ...base });
+    for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {
+      form = buildForm({ rng: makeRng(s), ...base }); // find a form that actually modulates
+    }
+    for (const s of form.sections.filter((x) => x.label === "A")) {
+      expect(s.rootMidi).toBe(base.rootMidi); // home key
+    }
+    expect(form.sections.some((x) => x.rootMidi !== base.rootMidi)).toBe(true); // a key change happens
+    for (const s of form.sections) {
+      expect(s.rootMidi).toBeGreaterThanOrEqual(40); // stays in the safe tonic range
+      expect(s.rootMidi).toBeLessThanOrEqual(78);
+    }
+  });
+
   it("flags a fill exactly on sections that lead into a different part", () => {
     const form = formWithB();
     form.sections.forEach((s, i) => {
