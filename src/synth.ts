@@ -1,203 +1,338 @@
 /**
- * The synth — the only code in the engine that touches Web Audio.
+ * The synth — the only file in the library that touches Web Audio. Renders any
+ * {@link Instrument} patch + the drum kit into nodes.
  *
- * It turns scheduled notes into sound: each note is a fresh oscillator through a
- * per-note ADSR gain into a shared master gain into the destination. Oscillators
- * are single-use in Web Audio, so allocating one per note is the idiomatic
- * pattern; polyphony is bounded by a voice cap with oldest-first stealing, and
- * finished voices are swept on the next {@link Synth.play}.
+ * Per note: summed oscillator layers → optional filter (with a cutoff envelope)
+ * → an ADSR gain → master (dry) + a reverb send. Reverb is a small feedback-delay
+ * network built once on a shared bus (no impulse buffer → smaller, deterministic,
+ * no seeded noise). Drums share one pre-filled noise buffer. Notes are
+ * schedule-and-forget: each note's subgraph disconnects on its last source's
+ * `onended`.
  *
- * The `AudioContext` is **injected** (never the global) so the whole thing runs
- * against a fake context in tests — no real audio required.
+ * The `AudioContext` is INJECTED (never the global) so the whole thing runs
+ * against a fake context in Node tests — no real audio required.
  */
-import type { Voice } from "./melody";
+import type { DrumName } from "./compose/arranger";
+import type { DrumVoice, Instrument } from "./instruments";
 
 /** The slice of `AudioParam` the synth uses. */
 export interface AudioParamLike {
   value: number;
   setValueAtTime(value: number, startTime: number): void;
   linearRampToValueAtTime(value: number, endTime: number): void;
+  setTargetAtTime(target: number, startTime: number, timeConstant: number): void;
   cancelScheduledValues(startTime: number): void;
 }
-
 /** The slice of `AudioNode` the synth uses. */
 export interface AudioNodeLike {
   connect(destination: AudioNodeLike): void;
   disconnect(): void;
 }
-
-/** The slice of `GainNode` the synth uses. */
 export interface GainNodeLike extends AudioNodeLike {
   readonly gain: AudioParamLike;
 }
-
-/** The slice of `OscillatorNode` the synth uses. */
 export interface OscillatorNodeLike extends AudioNodeLike {
   type: OscillatorType;
   readonly frequency: AudioParamLike;
   start(when: number): void;
   stop(when: number): void;
+  onended: (() => void) | null;
 }
-
-/** The slice of `AudioContext` the synth uses; a real `AudioContext` satisfies it. */
+export interface BiquadFilterLike extends AudioNodeLike {
+  type: BiquadFilterType;
+  readonly frequency: AudioParamLike;
+  readonly Q: AudioParamLike;
+}
+export interface WaveShaperLike extends AudioNodeLike {
+  curve: Float32Array | null;
+}
+export interface DelayLike extends AudioNodeLike {
+  readonly delayTime: AudioParamLike;
+}
+export interface AudioBufferLike {
+  readonly length: number;
+  getChannelData(channel: number): Float32Array;
+}
+export interface BufferSourceLike extends AudioNodeLike {
+  buffer: AudioBufferLike | null;
+  start(when: number): void;
+  stop(when: number): void;
+  onended: (() => void) | null;
+}
+/** The slice of `AudioContext` the synth uses; a real `AudioContext`/`OfflineAudioContext` satisfies it. */
 export interface AudioContextLike {
   readonly currentTime: number;
+  readonly sampleRate: number;
   readonly destination: AudioNodeLike;
   createOscillator(): OscillatorNodeLike;
   createGain(): GainNodeLike;
+  createBiquadFilter(): BiquadFilterLike;
+  createWaveShaper(): WaveShaperLike;
+  createDelay(maxDelayTime?: number): DelayLike;
+  createBuffer(channels: number, length: number, sampleRate: number): AudioBufferLike;
+  createBufferSource(): BufferSourceLike;
 }
 
-/** A note resolved to absolute audio time and seconds — what the scheduler hands the synth. */
-export interface ScheduledNote {
-  readonly voice: Voice;
-  /** Pitch in Hz. */
-  readonly frequency: number;
-  /** Absolute start time on the audio clock. */
+/** A pitched note resolved to absolute audio time + seconds. */
+export interface NoteSpec {
+  readonly freq: number;
   readonly startTime: number;
-  /** How long to hold before release, in seconds. */
   readonly durationSeconds: number;
-  /** Loudness, 0..1. */
   readonly velocity: number;
+  /** Wet send 0..1; defaults to the patch's own reverbSend (else 0). */
+  readonly reverbSend?: number;
 }
 
 export interface SynthOptions {
-  /** Master volume, 0..1. Default 0.4 (it's background music). */
-  volume?: number;
-  /** Maximum simultaneously-sounding voices before stealing the oldest. */
-  maxVoices?: number;
+  noiseTable: Float32Array;
+  /** Master volume 0..1. Default 0.35 (background music). */
+  masterGain?: number;
+  reverb?: { decay?: number; damping?: number; mix?: number };
 }
 
-/** A bright, plucky envelope + timbre per layer (snappy attacks for bounce). */
-interface Timbre {
-  readonly type: OscillatorType;
-  readonly attack: number; // seconds
-  readonly decay: number;
-  readonly sustain: number; // fraction of peak, 0..1
-  readonly release: number;
-  readonly gain: number; // peak level relative to velocity
-}
-
-const TIMBRES: Record<Voice, Timbre> = {
-  lead: { type: "square", attack: 0.005, decay: 0.06, sustain: 0.5, release: 0.08, gain: 0.5 },
-  bass: { type: "triangle", attack: 0.005, decay: 0.08, sustain: 0.6, release: 0.12, gain: 0.6 },
-  arp: { type: "square", attack: 0.003, decay: 0.04, sustain: 0.3, release: 0.05, gain: 0.35 },
-};
-
-/** Small tail after release so stop() never clips the envelope's end. */
-const TAIL_SECONDS = 0.02;
-
-// NaN must not reach an AudioParam (it silently corrupts the value); fall back
-// to the low bound. Infinity already clamps correctly via min/max.
+// NaN must not slip through to an AudioParam (it silently corrupts the value);
+// fall back to the low bound. Infinity clamps correctly via min/max.
 const clamp = (x: number, lo: number, hi: number): number =>
   Number.isNaN(x) ? lo : Math.max(lo, Math.min(hi, x));
 
-interface ActiveVoice {
-  readonly osc: OscillatorNodeLike;
-  readonly env: GainNodeLike;
-  readonly endTime: number;
+/** Gentle soft-clip curve so summed voices can't hard-clip the master. */
+function softClipCurve(n = 1024): Float32Array {
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(1.2 * x);
+  }
+  return curve;
 }
 
+interface LiveNote {
+  readonly nodes: AudioNodeLike[];
+  readonly oscs: { stop(when: number): void }[];
+}
+
+const REVERB_DELAYS = [0.0297, 0.0419, 0.0537]; // prime-ish spacing → diffuse tail, not slapback
+
 export class Synth {
-  private readonly context: AudioContextLike;
+  private readonly ctx: AudioContextLike;
   private readonly master: GainNodeLike;
-  private readonly maxVoices: number;
-  private readonly active: ActiveVoice[] = [];
-  private volumeValue: number;
+  private readonly reverbIn: GainNodeLike;
+  private readonly reverbNodes: AudioNodeLike[] = [];
+  private readonly noiseBuffer: AudioBufferLike;
+  private readonly live = new Set<LiveNote>();
+  private readonly nyquist: number;
   private disposed = false;
 
-  constructor(context: AudioContextLike, options: SynthOptions = {}) {
-    this.context = context;
-    this.maxVoices = Math.max(1, Math.floor(options.maxVoices ?? 16));
-    this.volumeValue = clamp(options.volume ?? 0.4, 0, 1);
-    this.master = context.createGain();
-    this.master.gain.setValueAtTime(this.volumeValue, context.currentTime);
-    this.master.connect(context.destination);
+  constructor(ctx: AudioContextLike, options: SynthOptions) {
+    this.ctx = ctx;
+    this.nyquist = ctx.sampleRate / 2;
+
+    this.master = ctx.createGain();
+    this.master.gain.value = clamp(options.masterGain ?? 0.35, 0, 1);
+    const limiter = ctx.createWaveShaper();
+    limiter.curve = softClipCurve();
+    this.master.connect(limiter);
+    limiter.connect(ctx.destination);
+
+    this.reverbIn = this.buildReverb(options.reverb ?? {});
+
+    this.noiseBuffer = ctx.createBuffer(1, options.noiseTable.length, ctx.sampleRate);
+    this.noiseBuffer.getChannelData(0).set(options.noiseTable);
   }
 
-  /** Current master volume, 0..1. */
-  get volume(): number {
-    return this.volumeValue;
-  }
-
-  /** Set master volume (0..1), clamped. A no-op after {@link dispose}. */
+  /** Set master volume, 0..1. */
   setVolume(volume: number): void {
-    if (this.disposed) return;
-    this.volumeValue = clamp(volume, 0, 1);
-    this.master.gain.setValueAtTime(this.volumeValue, this.context.currentTime);
+    this.master.gain.value = clamp(volume, 0, 1);
   }
 
-  /** Schedule one note. A no-op after {@link dispose}. */
-  play(note: ScheduledNote): void {
-    if (this.disposed) return;
-    this.sweepFinished();
-    if (this.active.length >= this.maxVoices) this.stealOldest();
-
-    const timbre = TIMBRES[note.voice];
-    const osc = this.context.createOscillator();
-    const env = this.context.createGain();
-    osc.type = timbre.type;
-    osc.frequency.setValueAtTime(note.frequency, note.startTime);
-    osc.connect(env);
-    env.connect(this.master);
-
-    const peak = clamp(note.velocity, 0, 1) * timbre.gain;
-    const sustainLevel = peak * timbre.sustain;
-    const start = note.startTime;
-    const g = env.gain;
-    g.setValueAtTime(0, start);
-    g.linearRampToValueAtTime(peak, start + timbre.attack);
-    g.linearRampToValueAtTime(sustainLevel, start + timbre.attack + timbre.decay);
-    // Hold sustain until the note ends, then release. Clamp so a note shorter
-    // than attack+decay still releases cleanly rather than going backwards.
-    const releaseStart = Math.max(
-      start + timbre.attack + timbre.decay,
-      start + note.durationSeconds,
-    );
-    g.setValueAtTime(sustainLevel, releaseStart);
-    g.linearRampToValueAtTime(0, releaseStart + timbre.release);
-
-    const endTime = releaseStart + timbre.release + TAIL_SECONDS;
-    osc.start(start);
-    osc.stop(endTime);
-    this.active.push({ osc, env, endTime });
-  }
-
-  /** Cut all sounding voices immediately (for stop). */
-  silenceAll(): void {
-    const now = this.context.currentTime;
-    for (const voice of this.active) {
-      voice.osc.stop(now);
-      voice.osc.disconnect();
-      voice.env.disconnect();
+  private buildReverb(opts: { decay?: number; damping?: number; mix?: number }): GainNodeLike {
+    const input = this.ctx.createGain();
+    const wet = this.ctx.createGain();
+    wet.gain.value = clamp(opts.mix ?? 0.9, 0, 1);
+    const feedback = clamp(opts.decay ?? 0.6, 0, 0.92);
+    const damping = clamp(opts.damping ?? 3200, 20, this.nyquist);
+    for (const time of REVERB_DELAYS) {
+      const delay = this.ctx.createDelay(1);
+      delay.delayTime.value = time;
+      const damp = this.ctx.createBiquadFilter();
+      damp.type = "lowpass";
+      damp.frequency.value = damping;
+      const fb = this.ctx.createGain();
+      fb.gain.value = feedback;
+      input.connect(delay);
+      delay.connect(damp);
+      damp.connect(fb);
+      fb.connect(delay); // feedback loop
+      damp.connect(wet);
+      this.reverbNodes.push(delay, damp, fb);
     }
-    this.active.length = 0;
+    wet.connect(this.master);
+    this.reverbNodes.push(wet);
+    return input;
   }
 
-  /** Tear down: silence everything and release the master node. Idempotent. */
+  /** Schedule one pitched note from a patch. */
+  playNote(patch: Instrument, note: NoteSpec): void {
+    if (this.disposed) return;
+    const ctx = this.ctx;
+    const { startTime: t0, durationSeconds: dur } = note;
+    const { attack: a, decay: d, sustain: s, release: r } = patch.amp;
+
+    const env = ctx.createGain();
+    const peak = clamp(note.velocity * (patch.gain ?? 1), 0, 1);
+    env.gain.setValueAtTime(0, t0);
+    env.gain.linearRampToValueAtTime(peak, t0 + a);
+    env.gain.linearRampToValueAtTime(peak * s, t0 + a + d);
+    const releaseAt = Math.max(t0 + a + d, t0 + dur);
+    env.gain.setValueAtTime(peak * s, releaseAt);
+    env.gain.linearRampToValueAtTime(0, releaseAt + r);
+    const stopAt = releaseAt + r + 0.02;
+
+    const nodes: AudioNodeLike[] = [env];
+    let sink: AudioNodeLike = env;
+    if (patch.filter) {
+      const filter = ctx.createBiquadFilter();
+      filter.type = patch.filter.type;
+      filter.Q.value = clamp(patch.filter.q ?? 1, 0.0001, 30);
+      const base = clamp(patch.filter.cutoff, 20, this.nyquist);
+      const amount = patch.filter.envAmount ?? 0;
+      if (amount > 0) {
+        filter.frequency.setValueAtTime(clamp(base + amount, 20, this.nyquist), t0);
+        filter.frequency.setTargetAtTime(base, t0, Math.max(0.001, patch.filter.envDecay ?? 0.1));
+      } else {
+        filter.frequency.setValueAtTime(base, t0);
+      }
+      filter.connect(env);
+      nodes.push(filter);
+      sink = filter;
+    }
+
+    const oscs: OscillatorNodeLike[] = [];
+    for (const layer of patch.layers) {
+      const osc = ctx.createOscillator();
+      osc.type = layer.kind;
+      const detune = Math.pow(2, (layer.detuneCents ?? 0) / 1200);
+      osc.frequency.setValueAtTime(
+        clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist),
+        t0,
+      );
+      const layerGain = layer.gain ?? 1;
+      if (layerGain !== 1) {
+        const g = ctx.createGain();
+        g.gain.value = clamp(layerGain, 0, 1);
+        osc.connect(g);
+        g.connect(sink);
+        nodes.push(g);
+      } else {
+        osc.connect(sink);
+      }
+      osc.start(t0);
+      osc.stop(stopAt);
+      oscs.push(osc);
+    }
+
+    env.connect(this.master);
+    const send = clamp(note.reverbSend ?? patch.reverbSend ?? 0, 0, 1);
+    if (send > 0) {
+      const sendGain = ctx.createGain();
+      sendGain.gain.value = send;
+      env.connect(sendGain);
+      sendGain.connect(this.reverbIn);
+      nodes.push(sendGain);
+    }
+
+    this.register(nodes, oscs);
+  }
+
+  /** Schedule one drum hit. */
+  playDrum(drum: DrumName, voice: DrumVoice, startTime: number, velocity: number): void {
+    if (this.disposed) return;
+    const ctx = this.ctx;
+    const peak = clamp(velocity * voice.gain, 0, 1);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(peak, startTime);
+    env.gain.setTargetAtTime(0, startTime, Math.max(0.001, voice.ampDecay / 3));
+    env.connect(this.master);
+    const stopAt = startTime + voice.ampDecay + 0.05;
+
+    const nodes: AudioNodeLike[] = [env];
+
+    if (drum === "kick") {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(clamp(voice.freqStart ?? 120, 20, this.nyquist), startTime);
+      osc.frequency.setTargetAtTime(
+        clamp(voice.freqEnd ?? 48, 20, this.nyquist),
+        startTime,
+        Math.max(0.001, voice.pitchDecay ?? 0.03),
+      );
+      osc.connect(env);
+      osc.start(startTime);
+      osc.stop(stopAt);
+      this.register(nodes, [osc]);
+      return;
+    }
+
+    const oscs: { stop(when: number): void }[] = [];
+    if (voice.noiseGain) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noiseBuffer;
+      let tail: AudioNodeLike = src;
+      if (voice.highpass) {
+        const hp = ctx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = clamp(voice.highpass, 20, this.nyquist);
+        src.connect(hp);
+        nodes.push(hp);
+        tail = hp;
+      }
+      const ng = ctx.createGain();
+      ng.gain.value = clamp(voice.noiseGain, 0, 1);
+      tail.connect(ng);
+      ng.connect(env);
+      nodes.push(ng);
+      src.start(startTime);
+      src.stop(stopAt);
+      oscs.push(src);
+    }
+    if (voice.toneGain && voice.freqStart) {
+      const osc = ctx.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(clamp(voice.freqStart, 20, this.nyquist), startTime);
+      const tg = ctx.createGain();
+      tg.gain.value = clamp(voice.toneGain, 0, 1);
+      osc.connect(tg);
+      tg.connect(env);
+      nodes.push(tg);
+      osc.start(startTime);
+      osc.stop(stopAt);
+      oscs.push(osc);
+    }
+    this.register(nodes, oscs);
+  }
+
+  private register(nodes: AudioNodeLike[], oscs: { stop(when: number): void }[]): void {
+    const entry: LiveNote = { nodes, oscs };
+    this.live.add(entry);
+    const last = oscs[oscs.length - 1] as (OscillatorNodeLike | BufferSourceLike) | undefined;
+    const cleanup = () => {
+      for (const n of nodes) n.disconnect();
+      this.live.delete(entry);
+    };
+    if (last) last.onended = cleanup;
+  }
+
+  /** Stop all sounding notes and tear down the graph. */
   dispose(): void {
     if (this.disposed) return;
-    this.silenceAll();
-    this.master.disconnect();
     this.disposed = true;
-  }
-
-  private sweepFinished(): void {
-    const now = this.context.currentTime;
-    for (let i = this.active.length - 1; i >= 0; i--) {
-      const voice = this.active[i] as ActiveVoice;
-      if (voice.endTime <= now) {
-        voice.osc.disconnect();
-        voice.env.disconnect();
-        this.active.splice(i, 1);
-      }
+    const now = this.ctx.currentTime;
+    for (const note of this.live) {
+      for (const osc of note.oscs) osc.stop(now);
+      for (const n of note.nodes) n.disconnect();
     }
-  }
-
-  private stealOldest(): void {
-    const voice = this.active.shift();
-    if (!voice) return;
-    voice.osc.stop(this.context.currentTime);
-    voice.osc.disconnect();
-    voice.env.disconnect();
+    this.live.clear();
+    this.master.disconnect();
+    this.reverbIn.disconnect();
+    for (const node of this.reverbNodes) node.disconnect(); // stop the feedback taps recirculating
   }
 }

@@ -1,15 +1,31 @@
 /**
- * The public facade — wires the seeded RNG → melody stream → scheduler → synth
- * and exposes the small engine API. This is the only place the global
- * `AudioContext` is created (and only inside {@link PeppyEngine.start}, from a
- * user gesture), so importing the package and constructing the engine does no
- * audio work and is safe under SSR.
+ * The public facade — wires seed → arranger → scheduler → synth and exposes the
+ * engine API. The only place a global `AudioContext` is created (lazily, inside
+ * {@link Engine.start} from a user gesture), so importing the package and
+ * constructing the engine does no audio work and is SSR-safe.
+ *
+ * Instruments are chosen ONCE (stable timbre); when `evolve` is on (default) the
+ * arrangement is regenerated each loop over the same tempo grid, so the music
+ * never exactly repeats yet loops seamlessly.
  */
-import { MelodyStream } from "./melody";
-import { PEPPY, STINGERS, STINGER_ROOT_MIDI, type StingerName } from "./presets";
-import { makeRng } from "./rng";
-import { degreeToFrequency } from "./scale";
-import { Scheduler, type SchedulerClock } from "./scheduler";
+import {
+  type ArrangeOptions,
+  type DrumName,
+  type Score,
+  type ScoreVoice,
+  arrange,
+} from "./compose/arranger";
+import {
+  DRUM_KITS,
+  type DrumVoice,
+  INSTRUMENTS,
+  type Instrument,
+  REVERB_SEND_BY_VOICE,
+  instrumentsForVoice,
+} from "./instruments";
+import { makeNoiseTable } from "./noise";
+import { type Rng, makeRng } from "./rng";
+import { type PreparedLoop, Scheduler, type SchedulerClock } from "./scheduler";
 import { type AudioContextLike, Synth } from "./synth";
 
 /** The slice of `AudioContext` the engine drives; a real `AudioContext` satisfies it. */
@@ -23,39 +39,41 @@ export interface EngineAudioContext extends AudioContextLike {
 export interface EngineOptions {
   /** Omit for a fresh random seed each session; set for a reproducible stream. */
   seed?: number;
-  /** Tempo in BPM. Default 128. */
-  tempo?: number;
-  /** Master volume, 0..1. Default 0.4 (it's background music). */
+  bpm?: number;
+  beatsPerBar?: number;
+  bars?: number;
+  parent?: ArrangeOptions["parent"];
+  raga?: ArrangeOptions["raga"];
+  rootMidi?: number;
+  groove?: ArrangeOptions["groove"];
+  density?: number;
+  swing?: number;
+  voices?: ArrangeOptions["voices"];
+  /** Master volume, 0..1. Default 0.35. */
   volume?: number;
+  /** Re-arrange each loop for endless variety (default true); false repeats one loop. */
+  evolve?: boolean;
   /** Bring your own `AudioContext` (or compatible). Created internally if omitted. */
   audioContext?: EngineAudioContext;
   /** Advanced/testing: inject the scheduler's repeating timer. */
   clock?: SchedulerClock;
 }
 
-export interface PeppyEngine {
-  /**
-   * Create/resume the audio context and begin playing. **Call from a user
-   * gesture** (click/tap/keydown) — browsers block audio until then. If called
-   * outside a gesture it resolves but stays silent rather than throwing.
-   */
+export interface Engine {
+  /** Create/resume the context and begin playing. **Call from a user gesture.** */
   start(): Promise<void>;
-  /** Play a one-shot reward flourish over the music, without interrupting it. */
-  stinger(name: StingerName): void;
-  /** Set master volume, 0..1. */
-  setVolume(volume: number): void;
+  /** Stop scheduling and silence (keeps the context for a later start). */
+  stop(): void;
   /** Suspend audio, keeping state so {@link resume} continues. */
   pause(): void;
   /** Resume after {@link pause}. */
   resume(): void;
-  /** Stop scheduling and silence, keeping the context for a later {@link start}. */
-  stop(): void;
+  /** Set master volume, 0..1. */
+  setVolume(volume: number): void;
   /** Tear down all nodes and release the context (only if the engine created it). */
   dispose(): void;
 }
 
-// NaN must not slip through to an AudioParam (it silently corrupts the gain);
-// fall back to the low bound. Infinity already clamps correctly via min/max.
 const clamp = (x: number, lo: number, hi: number): number =>
   Number.isNaN(x) ? lo : Math.max(lo, Math.min(hi, x));
 
@@ -69,42 +87,109 @@ function randomSeed(): number {
   return Date.now() >>> 0;
 }
 
-/** Create a peppy generative music engine. See {@link EngineOptions}. */
-export function createPeppyEngine(options: EngineOptions = {}): PeppyEngine {
-  const rng = makeRng(options.seed ?? randomSeed());
-  const tempo = options.tempo ?? PEPPY.tempo;
-  // Fail fast at the call site rather than deferring the error to start().
-  if (!(tempo > 0) || !Number.isFinite(tempo)) {
-    throw new RangeError(`createPeppyEngine: tempo must be a positive number, got ${tempo}`);
+function pickInstrument(rng: Rng, voice: ScoreVoice): Instrument {
+  const names = instrumentsForVoice(voice);
+  return INSTRUMENTS[rng.pick(names)];
+}
+
+/** Turn a Score + chosen instruments into a sorted, beat-stamped loop for the scheduler. */
+function buildLoop(
+  score: Score,
+  synth: Synth,
+  instruments: Record<ScoreVoice, Instrument>,
+  drumKit: Record<DrumName, DrumVoice>,
+): PreparedLoop {
+  const secondsPerBeat = 60 / score.bpm;
+  const events = [];
+  for (const part of score.parts) {
+    const patch = instruments[part.voice];
+    const reverbSend = patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice];
+    for (const note of part.notes) {
+      events.push({
+        beat: note.startBeat,
+        play: (time: number) =>
+          synth.playNote(patch, {
+            freq: note.freq,
+            startTime: time,
+            durationSeconds: note.durationBeats * secondsPerBeat,
+            velocity: note.velocity,
+            reverbSend,
+          }),
+      });
+    }
   }
-  let volume = clamp(options.volume ?? PEPPY.volume, 0, 1);
+  for (const hit of score.drums) {
+    events.push({
+      beat: hit.startBeat,
+      play: (time: number) => synth.playDrum(hit.drum, drumKit[hit.drum], time, hit.velocity),
+    });
+  }
+  events.sort((a, b) => a.beat - b.beat);
+  return { events, loopBeats: score.lengthBeats, secondsPerBeat };
+}
+
+/** Create a generative music engine. See {@link EngineOptions}. */
+export function createEngine(options: EngineOptions = {}): Engine {
+  const bpm = options.bpm ?? 100;
+  if (!(bpm > 0) || !Number.isFinite(bpm)) {
+    throw new RangeError(`createEngine: bpm must be a positive number, got ${bpm}`);
+  }
+  const beatsPerBar = options.beatsPerBar ?? 4;
+  const bars = options.bars ?? 8;
+  const evolve = options.evolve ?? true;
+  let volume = clamp(options.volume ?? 0.35, 0, 1);
+
+  // Deterministic sub-streams: instruments (once), arrangement (advances per loop), noise.
+  const master = makeRng(options.seed ?? randomSeed());
+  const instrumentRng = master.fork();
+  const arrangeRng = master.fork();
+  const noiseRng = master.fork();
+
+  const instruments: Record<ScoreVoice, Instrument> = {
+    lead: pickInstrument(instrumentRng, "lead"),
+    bass: pickInstrument(instrumentRng, "bass"),
+    pad: pickInstrument(instrumentRng, "pad"),
+    arp: pickInstrument(instrumentRng, "arp"),
+  };
+  const drumKit = DRUM_KITS.default;
+  const noiseTable = makeNoiseTable(noiseRng);
+
+  const arrangeOptions = (): ArrangeOptions => ({
+    rng: arrangeRng,
+    bpm,
+    beatsPerBar,
+    bars,
+    ...(options.parent !== undefined ? { parent: options.parent } : {}),
+    ...(options.raga !== undefined ? { raga: options.raga } : {}),
+    ...(options.rootMidi !== undefined ? { rootMidi: options.rootMidi } : {}),
+    ...(options.groove !== undefined ? { groove: options.groove } : {}),
+    ...(options.density !== undefined ? { density: options.density } : {}),
+    ...(options.swing !== undefined ? { swing: options.swing } : {}),
+    ...(options.voices !== undefined ? { voices: options.voices } : {}),
+  });
 
   let context: EngineAudioContext | null = null;
   let synth: Synth | null = null;
   let scheduler: Scheduler | null = null;
+  let cachedLoop: PreparedLoop | null = null;
   let ownsContext = false;
   let disposed = false;
 
-  // Build the audio graph lazily, on the first start() (inside a user gesture).
+  function provide(): PreparedLoop {
+    if (!evolve && cachedLoop) return cachedLoop;
+    const loop = buildLoop(arrange(arrangeOptions()), synth as Synth, instruments, drumKit);
+    if (!evolve) cachedLoop = loop;
+    return loop;
+  }
+
   function ensureGraph(): void {
     if (context) return;
-    context = options.audioContext ?? new AudioContext();
+    context = options.audioContext ?? (new AudioContext() as EngineAudioContext);
     ownsContext = !options.audioContext;
-    synth = new Synth(context, { volume });
-    const stream = new MelodyStream({
-      rng,
-      scale: PEPPY.scale,
-      rootMidi: PEPPY.rootMidi,
-      range: PEPPY.range,
-      contourAmplitude: PEPPY.contourAmplitude,
-      bass: PEPPY.bass,
-      arp: PEPPY.arp,
-    });
+    synth = new Synth(context, { noiseTable, masterGain: volume });
     scheduler = new Scheduler({
-      stream,
-      synth,
       context,
-      tempo,
+      provider: provide,
       ...(options.clock ? { clock: options.clock } : {}),
     });
   }
@@ -114,34 +199,17 @@ export function createPeppyEngine(options: EngineOptions = {}): PeppyEngine {
       if (disposed) return;
       ensureGraph();
       await (context as EngineAudioContext).resume();
-      if (disposed) return; // dispose() may have run during the await — don't start a dead graph
+      if (disposed) return; // dispose() may have run during the await
       (scheduler as Scheduler).start();
     },
 
-    stinger(name: StingerName): void {
-      if (!synth || !context) return; // nothing to layer over until start()
-      const now = context.currentTime;
-      for (const note of STINGERS[name]) {
-        synth.play({
-          voice: note.voice,
-          frequency: degreeToFrequency(PEPPY.scale, note.degree, STINGER_ROOT_MIDI),
-          startTime: now + note.timeOffset,
-          durationSeconds: note.durationSeconds,
-          velocity: note.velocity,
-        });
-      }
-    },
-
-    setVolume(value: number): void {
-      volume = clamp(value, 0, 1);
-      synth?.setVolume(volume);
+    stop(): void {
+      scheduler?.stop();
     },
 
     pause(): void {
       if (disposed) return;
       scheduler?.stop();
-      // Best-effort: a failing suspend (e.g. an externally-closed injected
-      // context) is benign and must not surface as an unhandled rejection.
       void context?.suspend().catch(() => {});
     },
 
@@ -151,9 +219,9 @@ export function createPeppyEngine(options: EngineOptions = {}): PeppyEngine {
       scheduler.start();
     },
 
-    stop(): void {
-      scheduler?.stop();
-      synth?.silenceAll();
+    setVolume(value: number): void {
+      volume = clamp(value, 0, 1);
+      synth?.setVolume(volume);
     },
 
     dispose(): void {

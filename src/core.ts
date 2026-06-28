@@ -2,12 +2,14 @@
  * Pure layer — `@simpllyf/ditty/core`.
  *
  * Everything exported here is side-effect-free and runs in plain Node with no
- * `AudioContext`: the seeded PRNG, scales, and (in later layers) the melody
- * stream. Import this entry point for testing, previewing, or building your own
- * playback shell. The audio engine itself lives at `@simpllyf/ditty`.
+ * `AudioContext`: the seeded PRNG, music theory, the composition pipeline
+ * (harmony → melody → arranger → Score), and the instrument/drum patch data.
+ * Import this to test, preview, analyze, or build your own playback shell. The
+ * audio engine itself lives at `@simpllyf/ditty`.
  */
 export { makeRng } from "./rng";
 export type { Rng } from "./rng";
+
 export { DEFAULT_ROOT_MIDI, OCTAVE, semitoneToFrequency, midiToFrequency } from "./theory/pitch";
 export { SCALES, degreeToSemitone, degreeToFrequency, degreePitchClass } from "./theory/scales";
 export type { Scale, ScaleName } from "./theory/scales";
@@ -23,18 +25,6 @@ export {
 export type { Chord, ChordQuality } from "./theory/chords";
 export { PROGRESSIONS, FUNCTION_OF, functionalProgression } from "./theory/progressions";
 export type { ProgressionName, HarmonicFunction } from "./theory/progressions";
-export { generateHarmony, chordTonesInScale } from "./compose/harmony";
-export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
-export { arrange } from "./compose/arranger";
-export type {
-  Score,
-  ScoreNote,
-  ScorePart,
-  ScoreVoice,
-  DrumHit,
-  DrumName,
-  ArrangeOptions,
-} from "./compose/arranger";
 export {
   STEPS_PER_BEAT,
   metricStrength,
@@ -45,26 +35,42 @@ export {
   SWING_MAX,
 } from "./theory/rhythm";
 export type { Onset, DrumGroove, DrumGrooveName } from "./theory/rhythm";
-export {
-  DEFAULT_RHYTHM,
-  barLengthSteps,
-  stepsToBeats,
-  weightedDuration,
-  generateBar,
-} from "./rhythm";
-export type { RhythmConfig, DurationWeight } from "./rhythm";
+
+export { generateHarmony, chordTonesInScale } from "./compose/harmony";
+export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
+export { generateMelody } from "./compose/melody";
+export type { MelodyNote, MelodyOptions } from "./compose/melody";
+export { arrange } from "./compose/arranger";
+export type {
+  Score,
+  ScoreNote,
+  ScorePart,
+  ScoreVoice,
+  DrumHit,
+  DrumName,
+  ArrangeOptions,
+} from "./compose/arranger";
+
+export { INSTRUMENTS, instrumentsForVoice, REVERB_SEND_BY_VOICE, DRUM_KITS } from "./instruments";
+export type {
+  Instrument,
+  InstrumentName,
+  OscKind,
+  OscLayer,
+  AmpEnv,
+  FilterPatch,
+  DrumVoice,
+  DrumKitName,
+} from "./instruments";
+export { makeNoiseTable, DEFAULT_NOISE_LENGTH } from "./noise";
+
 export {
   DEFAULT_MAX_LEAP,
   DEFAULT_MAX_NOTE_REPEAT,
-  STABLE_PITCH_CLASSES,
   isWithinLeap,
   capLeap,
-  isStableDegree,
-  nearestStableDegree,
   contourTarget,
   exceedsRepeatLimit,
   ShuffleBag,
 } from "./constraints";
 export type { ContourShape } from "./constraints";
-export { MelodyStream } from "./melody";
-export type { NoteEvent, Voice, MelodyOptions } from "./melody";

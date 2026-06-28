@@ -8,7 +8,7 @@
  * {@link Scale}); the melody layer composes these helpers.
  */
 import type { Rng } from "./rng";
-import { type Scale, degreeToSemitone } from "./scale";
+import { type Scale, degreeToSemitone } from "./theory/scales";
 
 /** Default maximum jump between consecutive notes, in scale degrees. */
 export const DEFAULT_MAX_LEAP = 4;
