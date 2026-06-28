@@ -1,6 +1,6 @@
 /**
  * Chords — qualities, diatonic chord building, and chord-tone queries. Pure,
- * pitch-class based (octave-agnostic). The harmony layer (PR B) builds on this.
+ * pitch-class based (octave-agnostic). The harmony layer builds on this.
  */
 import { type Scale, degreePitchClass } from "./scales";
 

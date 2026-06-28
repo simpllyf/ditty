@@ -2,7 +2,7 @@
  * Instruments — a DECLARATIVE patch registry (pure data, no Web Audio). Each patch
  * is a few summed oscillator layers + an amp envelope + an optional filter; the
  * synth (`synth.ts`) renders any of them. Adding an instrument is one
- * entry here, tagged with the voices it suits, and the randomizer (PR H) picks it
+ * entry here, tagged with the voices it suits, and the randomizer picks it
  * automatically. Data only — must not import the audio shell.
  *
  * Palette is synthesized, not sampled (zero-dep + size budget): plucks, pads,

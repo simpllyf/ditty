@@ -85,6 +85,8 @@ createEngine({ style: "calm", bpm: 84, voices: { arp: false } });
 | `style`                                                         | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` — the pool to randomize in |
 | `seed`                                                          | random         | Set for a reproducible track; omit for variety per session            |
 | `bpm`                                                           | from style     | Beats per minute                                                      |
+| `beatsPerBar`                                                   | `4`            | Time signature (beats per bar)                                        |
+| `bars`                                                          | `8`            | Bars per loop                                                         |
 | `volume`                                                        | `0.35`         | Master volume, 0..1                                                   |
 | `evolve`                                                        | `true`         | Re-arrange each loop for endless variety; `false` repeats one loop    |
 | `voices`                                                        | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                     |

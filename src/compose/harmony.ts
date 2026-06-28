@@ -1,6 +1,6 @@
 /**
  * Harmony plan — lays a chord progression across bars with cadences and a clean
- * loop. The coherence backbone: melody and arrangement (later PRs) read this.
+ * loop. The coherence backbone: the melody and arranger read this.
  *
  * Pure (rng + theory), deterministic. **Consumes the passed `rng` directly** —
  * the arranger forks a dedicated stream per concern (harmony vs melody vs …) so

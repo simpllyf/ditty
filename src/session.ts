@@ -32,17 +32,25 @@ export interface SessionOptions {
   seed?: number;
   /** The vibe to randomize within. Default "peppy". Explicit options below override it. */
   style?: StyleName;
+  /** Tempo in beats per minute. Default: from the style. */
   bpm?: number;
+  /** Time signature — beats per bar. Default 4. */
   beatsPerBar?: number;
+  /** Bars per loop. Default 8. */
   bars?: number;
   /** Harmony parent scale (heptatonic). Overrides the style. */
   parent?: ArrangeOptions["parent"];
   /** Melody raga. Overrides the style — pair with a compatible `parent` (raga ⊆ parent) to stay in key. */
   raga?: ArrangeOptions["raga"];
+  /** Tonic MIDI note (integer 36–84). Default: from the style. */
   rootMidi?: number;
+  /** Drum groove name. Default: from the style. */
   groove?: ArrangeOptions["groove"];
+  /** Melodic note density 0..1 (sparser→busier). Default: from the style. */
   density?: number;
+  /** Swing amount 0..1. Default: from the style. */
   swing?: number;
+  /** Per-voice toggles, e.g. `{ pad: false, drums: false }`. Default: all on. */
   voices?: ArrangeOptions["voices"];
   /** Re-arrange each loop for endless variety (default true); false reuses one arrangement. */
   evolve?: boolean;
