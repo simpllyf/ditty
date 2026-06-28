@@ -7,9 +7,10 @@
 import { contourTarget, exceedsRepeatLimit } from "../constraints";
 import { clamp } from "../math";
 import type { Rng } from "../rng";
+import { pitchClass } from "../theory/pitch";
 import { melodyRhythm } from "../theory/rhythm";
 import { type Scale, degreePitchClass } from "../theory/scales";
-import { type HarmonicPlan, chordTonesInScale } from "./harmony";
+import type { HarmonicPlan } from "./harmony";
 
 /** One melody note. `degree` is a melody-scale degree (any integer); the arranger maps it to Hz. */
 export interface MelodyNote {
@@ -72,6 +73,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
 
   const home = Math.round((lo + hi) / 2);
   const pcOf = (degree: number) => degreePitchClass(scale, degree);
+  const ragaPcs = new Set(scale.map(pitchClass)); // loop-invariant: the raga's pitch classes
 
   const notes: MelodyNote[] = [];
   const recent: number[] = [];
@@ -112,7 +114,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
 
   for (let bar = 0; bar < plan.bars.length; bar++) {
     const chord = plan.bars[bar]!.chord;
-    const chordRagaPcs = chordTonesInScale(chord, scale); // raga ∩ chord
+    const chordRagaPcs = chord.pcs.filter((pc) => ragaPcs.has(pc)); // raga ∩ chord (set hoisted)
     const onsets = melodyRhythm(rng, plan.beatsPerBar, { density });
 
     for (let i = 0; i < onsets.length; i++) {
