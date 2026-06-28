@@ -65,6 +65,7 @@ export type {
 export { makeNoiseTable, DEFAULT_NOISE_LENGTH } from "./noise";
 export { STYLES, pickStyle } from "./styles";
 export type { Style, ChosenStyle, StyleName } from "./styles";
+export { encodeWav } from "./wav";
 
 export {
   DEFAULT_MAX_LEAP,
