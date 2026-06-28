@@ -128,6 +128,21 @@ describe("Scheduler", () => {
     expect(providerCalls).toBe(1); // resumed the same loop — no fresh arrangement (unlike start())
   });
 
+  it("a throwing provider on start() propagates without bricking the scheduler", () => {
+    const ctx = new FakeAudioContext();
+    let fail = true;
+    const provider = () => {
+      if (fail) throw new Error("boom");
+      return loopOf([]);
+    };
+    const sch = new Scheduler({ context: ctx, provider, clock: new ManualClock() });
+    expect(() => sch.start()).toThrow("boom");
+    expect(sch.isRunning).toBe(false); // not left half-started
+    fail = false;
+    expect(() => sch.start()).not.toThrow(); // recoverable
+    expect(sch.isRunning).toBe(true);
+  });
+
   it("stop() after pause() fully resets, so a later resume() is a no-op", () => {
     const ctx = new FakeAudioContext();
     let providerCalls = 0;

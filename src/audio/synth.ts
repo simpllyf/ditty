@@ -140,9 +140,9 @@ export class Synth {
     this.noiseBuffer.getChannelData(0).set(options.noiseTable);
   }
 
-  /** Set master volume, 0..1. */
+  /** Set master volume, 0..1. Ramped (~20 ms) so live changes don't zipper-click. */
   setVolume(volume: number): void {
-    this.master.gain.value = clamp(volume, 0, 1);
+    this.master.gain.setTargetAtTime(clamp(volume, 0, 1), this.ctx.currentTime, 0.02);
   }
 
   private buildReverb(opts: { decay?: number; damping?: number; mix?: number }): GainNodeLike {
@@ -249,11 +249,12 @@ export class Synth {
     if (this.disposed) return;
     const ctx = this.ctx;
     const peak = clamp(velocity * voice.gain, 0, 1);
+    const stopAt = startTime + voice.ampDecay + 0.05;
     const env = ctx.createGain();
     env.gain.setValueAtTime(peak, startTime);
     env.gain.setTargetAtTime(0, startTime, Math.max(0.001, voice.ampDecay / 3));
+    env.gain.linearRampToValueAtTime(0, stopAt); // resolve the asymptotic tail to true 0 — no click on stop
     env.connect(this.master);
-    const stopAt = startTime + voice.ampDecay + 0.05;
 
     const nodes: AudioNodeLike[] = [env];
 

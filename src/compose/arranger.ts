@@ -164,7 +164,9 @@ export function arrange(options: ArrangeOptions): Score {
     for (let bar = 0; bar < bars; bar++) {
       const chord = plan.bars[bar]!.chord;
       const rootNote = rootMidi - 12 + chord.root;
-      const fifthNote = rootMidi - 12 + ((chord.root + 7) % 12); // stay in the bass octave
+      // Use the chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
+      // a perfect fifth over a diminished/augmented triad is out of key.
+      const fifthNote = rootMidi - 12 + (chord.pcs[2] ?? chord.root); // stay in the bass octave
       const barStart = bar * beatsPerBar;
       notes.push({
         startBeat: barStart,

@@ -96,11 +96,13 @@ describe("createEngine", () => {
     expect(ctx.resumeCount).toBeGreaterThanOrEqual(2);
   });
 
-  it("setVolume adjusts the master gain", async () => {
+  it("setVolume ramps the master gain", async () => {
     const { ctx, engine } = setup({ volume: 0.3 });
     await engine.start();
     engine.setVolume(0.6);
-    expect(ctx.gains[0]!.gain.value).toBe(0.6);
+    expect(ctx.gains[0]!.gain.events.some((e) => e.type === "target" && e.value === 0.6)).toBe(
+      true,
+    );
   });
 
   it("dispose does not close an injected context", async () => {
@@ -222,8 +224,10 @@ describe("createEngine", () => {
     expect(ctx.oscillators.length).toBeGreaterThanOrEqual(afterStart);
   });
 
-  it("rejects a bad bpm at construction", () => {
+  it("rejects bad config eagerly at construction (bpm, bars, beatsPerBar)", () => {
     expect(() => createEngine({ bpm: 0 })).toThrow(RangeError);
     expect(() => createEngine({ bpm: Number.NaN })).toThrow(RangeError);
+    expect(() => createEngine({ bars: 2 })).toThrow(RangeError); // eager, not at first tick
+    expect(() => createEngine({ beatsPerBar: 0 })).toThrow(RangeError);
   });
 });

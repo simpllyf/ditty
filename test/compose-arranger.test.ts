@@ -260,6 +260,24 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, bars: 2 })).toThrow(RangeError); // delegated to generateHarmony
   });
 
+  it("keeps the bass in key over diminished chords (no blind perfect fifth)", () => {
+    // progression hits vii° (degree 6 = a diminished triad in major); the bass's
+    // alternating fifth must be the chord's real fifth, not a perfect fifth (out of key).
+    const inKey = new Set(SCALES.major.map((s) => ((s % 12) + 12) % 12));
+    for (let seed = 0; seed < 30; seed++) {
+      const score = arrange({
+        rng: makeRng(seed),
+        parent: SCALES.major,
+        raga: SCALES.major,
+        progression: [0, 6, 4, 5],
+        bars: 8,
+      });
+      for (const n of part(score, "bass")!.notes) {
+        expect(inKey.has(freqToPc(n.freq, DEFAULT_ROOT))).toBe(true);
+      }
+    }
+  });
+
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {
     const rng = makeRng(1);
     // hindolam has b6 (pc 8), which major lacks → out of key.
