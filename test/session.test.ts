@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ScoreVoice } from "../src/compose/arranger";
 import { createSession } from "../src/session";
 import { STYLES } from "../src/styles";
+import { SCALES } from "../src/theory/scales";
 
 const VOICES: ScoreVoice[] = ["lead", "bass", "pad", "arp"];
 const instrumentNames = (s: ReturnType<typeof createSession>) =>
@@ -37,6 +38,19 @@ describe("createSession", () => {
     expect(() => createSession({ beatsPerBar: 1.5 })).toThrow(RangeError);
     expect(() => createSession({ bars: 3 })).toThrow(RangeError); // harmony needs >= 4
     expect(() => createSession({ bars: 7.5 })).toThrow(RangeError);
+  });
+
+  it("validates rootMidi/swing/density/raga eagerly — not lazily on the first nextScore", () => {
+    // These used to surface only inside arrange() on the first tick; now createSession
+    // (and thus createEngine) throws synchronously at construction.
+    expect(() => createSession({ rootMidi: 200 })).toThrow(RangeError);
+    expect(() => createSession({ rootMidi: 60.5 })).toThrow(RangeError);
+    expect(() => createSession({ swing: 2 })).toThrow(RangeError);
+    expect(() => createSession({ density: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+    // raga must be a pitch-class subset of parent (hindolam's ♭6 isn't in major)
+    expect(() => createSession({ parent: SCALES.major, raga: SCALES.hindolam })).toThrow(
+      RangeError,
+    );
   });
 
   it("exposes the form as sections (labels, key shifts, arp roles)", () => {

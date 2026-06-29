@@ -123,6 +123,41 @@ function arpSequence(pcs: readonly number[], pattern: (typeof ARP_PATTERNS)[numb
   return [...asc, ...asc.slice(1, -1).reverse()]; // updown, endpoints not repeated
 }
 
+/**
+ * Validate the resolved musical params shared by {@link arrange} and the session.
+ * Calling this at session construction makes a bad config fail synchronously
+ * (`createEngine` throws) rather than at the first scheduled note. Throws `RangeError`.
+ */
+export function assertMusicalParams(p: {
+  swing: number;
+  density: number;
+  rootMidi: number;
+  groove: string;
+  parent: Scale;
+  raga: Scale;
+}): void {
+  if (!(p.swing >= 0 && p.swing <= 1)) {
+    throw new RangeError(`swing must be within [0, 1], got ${p.swing}`);
+  }
+  if (!Number.isFinite(p.density)) {
+    throw new RangeError(`density must be a finite number, got ${p.density}`);
+  }
+  if (!Number.isInteger(p.rootMidi) || p.rootMidi < MIN_ROOT_MIDI || p.rootMidi > MAX_ROOT_MIDI) {
+    throw new RangeError(
+      `rootMidi must be an integer in [${MIN_ROOT_MIDI}, ${MAX_ROOT_MIDI}], got ${p.rootMidi}`,
+    );
+  }
+  if (!(p.groove in DRUM_GROOVES)) {
+    throw new RangeError(`groove "${p.groove}" is not a known DRUM_GROOVE`);
+  }
+  // The lead draws raga tones over chords built from the parent; they must share a
+  // tuning, so the raga's pitch classes must be a subset of the parent's.
+  const parentPcs = new Set(p.parent.map(pitchClass));
+  if (!p.raga.every((s) => parentPcs.has(pitchClass(s)))) {
+    throw new RangeError("raga must be a pitch-class subset of parent (raga ⊆ parent)");
+  }
+}
+
 /** Compose a {@link Score} from a harmony plan, melody, and groove. Pure & deterministic. */
 export function arrange(options: ArrangeOptions): Score {
   const { rng } = options;
@@ -140,27 +175,7 @@ export function arrange(options: ArrangeOptions): Score {
   if (!Number.isFinite(bpm) || bpm <= 0) {
     throw new RangeError(`arrange bpm must be a positive number, got ${bpm}`);
   }
-  if (!(swing >= 0 && swing <= 1)) {
-    throw new RangeError(`arrange swing must be within [0, 1], got ${swing}`);
-  }
-  if (!Number.isFinite(density)) {
-    throw new RangeError(`arrange density must be a finite number, got ${density}`);
-  }
-  if (!Number.isInteger(rootMidi) || rootMidi < MIN_ROOT_MIDI || rootMidi > MAX_ROOT_MIDI) {
-    throw new RangeError(
-      `arrange rootMidi must be an integer in [${MIN_ROOT_MIDI}, ${MAX_ROOT_MIDI}], got ${rootMidi}`,
-    );
-  }
-  if (!(groove in DRUM_GROOVES)) {
-    throw new RangeError(`arrange groove "${groove}" is not a known DRUM_GROOVE`);
-  }
-  // The lead draws raga tones over chords built from the parent; they must share a
-  // tuning, so the raga's pitch classes must be a subset of the parent's, or the
-  // lead plays out of key.
-  const parentPcs = new Set(parent.map(pitchClass));
-  if (!raga.every((s) => parentPcs.has(pitchClass(s)))) {
-    throw new RangeError("arrange raga must be a pitch-class subset of parent (raga ⊆ parent)");
-  }
+  assertMusicalParams({ swing, density, rootMidi, groove, parent, raga });
 
   const lengthBeats = bars * beatsPerBar;
   const enabled = (v: ScoreVoice) => options.voices?.[v] ?? true;
