@@ -7,6 +7,7 @@
 import type { Score } from "../compose/arranger";
 import {
   MIX_BY_VOICE,
+  PAN_BY_VOICE,
   REVERB_SEND_BY_VOICE,
   type DrumVoice,
   type Instrument,
@@ -28,6 +29,7 @@ export function buildLoop(
     const patch = instruments[part.voice];
     const reverbSend = patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice];
     const mix = MIX_BY_VOICE[part.voice]; // bring the lead forward of the bed
+    const pan = PAN_BY_VOICE[part.voice]; // place the voice in the stereo field
     for (const note of part.notes) {
       events.push({
         beat: note.startBeat,
@@ -38,6 +40,7 @@ export function buildLoop(
             durationSeconds: note.durationBeats * secondsPerBeat,
             velocity: note.velocity * mix,
             reverbSend,
+            pan,
           }),
       });
     }

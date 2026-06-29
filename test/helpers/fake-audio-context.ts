@@ -14,6 +14,7 @@ import type {
   DelayLike,
   GainNodeLike,
   OscillatorNodeLike,
+  StereoPannerLike,
   WaveShaperLike,
 } from "../../src/audio/synth";
 
@@ -95,15 +96,19 @@ export class FakeDelay extends FakeNode implements DelayLike {
   readonly delayTime = new FakeParam(0);
 }
 
+export class FakeStereoPanner extends FakeNode implements StereoPannerLike {
+  readonly pan = new FakeParam(0);
+}
+
 export class FakeBuffer implements AudioBufferLike {
   readonly length: number;
-  private readonly data: Float32Array;
-  constructor(length: number) {
+  private readonly data: Float32Array[];
+  constructor(length: number, channels = 1) {
     this.length = length;
-    this.data = new Float32Array(length);
+    this.data = Array.from({ length: channels }, () => new Float32Array(length));
   }
-  getChannelData(): Float32Array {
-    return this.data;
+  getChannelData(channel = 0): Float32Array {
+    return this.data[channel] ?? this.data[0]!;
   }
 }
 
@@ -132,6 +137,7 @@ export class FakeAudioContext implements AudioContextLike {
   readonly filters: FakeBiquad[] = [];
   readonly delays: FakeDelay[] = [];
   readonly shapers: FakeWaveShaper[] = [];
+  readonly panners: FakeStereoPanner[] = [];
   readonly bufferSources: FakeBufferSource[] = [];
   resumeCount = 0;
   suspendCount = 0;
@@ -171,8 +177,13 @@ export class FakeAudioContext implements AudioContextLike {
     this.delays.push(d);
     return d;
   }
-  createBuffer(_channels: number, length: number): FakeBuffer {
-    return new FakeBuffer(length);
+  createStereoPanner(): FakeStereoPanner {
+    const p = new FakeStereoPanner();
+    this.panners.push(p);
+    return p;
+  }
+  createBuffer(channels: number, length: number): FakeBuffer {
+    return new FakeBuffer(length, channels);
   }
   createBufferSource(): FakeBufferSource {
     const s = new FakeBufferSource();
@@ -224,15 +235,17 @@ export class FakeAudioContext implements AudioContextLike {
 /** A FakeAudioContext that also satisfies the offline-render contract. */
 export class FakeOfflineAudioContext extends FakeAudioContext {
   readonly length: number;
+  readonly numberOfChannels: number;
   renderCount = 0;
 
-  constructor(length: number, sampleRate = 44100) {
+  constructor(length: number, sampleRate = 44100, numberOfChannels = 2) {
     super(sampleRate);
     this.length = length;
+    this.numberOfChannels = numberOfChannels;
   }
 
   startRendering(): Promise<FakeBuffer> {
     this.renderCount++;
-    return Promise.resolve(new FakeBuffer(this.length));
+    return Promise.resolve(new FakeBuffer(this.length, this.numberOfChannels));
   }
 }

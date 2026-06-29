@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Score } from "../src/compose/arranger";
 import { buildLoop } from "../src/audio/loop";
 import type { Synth } from "../src/audio/synth";
-import { DRUM_KITS, type Instrument, REVERB_SEND_BY_VOICE } from "../src/instruments";
+import {
+  DRUM_KITS,
+  type Instrument,
+  MIX_BY_VOICE,
+  PAN_BY_VOICE,
+  REVERB_SEND_BY_VOICE,
+} from "../src/instruments";
 import type { ScoreVoice } from "../src/voices";
 
 const patch = (extra: Partial<Instrument> = {}): Instrument => ({
@@ -57,6 +63,29 @@ describe("buildLoop", () => {
       (e) => e.play(0),
     );
     expect(sends).toEqual([0.9]);
+  });
+
+  it("threads per-voice pan and mix into each note", () => {
+    const captured: Array<{ pan: number | undefined; velocity: number }> = [];
+    const synth = {
+      playNote: (_p: Instrument, note: { pan?: number; velocity: number }) =>
+        captured.push({ pan: note.pan, velocity: note.velocity }),
+      playDrum: () => {},
+    } as unknown as Synth;
+    const score: Score = {
+      ...oneLeadNote,
+      parts: [
+        { voice: "pad", notes: [{ startBeat: 0, durationBeats: 1, freq: 220, velocity: 0.5 }] },
+        { voice: "arp", notes: [{ startBeat: 0, durationBeats: 1, freq: 880, velocity: 0.5 }] },
+      ],
+    };
+    buildLoop(score, synth, instrumentsAll(patch()), DRUM_KITS.default).events.forEach((e) =>
+      e.play(0),
+    );
+    const pad = captured.find((c) => c.pan === PAN_BY_VOICE.pad)!;
+    const arp = captured.find((c) => c.pan === PAN_BY_VOICE.arp)!;
+    expect(pad.velocity).toBeCloseTo(0.5 * MIX_BY_VOICE.pad, 6);
+    expect(arp.velocity).toBeCloseTo(0.5 * MIX_BY_VOICE.arp, 6);
   });
 
   it("sorts events by beat", () => {

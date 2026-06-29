@@ -96,6 +96,15 @@ export const MIX_BY_VOICE: Readonly<Record<ScoreVoice, number>> = {
   arp: 0.88,
 };
 
+/** Stereo placement per voice (-1 left .. 1 right). Lead/bass centred (melody up
+ * front, low end mono-solid); pad and arp opposed for width. Drums play centred. */
+export const PAN_BY_VOICE: Readonly<Record<ScoreVoice, number>> = {
+  lead: 0,
+  bass: 0,
+  pad: -0.3,
+  arp: 0.3,
+};
+
 export const INSTRUMENTS = {
   // ── leads ──
   pluck: {
