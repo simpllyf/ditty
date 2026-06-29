@@ -22,8 +22,9 @@ export type { AudioContextLike } from "./audio/synth";
 // engine user touches. The FULL pure surface (theory, constraints, all registries)
 // lives at `@simpllyf/ditty/core`; we keep this entry lean for the size budget.
 export { createSession } from "./session";
-export type { Session, SessionOptions } from "./session";
-export { arrange } from "./compose/arranger";
+export type { Session, SessionOptions, SectionView } from "./session";
+// The Score shape an engine user READS from `session.nextScore()`. Composing a Score
+// from scratch (`arrange` / `ArrangeOptions`) is a pure-layer concern — find it at `/core`.
 export type {
   Score,
   ScoreNote,
@@ -31,7 +32,6 @@ export type {
   ScoreVoice,
   DrumHit,
   DrumName,
-  ArrangeOptions,
   VoiceToggles,
 } from "./compose/arranger";
 export { SCALES } from "./theory/scales";

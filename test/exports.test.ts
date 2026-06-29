@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as core from "../src/core";
 import * as index from "../src/index";
+import type { SectionView } from "../src/index";
 
 describe("public exports", () => {
   // The engine entry is a CURATED slice of the pure layer (kept lean for the size
@@ -12,7 +13,6 @@ describe("public exports", () => {
       "renderOffline",
       "encodeWav",
       "createSession",
-      "arrange",
       "SCALES",
       "STYLES",
       "INSTRUMENTS",
@@ -21,6 +21,8 @@ describe("public exports", () => {
     ] as const) {
       expect(index, `index is missing "${key}"`).toHaveProperty(key);
     }
+    // The low-level composer is a pure-layer concern — kept out of the lean engine entry.
+    expect(index).not.toHaveProperty("arrange");
   });
 
   it("the pure entry (/core) exposes the brain but NOT the audio shell", () => {
@@ -30,5 +32,11 @@ describe("public exports", () => {
     // The audio engine must never leak into the pure entry.
     expect(core).not.toHaveProperty("createEngine");
     expect(core).not.toHaveProperty("renderOffline");
+  });
+
+  it("exposes SectionView (what Session.sections yields) from the engine entry", () => {
+    // Type-only guard: this fails to compile if SectionView is dropped from `/index`.
+    const view: SectionView = { label: "A", keyShift: 0, arpRole: "arp" };
+    expect(view.label).toBe("A");
   });
 });
