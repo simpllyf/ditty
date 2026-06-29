@@ -28,6 +28,14 @@ import { type Rng, makeRng } from "./rng";
 import { type StyleName, pickStyle } from "./styles";
 import type { DrumName, ScoreVoice } from "./voices";
 
+/**
+ * The seed→music stream version. A given seed reproduces the same music only within
+ * the same epoch; bump this whenever a change to the engine alters the seed→Score
+ * mapping (new styles/scales, tuned composition, fork-order changes…). Persist it
+ * alongside any saved seed so a consumer can tell when an upgrade would re-roll it.
+ */
+export const STREAM_EPOCH = 1;
+
 /** The musical knobs shared by the engine and the renderer; each falls back to the style. */
 export interface SessionOptions {
   /** Omit for a fresh random seed each session; set for a reproducible stream. */

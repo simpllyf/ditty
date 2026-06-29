@@ -33,6 +33,8 @@ reusable anywhere.
   in CI.
 - **Deterministic.** One seeded PRNG drives everything. Same seed → identical
   music. The whole musical brain runs and is tested in Node with no `AudioContext`.
+  (A seed reproduces within a `STREAM_EPOCH`; persist it alongside the seed to know
+  when an upgrade would re-roll the track.)
 - **Small.** ~12.5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
 - **Framework-agnostic.** No DOM access, no framework imports.
 
