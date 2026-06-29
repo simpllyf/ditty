@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { type ScoreVoice, arrange, thirdBelow } from "../src/compose/arranger";
+import { PART_ARRANGERS, type ScoreVoice, arrange, thirdBelow } from "../src/compose/arranger";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
@@ -67,6 +67,18 @@ describe("arrange — voices & registers", () => {
     const score = arr({ seed: 3 });
     expect(score.parts.map((p) => p.voice)).toEqual(["lead", "bass", "pad", "arp"]);
     expect(score.drums.length).toBeGreaterThan(0);
+  });
+
+  it("drives the ensemble from the PART_ARRANGERS registry, in registry order", () => {
+    expect(PART_ARRANGERS.map((p) => p.voice)).toEqual(["lead", "bass", "pad", "arp"]);
+    for (const p of PART_ARRANGERS) expect(typeof p.arrange).toBe("function");
+    // the Score's parts follow the registry order, and a disabled voice just drops out
+    expect(arr({ seed: 5 }).parts.map((p) => p.voice)).toEqual(PART_ARRANGERS.map((p) => p.voice));
+    expect(arr({ seed: 5, voices: { bass: false } }).parts.map((p) => p.voice)).toEqual([
+      "lead",
+      "pad",
+      "arp",
+    ]);
   });
 
   it("disabling a voice removes its part; drums:false silences drums", () => {

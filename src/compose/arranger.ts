@@ -181,6 +181,213 @@ export function assertMusicalParams(p: {
   }
 }
 
+/**
+ * Everything a pitched part needs to arrange itself over the shared harmony. Built
+ * once per {@link arrange}; the lead line is drawn up front so the arp can double or
+ * harmonise it without the parts depending on each other's execution order.
+ */
+export interface PartContext {
+  readonly options: ArrangeOptions;
+  readonly plan: HarmonicPlan;
+  readonly raga: Scale;
+  readonly rootMidi: number;
+  readonly beatsPerBar: number;
+  readonly bars: number;
+  readonly leadMelody: readonly MelodyNote[];
+  readonly texture: (typeof TEXTURES)[TextureName];
+  readonly bassRng: Rng;
+  readonly arpRng: Rng;
+  /** Clamp a note so it never rings past the loop point (after swing shifts its start). */
+  readonly fit: (start: number, dur: number) => number;
+  readonly swung: (beat: number) => number;
+  /** Is a section-gated lane (arp/drums dynamic arc) active at this beat? */
+  readonly active: (lane: readonly number[], beat: number) => boolean;
+}
+
+/**
+ * One ensemble voice's arrangement. Registered in {@link PART_ARRANGERS}; a new
+ * pitched part joins the arrangement just by adding an entry (plus its instrument
+ * pools), the way instruments and styles are data-driven.
+ */
+export interface PartArranger {
+  readonly voice: ScoreVoice;
+  readonly arrange: (ctx: PartContext) => ScoreNote[];
+}
+
+function arrangeLead(ctx: PartContext): ScoreNote[] {
+  return ctx.leadMelody.map((n) => {
+    const start = ctx.swung(n.startBeat);
+    return {
+      startBeat: start,
+      durationBeats: ctx.fit(start, n.durationBeats),
+      freq: degreeToFrequency(ctx.raga, n.degree, ctx.rootMidi),
+      velocity: n.velocity,
+    };
+  });
+}
+
+function arrangeBass(ctx: PartContext): ScoreNote[] {
+  const { plan, beatsPerBar, bars, rootMidi, fit, bassRng } = ctx;
+  const notes: ScoreNote[] = [];
+  const bassPattern = ctx.options.bassPattern ?? "rootFifth";
+  const half = beatsPerBar / 2;
+  const low = (pc: number) => midiToFrequency(rootMidi - OCTAVE + pc); // always below the pad
+  for (let bar = 0; bar < bars; bar++) {
+    const chord = plan.bars[bar]!.chord;
+    const barStart = bar * beatsPerBar;
+    const root = chord.root;
+    // The chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
+    // a perfect fifth over a diminished/augmented triad is out of key.
+    const fifth = chord.pcs[2] ?? chord.root;
+    if (bassPattern === "rootFifth") {
+      notes.push({
+        startBeat: barStart,
+        durationBeats: fit(barStart, half),
+        freq: low(root),
+        velocity: 0.85,
+      });
+      const second = bassRng.next() < 0.5 ? root : fifth;
+      const midStart = barStart + half;
+      notes.push({
+        startBeat: midStart,
+        durationBeats: fit(midStart, half),
+        freq: low(second),
+        velocity: 0.8,
+      });
+    } else if (bassPattern === "pulse") {
+      for (let b = 0; b < beatsPerBar; b++) {
+        const at = barStart + b;
+        notes.push({
+          startBeat: at,
+          durationBeats: fit(at, 0.9),
+          freq: low(root),
+          velocity: b === 0 ? 0.85 : 0.72,
+        });
+      }
+    } else if (bassPattern === "walking") {
+      for (let b = 0; b < beatsPerBar; b++) {
+        const at = barStart + b;
+        notes.push({
+          startBeat: at,
+          durationBeats: fit(at, 0.9),
+          freq: low(chord.pcs[b % chord.pcs.length] ?? root),
+          velocity: b === 0 ? 0.85 : 0.75,
+        });
+      }
+    } else {
+      // sustained: root held the whole bar
+      notes.push({
+        startBeat: barStart,
+        durationBeats: fit(barStart, beatsPerBar),
+        freq: low(root),
+        velocity: 0.8,
+      });
+    }
+  }
+  return notes;
+}
+
+function arrangePad(ctx: PartContext): ScoreNote[] {
+  const { plan, beatsPerBar, bars, rootMidi, fit } = ctx;
+  const padPattern = ctx.options.padPattern ?? "sustain";
+  const notes: ScoreNote[] = [];
+  // Voice the pad in root position: the chord root is the lowest tone, the other
+  // tones stacked within the octave above it (so the root never lands on top).
+  const padVoice = (pc: number, root: number) =>
+    midiToFrequency(rootMidi + root + ((pc - root + OCTAVE) % OCTAVE));
+  for (let bar = 0; bar < bars; bar++) {
+    const chord = plan.bars[bar]!.chord;
+    const barStart = bar * beatsPerBar;
+    if (padPattern === "stabs") {
+      // Rhythmic chord hits on each beat — a driving climax pad.
+      for (let b = 0; b < beatsPerBar; b++) {
+        const at = barStart + b;
+        for (const pc of chord.pcs) {
+          notes.push({
+            startBeat: at,
+            durationBeats: fit(at, 0.4),
+            freq: padVoice(pc, chord.root),
+            velocity: 0.32,
+          });
+        }
+      }
+    } else if (padPattern === "broken") {
+      // Chord tones enter one per beat, each held to the bar end — gentle bridge movement.
+      chord.pcs.forEach((pc, i) => {
+        const at = barStart + Math.min(i, beatsPerBar - 1);
+        notes.push({
+          startBeat: at,
+          durationBeats: fit(at, beatsPerBar - (at - barStart)),
+          freq: padVoice(pc, chord.root),
+          velocity: 0.3,
+        });
+      });
+    } else {
+      // sustain: whole-bar block chord (default).
+      const dur = fit(barStart, beatsPerBar);
+      for (const pc of chord.pcs) {
+        notes.push({
+          startBeat: barStart,
+          durationBeats: dur,
+          freq: padVoice(pc, chord.root),
+          velocity: 0.3,
+        });
+      }
+    }
+  }
+  return notes;
+}
+
+function arrangeArp(ctx: PartContext): ScoreNote[] {
+  const { plan, beatsPerBar, bars, rootMidi, raga, fit, swung, active, texture, arpRng } = ctx;
+  const arpRole = ctx.options.arpRole ?? "arp";
+  if (arpRole !== "arp") {
+    // Orchestration: the arp instrument follows the THEME instead of arpeggiating —
+    // doubling it an octave up (a tutti climax) or harmonising it a third below (a
+    // two-part bridge). Tracks the lead, so it sits in the same phrasing.
+    const octave = arpRole === "double" ? OCTAVE : 0;
+    return ctx.leadMelody.map((n): ScoreNote => {
+      const start = swung(n.startBeat);
+      const degree = arpRole === "harmony" ? thirdBelow(raga, n.degree) : n.degree;
+      return {
+        startBeat: start,
+        durationBeats: fit(start, n.durationBeats),
+        freq: degreeToFrequency(raga, degree, rootMidi + octave),
+        velocity: n.velocity * 0.7, // sits just under the lead
+      };
+    });
+  }
+  const notes: ScoreNote[] = [];
+  const pattern = arpRng.pick(ARP_PATTERNS);
+  const stepsPerBar = beatsPerBar * 2; // eighth notes, so swing bites
+  for (let bar = 0; bar < bars; bar++) {
+    const seq = arpSequence(plan.bars[bar]!.chord.pcs, pattern);
+    for (let s = 0; s < stepsPerBar; s++) {
+      const pc = seq[s % seq.length]!;
+      const start = swung(bar * beatsPerBar + s * 0.5);
+      if (!active(texture.arp, start)) continue; // gated out this section
+      notes.push({
+        startBeat: start,
+        durationBeats: fit(start, 0.45),
+        freq: midiToFrequency(rootMidi + OCTAVE + pc),
+        velocity: 0.45,
+      });
+    }
+  }
+  return notes;
+}
+
+/**
+ * The ensemble's pitched voices, arranged in this order (also their order in the
+ * Score). Drums are arranged separately — they're a kit + groove, not a melodic line.
+ */
+export const PART_ARRANGERS: readonly PartArranger[] = [
+  { voice: "lead", arrange: arrangeLead },
+  { voice: "bass", arrange: arrangeBass },
+  { voice: "pad", arrange: arrangePad },
+  { voice: "arp", arrange: arrangeArp },
+];
+
 /** Compose a {@link Score} from a harmony plan, melody, and groove. Pure & deterministic. */
 export function arrange(options: ArrangeOptions): Score {
   const { rng } = options;
@@ -235,179 +442,38 @@ export function arrange(options: ArrangeOptions): Score {
         : {}),
     });
 
+  // Draw the lead line up front: the lead part renders it and the arp may double or
+  // harmonise it, so it can't live inside a single part's arranger.
+  const leadMelody: readonly MelodyNote[] = enabled("lead")
+    ? generateMelody({
+        rng: leadRng,
+        plan,
+        scale: raga,
+        range: leadRange,
+        density,
+        ...(options.motif !== undefined ? { motif: options.motif } : {}),
+        ...(options.motifBars !== undefined ? { motifBars: options.motifBars } : {}),
+      })
+    : [];
+
+  const ctx: PartContext = {
+    options,
+    plan,
+    raga,
+    rootMidi,
+    beatsPerBar,
+    bars,
+    leadMelody,
+    texture,
+    bassRng,
+    arpRng,
+    fit,
+    swung,
+    active,
+  };
   const parts: ScorePart[] = [];
-  let leadMelody: readonly MelodyNote[] = []; // hoisted so the arp can double/harmonise it
-
-  if (enabled("lead")) {
-    leadMelody = generateMelody({
-      rng: leadRng,
-      plan,
-      scale: raga,
-      range: leadRange,
-      density,
-      ...(options.motif !== undefined ? { motif: options.motif } : {}),
-      ...(options.motifBars !== undefined ? { motifBars: options.motifBars } : {}),
-    });
-    const notes = leadMelody.map((n): ScoreNote => {
-      const start = swung(n.startBeat);
-      return {
-        startBeat: start,
-        durationBeats: fit(start, n.durationBeats),
-        freq: degreeToFrequency(raga, n.degree, rootMidi),
-        velocity: n.velocity,
-      };
-    });
-    parts.push({ voice: "lead", notes });
-  }
-
-  if (enabled("bass")) {
-    const notes: ScoreNote[] = [];
-    const bassPattern = options.bassPattern ?? "rootFifth";
-    const half = beatsPerBar / 2;
-    const low = (pc: number) => midiToFrequency(rootMidi - OCTAVE + pc); // always below the pad
-    for (let bar = 0; bar < bars; bar++) {
-      const chord = plan.bars[bar]!.chord;
-      const barStart = bar * beatsPerBar;
-      const root = chord.root;
-      // The chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
-      // a perfect fifth over a diminished/augmented triad is out of key.
-      const fifth = chord.pcs[2] ?? chord.root;
-      if (bassPattern === "rootFifth") {
-        notes.push({
-          startBeat: barStart,
-          durationBeats: fit(barStart, half),
-          freq: low(root),
-          velocity: 0.85,
-        });
-        const second = bassRng.next() < 0.5 ? root : fifth;
-        const midStart = barStart + half;
-        notes.push({
-          startBeat: midStart,
-          durationBeats: fit(midStart, half),
-          freq: low(second),
-          velocity: 0.8,
-        });
-      } else if (bassPattern === "pulse") {
-        for (let b = 0; b < beatsPerBar; b++) {
-          const at = barStart + b;
-          notes.push({
-            startBeat: at,
-            durationBeats: fit(at, 0.9),
-            freq: low(root),
-            velocity: b === 0 ? 0.85 : 0.72,
-          });
-        }
-      } else if (bassPattern === "walking") {
-        for (let b = 0; b < beatsPerBar; b++) {
-          const at = barStart + b;
-          notes.push({
-            startBeat: at,
-            durationBeats: fit(at, 0.9),
-            freq: low(chord.pcs[b % chord.pcs.length] ?? root),
-            velocity: b === 0 ? 0.85 : 0.75,
-          });
-        }
-      } else {
-        // sustained: root held the whole bar
-        notes.push({
-          startBeat: barStart,
-          durationBeats: fit(barStart, beatsPerBar),
-          freq: low(root),
-          velocity: 0.8,
-        });
-      }
-    }
-    parts.push({ voice: "bass", notes });
-  }
-
-  if (enabled("pad")) {
-    const padPattern = options.padPattern ?? "sustain";
-    const notes: ScoreNote[] = [];
-    // Voice the pad in root position: the chord root is the lowest tone, the other
-    // tones stacked within the octave above it (so the root never lands on top).
-    const padVoice = (pc: number, root: number) =>
-      midiToFrequency(rootMidi + root + ((pc - root + OCTAVE) % OCTAVE));
-    for (let bar = 0; bar < bars; bar++) {
-      const chord = plan.bars[bar]!.chord;
-      const barStart = bar * beatsPerBar;
-      if (padPattern === "stabs") {
-        // Rhythmic chord hits on each beat — a driving climax pad.
-        for (let b = 0; b < beatsPerBar; b++) {
-          const at = barStart + b;
-          for (const pc of chord.pcs) {
-            notes.push({
-              startBeat: at,
-              durationBeats: fit(at, 0.4),
-              freq: padVoice(pc, chord.root),
-              velocity: 0.32,
-            });
-          }
-        }
-      } else if (padPattern === "broken") {
-        // Chord tones enter one per beat, each held to the bar end — gentle bridge movement.
-        chord.pcs.forEach((pc, i) => {
-          const at = barStart + Math.min(i, beatsPerBar - 1);
-          notes.push({
-            startBeat: at,
-            durationBeats: fit(at, beatsPerBar - (at - barStart)),
-            freq: padVoice(pc, chord.root),
-            velocity: 0.3,
-          });
-        });
-      } else {
-        // sustain: whole-bar block chord (default).
-        const dur = fit(barStart, beatsPerBar);
-        for (const pc of chord.pcs) {
-          notes.push({
-            startBeat: barStart,
-            durationBeats: dur,
-            freq: padVoice(pc, chord.root),
-            velocity: 0.3,
-          });
-        }
-      }
-    }
-    parts.push({ voice: "pad", notes });
-  }
-
-  if (enabled("arp")) {
-    const arpRole = options.arpRole ?? "arp";
-    if (arpRole !== "arp") {
-      // Orchestration: the arp instrument follows the THEME instead of arpeggiating —
-      // doubling it an octave up (a tutti climax) or harmonising it a third below (a
-      // two-part bridge). Tracks the lead, so it sits in the same phrasing.
-      const octave = arpRole === "double" ? OCTAVE : 0;
-      const notes = leadMelody.map((n): ScoreNote => {
-        const start = swung(n.startBeat);
-        const degree = arpRole === "harmony" ? thirdBelow(raga, n.degree) : n.degree;
-        return {
-          startBeat: start,
-          durationBeats: fit(start, n.durationBeats),
-          freq: degreeToFrequency(raga, degree, rootMidi + octave),
-          velocity: n.velocity * 0.7, // sits just under the lead
-        };
-      });
-      parts.push({ voice: "arp", notes });
-    } else {
-      const notes: ScoreNote[] = [];
-      const pattern = arpRng.pick(ARP_PATTERNS);
-      const stepsPerBar = beatsPerBar * 2; // eighth notes, so swing bites
-      for (let bar = 0; bar < bars; bar++) {
-        const seq = arpSequence(plan.bars[bar]!.chord.pcs, pattern);
-        for (let s = 0; s < stepsPerBar; s++) {
-          const pc = seq[s % seq.length]!;
-          const start = swung(bar * beatsPerBar + s * 0.5);
-          if (!active(texture.arp, start)) continue; // gated out this section
-          notes.push({
-            startBeat: start,
-            durationBeats: fit(start, 0.45),
-            freq: midiToFrequency(rootMidi + OCTAVE + pc),
-            velocity: 0.45,
-          });
-        }
-      }
-      parts.push({ voice: "arp", notes });
-    }
+  for (const part of PART_ARRANGERS) {
+    if (enabled(part.voice)) parts.push({ voice: part.voice, notes: part.arrange(ctx) });
   }
 
   let drums: DrumHit[] = [];
