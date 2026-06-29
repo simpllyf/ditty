@@ -114,7 +114,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
   {
     "bpm": 131,
     "density": 0.758,
-    "groove": "busy",
+    "groove": "straight",
     "instruments": {
       "arp": [
         "synthArp",

@@ -57,7 +57,7 @@ export const STYLES = {
       { parent: SCALES.lydian, raga: SCALES.majorPentatonic },
       { parent: SCALES.major, raga: SCALES.majorPentatonic },
     ],
-    grooves: ["straight", "fourOnFloor", "busy"],
+    grooves: ["straight", "fourOnFloor", "busy", "syncopated"],
     bpm: [104, 132],
     swing: [0, 0.3],
     density: [0.5, 0.8],
@@ -101,7 +101,7 @@ export const STYLES = {
       { parent: SCALES.major, raga: SCALES.majorPentatonic },
       { parent: SCALES.mayamalavagowla, raga: SCALES.mayamalavagowla }, // exotic spice
     ],
-    grooves: ["fourOnFloor", "busy", "straight"],
+    grooves: ["fourOnFloor", "busy", "straight", "syncopated", "breakbeat", "halfDouble"],
     bpm: [112, 140],
     swing: [0.1, 0.4],
     density: [0.6, 0.9],

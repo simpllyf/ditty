@@ -90,6 +90,7 @@ export interface DrumGroove {
 }
 
 const EIGHTHS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5];
+const SIXTEENTHS = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75];
 
 /** Drum grooves, authored in 4/4 (positions 0..3.5). Pick by style; combine with {@link fitGroove}. */
 export const DRUM_GROOVES = {
@@ -98,6 +99,9 @@ export const DRUM_GROOVES = {
   halfTime: { kick: [0], snare: [2], hat: EIGHTHS },
   soft: { kick: [0, 2], snare: [], hat: [0, 1, 2, 3] },
   busy: { kick: [0, 1.5, 2, 3.5], snare: [1, 3], hat: EIGHTHS },
+  syncopated: { kick: [0, 1.5, 2.5], snare: [1, 3], hat: EIGHTHS }, // off-beat kick push
+  breakbeat: { kick: [0, 0.75, 2.5], snare: [1, 3], hat: EIGHTHS }, // broken kick
+  halfDouble: { kick: [0], snare: [2], hat: SIXTEENTHS }, // slow backbeat, double-time hats
   none: { kick: [], snare: [], hat: [] },
 } as const satisfies Record<string, DrumGroove>;
 

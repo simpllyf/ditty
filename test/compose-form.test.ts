@@ -10,6 +10,7 @@ const base = {
   bars: 8,
   beatsPerBar: 4,
   density: 0.5,
+  groove: "straight",
 } as const;
 
 /** First seed whose form contains a B section (a contrasting part). */
@@ -87,6 +88,13 @@ describe("buildForm", () => {
         expect(sec.arpRole).toBe(expected);
       }
     }
+  });
+
+  it("varies the groove per section: home (A), sparser bridge (B), busier climax (C)", () => {
+    const form = formWithB();
+    for (const a of form.sections.filter((s) => s.label === "A")) expect(a.groove).toBe("straight");
+    for (const b of form.sections.filter((s) => s.label === "B")) expect(b.groove).toBe("halfTime");
+    for (const c of form.sections.filter((s) => s.label === "C")) expect(c.groove).toBe("busy");
   });
 
   it("orchestrates the pad per section: A sustains, B broken, C stabs", () => {

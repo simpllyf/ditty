@@ -153,6 +153,7 @@ export function createSession(options: SessionOptions): Session {
     bars,
     beatsPerBar,
     density,
+    groove,
   });
 
   // Nudge timing/dynamics off the grid via its own rng fork, so toggling humanize
@@ -169,7 +170,7 @@ export function createSession(options: SessionOptions): Session {
       parent,
       raga,
       rootMidi: section.rootMidi, // may modulate per section (key change)
-      groove,
+      groove: section.groove, // B sparser, C busier than home
       density: section.density,
       swing,
       plan: section.plan,
