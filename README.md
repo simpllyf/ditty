@@ -1,5 +1,7 @@
 # Ditty
 
+[![npm](https://img.shields.io/npm/v/@simpllyf/ditty?color=15a06a&label=npm)](https://www.npmjs.com/package/@simpllyf/ditty) [![license](https://img.shields.io/npm/l/@simpllyf/ditty?color=15a06a)](./LICENSE) ![dependencies](https://img.shields.io/badge/dependencies-0-15a06a) ![types](https://img.shields.io/npm/types/@simpllyf/ditty?color=15a06a)
+
 **A zero-dependency, framework-agnostic generative music engine for the browser.**
 
 Ditty composes endless, non-repetitive, melodic background music — harmony-led

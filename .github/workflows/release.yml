@@ -96,6 +96,11 @@ jobs:
       - name: install + build
         run: mise exec -- just setup && mise exec -- just build
 
+      # OIDC trusted publishing is an npm-CLI feature (needs npm >= 11.5.1); publish
+      # with npm (not pnpm) so the OIDC token exchange + provenance are first-class.
+      - name: ensure OIDC-capable npm
+        run: npm install -g npm@latest
+
       - name: publish (idempotent)
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -103,7 +108,7 @@ jobs:
           if npm view "@simpllyf/ditty@$VERSION" version >/dev/null 2>&1; then
             echo "@simpllyf/ditty@$VERSION already on npm, skipping"
           else
-            mise exec -- pnpm publish --access public --no-git-checks --provenance
+            npm publish --access public --provenance
           fi
 
   publish-release:
