@@ -5,32 +5,38 @@
 Ditty composes endless, non-repetitive, melodic background music — harmony-led
 and multi-instrument — entirely synthesized through the Web Audio API. No audio
 files, no samples, no frameworks. Pick a _vibe_, give it a seed, and it arranges
-a lead, bass, pad, arpeggio, and drums that actually follow the chords. Built for
-kid-friendly learning apps and games, but standalone and reusable anywhere.
+a lead, bass, pad, arpeggio, and drums into a **song form** that follows the
+chords. Built for kid-friendly learning apps and games, but standalone and
+reusable anywhere.
 
 ```
-┌────── pure brain (runs in Node, no audio) ──────┐   ┌─── thin audio shell ───┐
-  scales/ragas → chords → progressions → harmony      synth (patches, filter,
-  → rhythm/grooves → melody → arranger → Score    →    reverb) ← scheduler   → 🔊
-└─────────────────────────────────────────────────┘   └────────────────────────┘
+┌──────── pure brain (runs in Node, no audio) ────────┐   ┌──── thin audio shell ────┐
+  scales/ragas → chords → progressions → harmony          synth (patches, filter,
+  → rhythm/grooves → melody → form (sections) →           formants, reverb, stereo)
+  arranger → Score                                    →   ← scheduler            → 🔊
+└─────────────────────────────────────────────────────┘   └──────────────────────────┘
 ```
 
+- **A real song form, not one loop.** Each piece moves through contrasting
+  sections (verse / bridge / climax) with drum fills into the changes, a loud/soft
+  dynamics arc, key changes, per-section tempo, a recurring theme, and per-section
+  orchestration — a composed arc that develops, then loops seamlessly.
 - **Coherent, not random.** Functional harmony (T–S–D progressions, cadences),
-  in-key ragas, chord tones on strong beats, leap caps, and anti-repeat — the
-  melody follows the chords, so it sounds composed rather than noodly.
-- **Endless variety.** Each loop re-arranges over a constant tempo grid, so the
-  music never exactly repeats yet loops seamlessly. Pick a **style** to set the
-  vibe; every seed sounds different.
-- **Multi-instrument.** A small palette of synthesized instruments (plucks, pads,
-  bells, organ, mallets, sub bass) + a drum kit, voiced across registers.
+  in-key ragas, chord tones on strong beats, leap caps, anti-repeat, and tasteful
+  borrowed chords — the melody follows the chords, so it sounds composed.
+- **Endless variety.** Seven styles, ~20 scales/ragas, and a fresh arrangement
+  every pass over a constant grid — it never exactly repeats yet loops seamlessly.
+- **Rich & multi-instrument, in stereo.** ~20 synthesized instruments (plucks,
+  pads, bells, e-piano, strings, a formant **choir**, sub bass, …) + drum kits,
+  placed across a stereo field, with subtly **humanized** timing and dynamics.
 - **Zero runtime dependencies.** Web Audio is the only thing it needs — enforced
   in CI.
 - **Deterministic.** One seeded PRNG drives everything. Same seed → identical
   music. The whole musical brain runs and is tested in Node with no `AudioContext`.
-- **Tiny.** ~8.9 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
+- **Small.** ~12.5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
 - **Framework-agnostic.** No DOM access, no framework imports.
 
-> **Pre-release (0.0.x).** Feature-complete, thoroughly unit-tested (250+ tests,
+> **Pre-release (0.0.x).** Feature-complete, thoroughly unit-tested (340+ tests,
 > property-based + golden snapshots), and validated end-to-end in Chromium,
 > Firefox, and WebKit (real Web Audio output), pending the first npm publish.
 
@@ -56,7 +62,7 @@ Or drop it into a plain HTML page with no build step:
 import { createEngine } from "@simpllyf/ditty";
 
 const engine = createEngine({
-  style: "peppy", // "peppy" | "calm" | "playful" | "dreamy"
+  style: "peppy", // peppy | calm | playful | dreamy | lofi | cinematic | ambient
   seed: 1234, // omit for a fresh random track each session
   volume: 0.3, // 0..1 — it's background music, keep it gentle
 });
@@ -80,21 +86,23 @@ createEngine({ style: "calm", bpm: 84, voices: { arp: false } });
 
 ### Options
 
-| Option                           | Default        | Notes                                                                                    |
-| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
-| `style`                          | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` — the pool to randomize in                    |
-| `seed`                           | random         | Set for a reproducible track; omit for variety per session                               |
-| `bpm`                            | from style     | Beats per minute                                                                         |
-| `beatsPerBar`                    | `4`            | Time signature (beats per bar)                                                           |
-| `bars`                           | `8`            | Bars per loop                                                                            |
-| `volume`                         | `0.3`          | Master volume, 0..1                                                                      |
-| `evolve`                         | `true`         | Re-arrange each loop for endless variety; `false` repeats one loop                       |
-| `voices`                         | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
-| `parent` / `raga`                | from style     | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
-| `groove`                         | from style     | `straight` \| `fourOnFloor` \| `halfTime` \| `soft` \| `busy` \| `none`                  |
-| `rootMidi` / `density` / `swing` | from style     | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
-| `kit`                            | `"default"`    | Drum kit                                                                                 |
-| `audioContext`                   | created lazily | Bring your own `AudioContext` (or a compatible one)                                      |
+| Option                           | Default        | Notes                                                                                                                  |
+| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `style`                          | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` \| `lofi` \| `cinematic` \| `ambient`                                       |
+| `seed`                           | random         | Set for a reproducible track; omit for variety per session                                                             |
+| `bpm`                            | from style     | Beats per minute (the home tempo; sections may push/pull around it)                                                    |
+| `beatsPerBar`                    | `4`            | Time signature (beats per bar)                                                                                         |
+| `bars`                           | `8`            | Bars per section                                                                                                       |
+| `volume`                         | `0.3`          | Master volume, 0..1                                                                                                    |
+| `evolve`                         | `true`         | Re-draw melodies each pass through the form; `false` repeats the form verbatim                                         |
+| `humanize`                       | `true`         | Subtle off-grid timing + velocity, for a human feel                                                                    |
+| `chromatic`                      | `true`         | Allow occasional borrowed (non-diatonic) chords in bright-major keys                                                   |
+| `voices`                         | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                                                                      |
+| `parent` / `raga`                | from style     | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent`                               |
+| `groove`                         | from style     | `straight` \| `fourOnFloor` \| `halfTime` \| `soft` \| `busy` \| `syncopated` \| `breakbeat` \| `halfDouble` \| `none` |
+| `rootMidi` / `density` / `swing` | from style     | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                                                    |
+| `kit`                            | `"default"`    | Drum kit                                                                                                               |
+| `audioContext`                   | created lazily | Bring your own `AudioContext` (or a compatible one)                                                                    |
 
 ## Render / export a track
 
@@ -104,25 +112,25 @@ shipping a loop as an asset:
 ```ts
 import { renderOffline, encodeWav } from "@simpllyf/ditty";
 
-// `loops` renders to exact loop boundaries (gapless); or pass `seconds`.
-const { sampleRate, channelData } = await renderOffline({
+// `loops` renders to exact form boundaries (gapless); or pass `seconds`.
+const { sampleRate, channels } = await renderOffline({
   style: "dreamy",
   seed: 7,
   loops: 4,
 });
 
-const wav = encodeWav(channelData, sampleRate); // Uint8Array
+const wav = encodeWav(channels, sampleRate); // Uint8Array (stereo)
 // browser: new Blob([wav], { type: "audio/wav" })
 // node:    fs.writeFileSync("track.wav", wav)
 ```
 
 `renderOffline` takes the same musical options as the engine, plus:
 
-- `seconds` **or** `loops` — exactly one (`loops` renders to exact boundaries → gapless).
+- `seconds` **or** `loops` — exactly one (`loops` renders the whole form to an exact, gapless boundary).
 - `sampleRate` — output rate, default `44100`.
 - `volume` — master volume, default `0.8` (offline can run a touch hotter than realtime).
 
-`channelData` is a **mono** `Float32Array`.
+`channels` is `[left, right]` — two `Float32Array`s; `encodeWav` interleaves them.
 
 ## Browser autoplay
 
@@ -163,11 +171,17 @@ at `@simpllyf/ditty/core` — for tests, previews, analysis, or building your ow
 playback layer. No audio involved:
 
 ```ts
-import { arrange, makeRng, SCALES } from "@simpllyf/ditty/core";
+import { createSession, arrange, makeRng, SCALES } from "@simpllyf/ditty/core";
 
-const score = arrange({ rng: makeRng(1234), raga: SCALES.mohanam });
+// The seed→music brain: pick the band + build the form once, then pull Scores.
+const session = createSession({ seed: 1234, style: "cinematic" });
+session.sections; // the form: [{ label: "A", keyShift, arpRole }, ...]
+const score = session.nextScore(); // the next section, as play-ready data
 // score.parts → [{ voice: "lead", notes: [{ startBeat, durationBeats, freq, velocity }] }, ...]
 // score.drums → [{ startBeat, drum: "kick" | "snare" | "hat", velocity }]
+
+// …or compose a single Score directly, without the form/session:
+arrange({ rng: makeRng(1234), raga: SCALES.mohanam });
 ```
 
 `/core` also exports the building blocks — `generateHarmony`, `generateMelody`,
