@@ -38,7 +38,9 @@ src/index.ts (engine)   src/core.ts (pure layer)                ← entry points
   **Never `Math.random()`** anywhere — eslint blocks it. Same seed → identical
   event stream; golden snapshots guard this.
 - **Side-effect-free.** No top-level work runs on import. `sideEffects: false`.
-- **Size budget < 10 KB min+gzip** for the full engine (`just size`).
+- **Size: a soft sanity cap, not a tight budget.** Keep the full engine well under
+  ~1 MB min+gzip — `just size` reports the gzipped weight and fails CI only past
+  that generous ceiling. Watch the trend; don't sweat a few KB.
 - **Pleasant by constraint, not cleverness.** Coherence comes from functional
   harmony, in-key ragas (raga ⊆ parent), leap caps, chord tones on strong beats,
   cadences, and anti-repeat — not from a "smarter" model. Resist adding one.

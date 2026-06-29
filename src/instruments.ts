@@ -5,7 +5,7 @@
  * entry here, tagged with the voices it suits, and the randomizer picks it
  * automatically. Data only — must not import the audio shell.
  *
- * Palette is synthesized, not sampled (zero-dep + size budget): plucks, pads,
+ * Palette is synthesized, not sampled (zero-dep, lightweight): plucks, pads,
  * bells, organ, mallets, sub bass, etc. Broad on purpose.
  */
 import type { DrumName, ScoreVoice } from "./voices";
