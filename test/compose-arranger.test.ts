@@ -1,10 +1,10 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { type ScoreVoice, arrange } from "../src/compose/arranger";
+import { type ScoreVoice, arrange, thirdBelow } from "../src/compose/arranger";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
-import { SCALES } from "../src/theory/scales";
+import { SCALES, type Scale, degreeToSemitone } from "../src/theory/scales";
 
 const DEFAULT_ROOT = 60;
 
@@ -330,6 +330,25 @@ describe("arrange — golden & validation", () => {
     const harm = arpNotes("harmony");
     expect(harm.length).toBe(lead.length);
     for (let i = 0; i < harm.length; i++) expect(harm[i]!.freq).toBeLessThan(lead[i]!.freq);
+  });
+
+  it("thirdBelow harmonises a third — preferring a real third, never a second", () => {
+    const interval = (scale: Scale, deg: number) =>
+      degreeToSemitone(scale, deg) - degreeToSemitone(scale, thirdBelow(scale, deg));
+    // heptatonic: every degree gets a genuine third (3–4 semitones)
+    for (let deg = 0; deg <= 7; deg++) {
+      expect(interval(SCALES.major, deg)).toBeGreaterThanOrEqual(3);
+      expect(interval(SCALES.major, deg)).toBeLessThanOrEqual(4);
+    }
+    // pentatonic has gaps: a third where one exists, a fourth as fallback, never a second
+    for (let deg = 0; deg < 5; deg++) {
+      const semis = interval(SCALES.majorPentatonic, deg);
+      expect(semis).toBeGreaterThanOrEqual(3); // not a second
+      expect(semis).toBeLessThanOrEqual(5); // a third or (fallback) a fourth — controlled
+    }
+    // where a third exists it IS chosen (a fixed -2 degree shift would give a fourth here)
+    expect(interval(SCALES.majorPentatonic, 3)).toBe(3); // minor third, not the old fourth
+    expect(interval(SCALES.majorPentatonic, 0)).toBe(3); // minor third, not the old fourth
   });
 
   it("dynamics scales every velocity (clamped); fill reworks only the last bar", () => {

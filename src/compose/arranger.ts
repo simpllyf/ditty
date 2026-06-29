@@ -11,7 +11,7 @@
 import type { Rng } from "../rng";
 import { DEFAULT_ROOT_MIDI, OCTAVE, midiToFrequency, pitchClass } from "../theory/pitch";
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
-import { SCALES, type Scale, degreeToFrequency } from "../theory/scales";
+import { SCALES, type Scale, degreeToFrequency, degreeToSemitone } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
@@ -114,6 +114,29 @@ export type ArpRole = "arp" | "double" | "harmony";
 
 /** How the pad voices a chord — held block, broken (staggered), or rhythmic stabs. */
 export type PadPattern = "sustain" | "stabs" | "broken";
+
+/**
+ * Degree of a harmony note a third below `degree`, by actual interval. A fixed -2
+ * scale-degree shift is a third only in heptatonic scales; pentatonic ragas have
+ * gaps, so it lands on an unintended fourth — or, if naively snapped, a clashing
+ * second. Pick the scale tone whose interval below the lead is nearest a third,
+ * never closer than a third (so it falls back to a fourth, not a second).
+ */
+export function thirdBelow(scale: Scale, degree: number): number {
+  const lead = degreeToSemitone(scale, degree);
+  let best = degree - 2; // a third in heptatonic; a sensible default elsewhere
+  let bestDiff = Infinity;
+  for (let d = degree - 1; d >= degree - 4; d--) {
+    const interval = lead - degreeToSemitone(scale, d); // semitones below the lead
+    if (interval < 3) continue; // never a unison/second — too close, it clashes
+    const diff = Math.abs(interval - 3.5); // prefer a minor/major third
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = d;
+    }
+  }
+  return best;
+}
 
 /** Cycle order of a chord's pitch classes for an arpeggio. */
 function arpSequence(pcs: readonly number[], pattern: (typeof ARP_PATTERNS)[number]): number[] {
@@ -351,16 +374,16 @@ export function arrange(options: ArrangeOptions): Score {
     const arpRole = options.arpRole ?? "arp";
     if (arpRole !== "arp") {
       // Orchestration: the arp instrument follows the THEME instead of arpeggiating —
-      // doubling it an octave up (a tutti climax) or harmonising it a diatonic third
-      // below (a two-part bridge). Tracks the lead, so it sits in the same phrasing.
-      const shiftDeg = arpRole === "harmony" ? -2 : 0; // -2 scale degrees = a third below
+      // doubling it an octave up (a tutti climax) or harmonising it a third below (a
+      // two-part bridge). Tracks the lead, so it sits in the same phrasing.
       const octave = arpRole === "double" ? OCTAVE : 0;
       const notes = leadMelody.map((n): ScoreNote => {
         const start = swung(n.startBeat);
+        const degree = arpRole === "harmony" ? thirdBelow(raga, n.degree) : n.degree;
         return {
           startBeat: start,
           durationBeats: fit(start, n.durationBeats),
-          freq: degreeToFrequency(raga, n.degree + shiftDeg, rootMidi + octave),
+          freq: degreeToFrequency(raga, degree, rootMidi + octave),
           velocity: n.velocity * 0.7, // sits just under the lead
         };
       });
