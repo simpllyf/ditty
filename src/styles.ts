@@ -86,7 +86,7 @@ export const STYLES = {
     rootMidi: [55, 62],
     instruments: {
       lead: ["sineLead", "marimba", "epiano", "airLead", "clarinet", "strings", "harp"],
-      pad: ["warmPad", "glassPad", "epiano", "strings", "tubularBell"],
+      pad: ["warmPad", "glassPad", "epiano", "strings", "tubularBell", "choir"],
       arp: ["musicBox", "bell", "glockenspiel", "celesta", "harp", "tubularBell"],
       bass: ["subBass", "roundBass"],
     },
@@ -131,7 +131,7 @@ export const STYLES = {
     rootMidi: [55, 62],
     instruments: {
       lead: ["sineLead", "marimba", "epiano", "airLead", "clarinet", "strings", "harp"],
-      pad: ["glassPad", "warmPad", "epiano", "strings", "tubularBell"],
+      pad: ["glassPad", "warmPad", "epiano", "strings", "tubularBell", "choir"],
       arp: ["bell", "musicBox", "glockenspiel", "celesta", "harp", "tubularBell"],
       bass: ["subBass", "roundBass"],
     },

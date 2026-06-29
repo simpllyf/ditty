@@ -23,6 +23,32 @@ describe("Synth.playNote", () => {
     expect(events.some((e) => e.type === "linramp")).toBe(true);
   });
 
+  it("builds a parallel band-pass bank wired into the source (vowel patch)", () => {
+    const ctx = new FakeAudioContext();
+    make(ctx).playNote(INSTRUMENTS.choir, {
+      freq: 220,
+      startTime: 0,
+      durationSeconds: 1,
+      velocity: 0.7,
+    });
+    const formant = INSTRUMENTS.choir.formant;
+    const bandpasses = ctx.filters.filter((f) => f.type === "bandpass");
+    expect(bandpasses.length).toBe(formant.length); // one band per formant peak
+    const freqs = bandpasses.flatMap((f) => f.frequency.events.map((e) => e.value));
+    for (const peak of formant) expect(freqs).toContain(peak.freq);
+    // The source must actually reach the bank: a gain (formantIn) fans out to every
+    // band-pass, and each carrier oscillator routes into it (directly or via a layer gain).
+    const formantIn = ctx.gains.find((g) => bandpasses.every((bp) => g.connectedTo.includes(bp)));
+    expect(formantIn).toBeDefined();
+    const carriers = ctx.oscillators.filter((o) => !o.frequency.events.some((e) => e.value <= 40));
+    for (const osc of carriers) {
+      const reaches =
+        osc.connectedTo.includes(formantIn!) ||
+        ctx.gains.some((g) => osc.connectedTo.includes(g) && g.connectedTo.includes(formantIn!));
+      expect(reaches).toBe(true);
+    }
+  });
+
   it("adds a filter with a cutoff envelope when the patch has one", () => {
     const ctx = new FakeAudioContext();
     const s = make(ctx);
