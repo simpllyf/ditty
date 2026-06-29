@@ -38,7 +38,7 @@ type SectionRecipe = Omit<SectionProfile, "fill">;
 export interface Form {
   readonly sections: readonly SectionProfile[];
   readonly motif: readonly MelodyNote[]; // the piece's theme, stated at each section's head
-  readonly motifBars: number; // bars the motif spans
+  readonly motifBars: number;
 }
 
 export interface FormOptions {
