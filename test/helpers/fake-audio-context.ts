@@ -90,6 +90,7 @@ export class FakeBiquad extends FakeNode implements BiquadFilterLike {
 
 export class FakeWaveShaper extends FakeNode implements WaveShaperLike {
   curve: Float32Array | null = null;
+  oversample: OverSampleType = "none";
 }
 
 export class FakeDelay extends FakeNode implements DelayLike {

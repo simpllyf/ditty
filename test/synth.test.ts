@@ -340,4 +340,12 @@ describe("Synth lifecycle", () => {
     expect(ctx.gains.length).toBe(gainsBefore + 1); // just the env gain
     expect(ctx.gains[ctx.gains.length - 1]!.disconnectCount).toBeGreaterThan(0); // disconnected, not parked
   });
+
+  it("oversamples the master soft-clip limiter so its harmonics don't alias", () => {
+    const ctx = new FakeAudioContext();
+    make(ctx);
+    expect(ctx.shapers.length).toBe(1); // the master limiter
+    expect(ctx.shapers[0]!.curve).not.toBeNull(); // soft-clip curve installed
+    expect(ctx.shapers[0]!.oversample).toBe("4x"); // anti-aliased waveshaping
+  });
 });
