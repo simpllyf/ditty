@@ -136,6 +136,68 @@ export const STYLES = {
       bass: ["subBass", "roundBass"],
     },
   },
+  lofi: {
+    name: "lofi",
+    keys: [
+      { parent: SCALES.dorian, raga: SCALES.abhogi },
+      { parent: SCALES.naturalMinor, raga: SCALES.hindolam },
+      { parent: SCALES.major, raga: SCALES.mohanam },
+      { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
+    ],
+    grooves: ["halfTime", "soft", "breakbeat"],
+    bpm: [68, 88],
+    swing: [0.2, 0.5], // dusty shuffle
+    density: [0.3, 0.55],
+    rootMidi: [55, 62],
+    instruments: {
+      lead: ["epiano", "sineLead", "marimba", "clarinet"],
+      pad: ["warmPad", "epiano", "choir", "glassPad"],
+      arp: ["musicBox", "bell", "harp", "celesta"],
+      bass: ["roundBass", "subBass"],
+    },
+  },
+  cinematic: {
+    name: "cinematic",
+    keys: [
+      { parent: SCALES.harmonicMinor, raga: SCALES.harmonicMinor }, // dramatic
+      { parent: SCALES.naturalMinor, raga: SCALES.hindolam },
+      { parent: SCALES.lydian, raga: SCALES.kalyani }, // bright/epic
+      { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
+      { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
+    ],
+    grooves: ["halfTime", "straight", "soft"],
+    bpm: [70, 100],
+    swing: [0, 0.2],
+    density: [0.35, 0.65],
+    rootMidi: [52, 60], // weighty, lower register
+    instruments: {
+      lead: ["strings", "airLead", "choir", "sineLead"],
+      pad: ["strings", "choir", "warmPad", "glassPad"],
+      arp: ["harp", "glockenspiel", "celesta", "tubularBell"],
+      bass: ["subBass", "roundBass"],
+    },
+  },
+  ambient: {
+    name: "ambient",
+    keys: [
+      { parent: SCALES.lydian, raga: SCALES.majorPentatonic }, // floaty
+      { parent: SCALES.major, raga: SCALES.shuddhaSaveri },
+      { parent: SCALES.dorian, raga: SCALES.abhogi },
+      { parent: SCALES.lydian, raga: SCALES.kalyani },
+      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
+    ],
+    grooves: ["soft", "halfTime", "none"], // often drumless
+    bpm: [56, 76],
+    swing: [0, 0.2],
+    density: [0.15, 0.4], // sparse, floating
+    rootMidi: [55, 64],
+    instruments: {
+      lead: ["airLead", "choir", "sineLead", "strings"],
+      pad: ["warmPad", "glassPad", "choir", "strings", "tubularBell"],
+      arp: ["bell", "musicBox", "celesta", "glockenspiel", "harp"],
+      bass: ["subBass"],
+    },
+  },
 } as const satisfies Record<string, Style>;
 
 export type StyleName = keyof typeof STYLES;
