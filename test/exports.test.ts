@@ -4,9 +4,9 @@ import * as index from "../src/index";
 import type { SectionView } from "../src/index";
 
 describe("public exports", () => {
-  // The engine entry is a CURATED slice of the pure layer (kept lean for the size
-  // budget), so it is intentionally NOT a full superset of /core. These guard the
-  // documented headline API on each entry against accidental removal/drift.
+  // The engine entry is a CURATED, lean slice of the pure layer, so it is
+  // intentionally NOT a full superset of /core. These guard the documented
+  // headline API on each entry against accidental removal/drift.
   it("the engine entry exposes the engine shell + the config knobs", () => {
     for (const key of [
       "createEngine",

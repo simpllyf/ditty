@@ -1,8 +1,9 @@
 // Measures the gzipped weight of the full engine — exactly what a consumer pays
-// when they `import { createPeppyEngine } from "@simpllyf/ditty"`. Bundles the
-// real `src/index.ts` graph with esbuild (minified, tree-shaken), then gzips it.
-// Self-contained: no prior `tsup` build needed. esbuild is the only dev-only
-// tool involved; gzip comes from node:zlib. Budget: < 10 KB (spec §12, §14.8).
+// when they `import { createEngine } from "@simpllyf/ditty"`. Bundles the real
+// `src/index.ts` graph with esbuild (minified, tree-shaken), then gzips it.
+// Self-contained: no prior `tsup` build needed. esbuild is the only dev-only tool
+// involved; gzip comes from node:zlib. We track the trend against a soft ~1 MB
+// sanity cap — a generous ceiling, not a tight byte budget.
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -35,17 +36,17 @@ process.stdout.write(
     `  gzipped:  ${gzipped.byteLength} bytes (${kb(gzipped.byteLength)} kB)\n`,
 );
 
-const maxRaw = process.env.DITTY_SIZE_MAX_GZIP_BYTES;
-if (maxRaw) {
-  const max = Number(maxRaw);
-  if (!Number.isFinite(max) || max <= 0) {
-    throw new Error(`DITTY_SIZE_MAX_GZIP_BYTES is not a positive number: ${maxRaw}`);
-  }
-  if (gzipped.byteLength > max) {
-    process.stderr.write(
-      `size budget exceeded: gzipped ${gzipped.byteLength} bytes > ${max} bytes ` +
-        `(${kb(gzipped.byteLength)} kB > ${kb(max)} kB)\n`,
-    );
-    process.exit(1);
-  }
+// Soft sanity cap (~1 MB), overridable via env. Not a tight budget — it only
+// trips if the bundle balloons unexpectedly.
+const maxRaw = process.env.DITTY_SIZE_MAX_GZIP_BYTES ?? "1048576";
+const max = Number(maxRaw);
+if (!Number.isFinite(max) || max <= 0) {
+  throw new Error(`DITTY_SIZE_MAX_GZIP_BYTES is not a positive number: ${maxRaw}`);
+}
+if (gzipped.byteLength > max) {
+  process.stderr.write(
+    `gzipped engine ${gzipped.byteLength} bytes exceeds the ~${kb(max)} kB sanity cap ` +
+      `(${kb(gzipped.byteLength)} kB) — something likely went wrong\n`,
+  );
+  process.exit(1);
 }

@@ -20,7 +20,7 @@ export type { AudioContextLike } from "./audio/synth";
 
 // A curated slice of the pure brain — the config knobs + the Session/Score types an
 // engine user touches. The FULL pure surface (theory, constraints, all registries)
-// lives at `@simpllyf/ditty/core`; we keep this entry lean for the size budget.
+// lives at `@simpllyf/ditty/core`; this entry stays a lean, curated slice.
 export { createSession } from "./session";
 export type { Session, SessionOptions, SectionView } from "./session";
 // The Score shape an engine user READS from `session.nextScore()`. Composing a Score
