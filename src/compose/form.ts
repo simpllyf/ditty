@@ -13,7 +13,7 @@
 import type { Rng } from "../rng";
 import type { DrumGrooveName } from "../theory/rhythm";
 import type { Scale } from "../theory/scales";
-import type { ArpRole, BassPatternName, PadPattern, TextureName } from "./arranger";
+import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
 
@@ -28,6 +28,7 @@ export interface SectionProfile {
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
   readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
   readonly groove: DrumGrooveName; // drum groove (B sparser, C busier than home)
+  readonly voices: VoiceToggles; // which voices play this section (instruments enter/leave)
   readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
   readonly padPattern: PadPattern; // how the pad voices chords (sustain / broken / stabs)
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
@@ -64,6 +65,9 @@ const FORM_TEMPLATES: readonly (readonly string[])[] = [
   ["A", "B", "A", "B"], // verse/chorus
   ["A", "B", "A", "C"], // verse/bridge/verse/climax
   ["A", "B", "A", "B", "A", "C"], // longer arc to a climax
+  ["A", "A", "B", "A", "B", "A"], // extended AABA
+  ["A", "B", "A", "C", "A"], // rondo-ish, returns home
+  ["A", "B", "C", "A"], // build through bridge to climax, then home
 ];
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
@@ -110,6 +114,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       dynamics: 0.82,
       bpmScale: 0.96, // bridge eases back a touch
       groove: sparser(o.groove),
+      voices: { drums: false }, // drums drop out — an intimate, drumless bridge
       arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
       padPattern: "broken", // pad drifts through the chord — gentle bridge movement
     };
@@ -126,6 +131,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       dynamics: 1.12,
       bpmScale: 1.06, // climax pushes ahead
       groove: busier(o.groove),
+      voices: {}, // full ensemble
       arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
       padPattern: "stabs", // pad punches on each beat — drives the climax
     };
@@ -141,6 +147,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     dynamics: 1,
     bpmScale: 1, // home tempo
     groove: o.groove, // home groove (the style's pick)
+    voices: {}, // full ensemble
     arpRole: "arp", // the arp keeps the running figure — the bed
     padPattern: "sustain", // pad holds the chord — the steady bed
   };

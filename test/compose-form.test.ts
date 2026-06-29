@@ -91,6 +91,14 @@ describe("buildForm", () => {
     }
   });
 
+  it("drops drums in the bridge; A/C keep the full ensemble", () => {
+    const form = formWithB();
+    for (const a of form.sections.filter((s) => s.label === "A")) expect(a.voices).toEqual({});
+    for (const b of form.sections.filter((s) => s.label === "B"))
+      expect(b.voices).toEqual({ drums: false });
+    for (const c of form.sections.filter((s) => s.label === "C")) expect(c.voices).toEqual({});
+  });
+
   it("varies the groove per section: home (A), sparser bridge (B), busier climax (C)", () => {
     const form = formWithB();
     for (const a of form.sections.filter((s) => s.label === "A")) expect(a.groove).toBe("straight");

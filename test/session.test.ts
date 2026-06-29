@@ -52,6 +52,22 @@ describe("createSession", () => {
     }
   });
 
+  it("a bridge section renders with no drums (instruments leave per section)", () => {
+    let found: { bDrums: number; aDrums: number } | null = null;
+    for (let seed = 1; seed < 40 && !found; seed++) {
+      const sess = createSession({ seed, style: "peppy", humanize: false });
+      const bIdx = sess.sections.findIndex((s) => s.label === "B");
+      const aIdx = sess.sections.findIndex((s) => s.label === "A");
+      if (bIdx >= 0) {
+        const scores = Array.from({ length: sess.sections.length }, () => sess.nextScore());
+        found = { bDrums: scores[bIdx]!.drums.length, aDrums: scores[aIdx]!.drums.length };
+      }
+    }
+    expect(found).not.toBeNull();
+    expect(found!.bDrums).toBe(0); // bridge dropped the drums
+    expect(found!.aDrums).toBeGreaterThan(0); // home keeps them
+  });
+
   it("humanize:false stays on the grid; true nudges timing but keeps the pitches", () => {
     const off = createSession({ seed: 1, humanize: false }).nextScore();
     const on = createSession({ seed: 1, humanize: true }).nextScore();
