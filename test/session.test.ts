@@ -52,6 +52,15 @@ describe("createSession", () => {
     }
   });
 
+  it("humanize:false stays on the grid; true nudges timing but keeps the pitches", () => {
+    const off = createSession({ seed: 1, humanize: false }).nextScore();
+    const on = createSession({ seed: 1, humanize: true }).nextScore();
+    const freqs = (s: typeof off) => s.parts.flatMap((p) => p.notes.map((n) => Math.round(n.freq)));
+    const starts = (s: typeof off) => s.parts.flatMap((p) => p.notes.map((n) => n.startBeat));
+    expect(freqs(on)).toEqual(freqs(off)); // same composition (humanize never retunes)
+    expect(starts(on)).not.toEqual(starts(off)); // but the timing is nudged off-grid
+  });
+
   it("applies per-section tempo — the bridge/climax differ from the home bpm", () => {
     const s = createSession({ seed: 13, style: "peppy", bpm: 120 });
     const bpms = Array.from({ length: s.sections.length }, () => s.nextScore().bpm);
