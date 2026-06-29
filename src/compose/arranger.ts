@@ -300,7 +300,10 @@ export function arrange(options: ArrangeOptions): Score {
   if (enabled("pad")) {
     const padPattern = options.padPattern ?? "sustain";
     const notes: ScoreNote[] = [];
-    const padHz = (pc: number) => midiToFrequency(rootMidi + pc);
+    // Voice the pad in root position: the chord root is the lowest tone, the other
+    // tones stacked within the octave above it (so the root never lands on top).
+    const padVoice = (pc: number, root: number) =>
+      midiToFrequency(rootMidi + root + ((pc - root + OCTAVE) % OCTAVE));
     for (let bar = 0; bar < bars; bar++) {
       const chord = plan.bars[bar]!.chord;
       const barStart = bar * beatsPerBar;
@@ -312,7 +315,7 @@ export function arrange(options: ArrangeOptions): Score {
             notes.push({
               startBeat: at,
               durationBeats: fit(at, 0.4),
-              freq: padHz(pc),
+              freq: padVoice(pc, chord.root),
               velocity: 0.32,
             });
           }
@@ -324,7 +327,7 @@ export function arrange(options: ArrangeOptions): Score {
           notes.push({
             startBeat: at,
             durationBeats: fit(at, beatsPerBar - (at - barStart)),
-            freq: padHz(pc),
+            freq: padVoice(pc, chord.root),
             velocity: 0.3,
           });
         });
@@ -332,7 +335,12 @@ export function arrange(options: ArrangeOptions): Score {
         // sustain: whole-bar block chord (default).
         const dur = fit(barStart, beatsPerBar);
         for (const pc of chord.pcs) {
-          notes.push({ startBeat: barStart, durationBeats: dur, freq: padHz(pc), velocity: 0.3 });
+          notes.push({
+            startBeat: barStart,
+            durationBeats: dur,
+            freq: padVoice(pc, chord.root),
+            velocity: 0.3,
+          });
         }
       }
     }
