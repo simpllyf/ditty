@@ -51,6 +51,9 @@ export interface WaveShaperLike extends AudioNodeLike {
 export interface DelayLike extends AudioNodeLike {
   readonly delayTime: AudioParamLike;
 }
+export interface StereoPannerLike extends AudioNodeLike {
+  readonly pan: AudioParamLike; // -1 (left) .. 1 (right)
+}
 export interface AudioBufferLike {
   readonly length: number;
   getChannelData(channel: number): Float32Array;
@@ -71,6 +74,7 @@ export interface AudioContextLike {
   createBiquadFilter(): BiquadFilterLike;
   createWaveShaper(): WaveShaperLike;
   createDelay(maxDelayTime?: number): DelayLike;
+  createStereoPanner(): StereoPannerLike;
   createBuffer(channels: number, length: number, sampleRate: number): AudioBufferLike;
   createBufferSource(): BufferSourceLike;
 }
@@ -83,6 +87,8 @@ export interface NoteSpec {
   readonly velocity: number;
   /** Wet send 0..1; defaults to the patch's own reverbSend (else 0). */
   readonly reverbSend?: number;
+  /** Stereo position: -1 (left) .. 1 (right). Default 0 (centre). */
+  readonly pan?: number;
 }
 
 export interface SynthOptions {
@@ -165,7 +171,10 @@ export class Synth {
     wet.gain.value = clamp(opts.mix ?? 0.9, 0, 1);
     const feedback = clamp(opts.decay ?? 0.68, 0, 0.92); // a touch longer → more room
     const damping = clamp(opts.damping ?? 2600, 20, this.nyquist); // darker tail → sits back
-    for (const time of REVERB_DELAYS) {
+    // Spread the (differently-delayed, so decorrelated) taps across the field → a
+    // stereo tail rather than a centred mono blob.
+    const tapPan = [-0.6, 0, 0.6];
+    REVERB_DELAYS.forEach((time, i) => {
       const delay = this.ctx.createDelay(1);
       delay.delayTime.value = time;
       const damp = this.ctx.createBiquadFilter();
@@ -173,13 +182,16 @@ export class Synth {
       damp.frequency.value = damping;
       const fb = this.ctx.createGain();
       fb.gain.value = feedback;
+      const pan = this.ctx.createStereoPanner();
+      pan.pan.value = tapPan[i] ?? 0;
       input.connect(delay);
       delay.connect(damp);
       damp.connect(fb);
       fb.connect(delay); // feedback loop
-      damp.connect(wet);
-      this.reverbNodes.push(delay, damp, fb);
-    }
+      damp.connect(pan);
+      pan.connect(wet);
+      this.reverbNodes.push(delay, damp, fb, pan);
+    });
     wet.connect(this.master);
     this.reverbNodes.push(wet);
     return input;
@@ -341,7 +353,13 @@ export class Synth {
       oscs.push(src);
     }
 
-    env.connect(this.master);
+    // Place the dry signal in the stereo field; the reverb send stays pre-pan and
+    // feeds the (stereo-spread) reverb bus, so the wet tail is shared, not panned.
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = clamp(note.pan ?? 0, -1, 1);
+    env.connect(panner);
+    panner.connect(this.master);
+    nodes.push(panner);
     const send = clamp(note.reverbSend ?? patch.reverbSend ?? 0, 0, 1);
     if (send > 0) {
       const sendGain = ctx.createGain();

@@ -14,18 +14,17 @@ import { createEngine, type EngineAudioContext } from "../src/audio/engine";
 import { encodeWav, renderOffline } from "../src/audio/render";
 import type { DittyE2E, OfflineRenderResult } from "./types";
 
-const SAMPLE_RATE = 44100;
 const STYLE_NAMES = ["peppy", "calm", "playful", "dreamy"] as const;
 
-async function renderBuffer(seed: number, seconds: number): Promise<Float32Array> {
-  const style =
-    STYLE_NAMES[((seed % STYLE_NAMES.length) + STYLE_NAMES.length) % STYLE_NAMES.length]!;
-  const { channelData } = await renderOffline({ seed, seconds, style, volume: 0.85 });
-  return channelData;
-}
+const styleFor = (seed: number) =>
+  STYLE_NAMES[((seed % STYLE_NAMES.length) + STYLE_NAMES.length) % STYLE_NAMES.length]!;
+
+const render = (seed: number, seconds: number) =>
+  renderOffline({ seed, seconds, style: styleFor(seed), volume: 0.85 });
 
 async function renderStats(seed: number, seconds: number): Promise<OfflineRenderResult> {
-  const data = await renderBuffer(seed, seconds);
+  const { channels } = await render(seed, seconds);
+  const data = channels[0]!; // analyse the left channel (deterministic, representative)
   let peak = 0;
   let sumSquares = 0;
   for (let i = 0; i < data.length; i++) {
@@ -45,7 +44,8 @@ async function renderStats(seed: number, seconds: number): Promise<OfflineRender
 }
 
 async function wavBytes(seed: number, seconds: number): Promise<Uint8Array> {
-  return encodeWav(await renderBuffer(seed, seconds), SAMPLE_RATE);
+  const { channels, sampleRate } = await render(seed, seconds);
+  return encodeWav(channels, sampleRate);
 }
 
 // Realtime smoke: own an injected context so the test can read its state/clock.

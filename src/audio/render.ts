@@ -33,7 +33,8 @@ export type RenderOptions = SessionOptions & RenderBase & RenderLength;
 
 export interface RenderResult {
   readonly sampleRate: number;
-  readonly channelData: Float32Array;
+  /** One Float32Array per channel (stereo: [left, right]). Pass straight to {@link encodeWav}. */
+  readonly channels: readonly Float32Array[];
 }
 
 const DEFAULT_SAMPLE_RATE = 44100;
@@ -110,7 +111,7 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
   // last loop's note-release and reverb don't truncate at the seam — a real gapless
   // loop. (A free-length `seconds` render is a one-shot; its tail simply ends.)
   const renderLength = isLoopRender ? Math.ceil((seconds + TAIL_SECONDS) * sampleRate) : length;
-  const ctx = (options.createContext ?? defaultOfflineContext)(1, renderLength, sampleRate);
+  const ctx = (options.createContext ?? defaultOfflineContext)(2, renderLength, sampleRate);
   const synth = new Synth(ctx, {
     noiseTable: session.noiseTable,
     masterGain: options.volume ?? 0.8,
@@ -127,11 +128,18 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
     }
   }
 
-  const rendered = (await ctx.startRendering()).getChannelData(0);
-  if (!isLoopRender) return { sampleRate, channelData: rendered };
-  // Overlap-add the overhang [length, renderLength) onto the head → seamless loop.
-  const channelData = rendered.slice(0, length);
-  const overhang = rendered.length - length;
-  for (let i = 0; i < overhang && i < length; i++) channelData[i]! += rendered[length + i]!;
-  return { sampleRate, channelData };
+  const buffer = await ctx.startRendering();
+  // For a loop render, overlap-add the overhang [length, renderLength) onto the head
+  // so the last loop's ring-out continues seamlessly into the first — a gapless loop.
+  const finish = (full: Float32Array): Float32Array => {
+    if (!isLoopRender) return full;
+    const out = full.slice(0, length);
+    const overhang = full.length - length;
+    for (let i = 0; i < overhang && i < length; i++) out[i]! += full[length + i]!;
+    return out;
+  };
+  return {
+    sampleRate,
+    channels: [finish(buffer.getChannelData(0)), finish(buffer.getChannelData(1))],
+  };
 }

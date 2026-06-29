@@ -1406,7 +1406,7 @@
             loops: 2,
             volume: 0.85,
           });
-          const blob = new Blob([encodeWav(res.channelData, res.sampleRate)], {
+          const blob = new Blob([encodeWav(res.channels, res.sampleRate)], {
             type: "audio/wav",
           });
           const url = URL.createObjectURL(blob);

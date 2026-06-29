@@ -17,8 +17,8 @@ function totalLoopSeconds(opts: Record<string, unknown>, n: number): number {
 interface Cap {
   ctx?: FakeOfflineAudioContext;
 }
-const factory = (cap: Cap) => (_channels: number, length: number, sampleRate: number) => {
-  const ctx = new FakeOfflineAudioContext(length, sampleRate);
+const factory = (cap: Cap) => (channels: number, length: number, sampleRate: number) => {
+  const ctx = new FakeOfflineAudioContext(length, sampleRate, channels);
   cap.ctx = ctx;
   return ctx;
 };
@@ -33,7 +33,9 @@ describe("renderOffline", () => {
       createContext: factory(cap),
     });
     expect(r.sampleRate).toBe(22050);
-    expect(r.channelData.length).toBe(Math.ceil(2 * 22050));
+    expect(r.channels.length).toBe(2); // stereo
+    expect(r.channels[0]!.length).toBe(Math.ceil(2 * 22050));
+    expect(r.channels[1]!.length).toBe(Math.ceil(2 * 22050));
     expect(cap.ctx!.renderCount).toBe(1);
     expect(cap.ctx!.oscillators.length).toBeGreaterThan(0);
     for (const o of cap.ctx!.oscillators) {
@@ -46,7 +48,7 @@ describe("renderOffline", () => {
     const opts = { seed: 1, bpm: 120, bars: 8, beatsPerBar: 4 };
     const cap: Cap = {};
     const r = await renderOffline({ ...opts, loops: 2, createContext: factory(cap) });
-    expect(r.channelData.length).toBe(Math.ceil(totalLoopSeconds(opts, 2) * 44100));
+    expect(r.channels[0]!.length).toBe(Math.ceil(totalLoopSeconds(opts, 2) * 44100));
   });
 
   it("loop renders allocate a tail and wrap it onto the head (gapless seam)", async () => {
@@ -54,14 +56,22 @@ describe("renderOffline", () => {
     const cap: Cap = {};
     const r = await renderOffline({ ...opts, loops: 2, createContext: factory(cap) });
     const loopLen = Math.ceil(totalLoopSeconds(opts, 2) * 44100);
-    expect(r.channelData.length).toBe(loopLen); // returned at the exact form boundary
+    expect(r.channels[0]!.length).toBe(loopLen); // returned at the exact form boundary
     expect(cap.ctx!.length).toBeGreaterThan(loopLen); // but rendered longer to capture the ring-out
+  });
+
+  it("places voices across the stereo field (pad left, arp right)", async () => {
+    const cap: Cap = {};
+    await renderOffline({ seed: 7, seconds: 4, createContext: factory(cap) });
+    const pans = cap.ctx!.panners.map((p) => p.pan.value);
+    expect(pans).toContain(-0.3); // pad placed left
+    expect(pans).toContain(0.3); // arp placed right
   });
 
   it("seconds renders are one-shot — no extra tail allocated", async () => {
     const cap: Cap = {};
     const r = await renderOffline({ seed: 1, seconds: 2, createContext: factory(cap) });
-    expect(cap.ctx!.length).toBe(r.channelData.length);
+    expect(cap.ctx!.length).toBe(r.channels[0]!.length);
   });
 
   it("evolve:true keeps changing; evolve:false loops the form (periodic)", async () => {
