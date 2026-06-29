@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/simpllyf/ditty/main/assets/logo.svg" width="88" height="88" alt="Ditty" />
+</p>
+
 # Ditty
 
 **A zero-dependency, framework-agnostic generative music engine for the browser.**
