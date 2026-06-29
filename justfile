@@ -52,3 +52,19 @@ e2e: build e2e-build
 
 # The single gate CI runs (browserless). e2e runs in its own CI job.
 check: format-check lint typecheck coverage build deps-check size
+
+# Merging the PR creates the v<version> tag (tag.yml); then dispatch the release
+# workflow from that tag to publish to npm.
+# Open a version-bump PR. Usage: just release 0.1.0
+release new_version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pnpm version "{{new_version}}" --no-git-tag-version
+    pnpm exec prettier --write package.json
+    git checkout -b "release/v{{new_version}}"
+    git add package.json
+    git commit -m "release: v{{new_version}}"
+    git push -u origin "release/v{{new_version}}"
+    gh pr create --title "release: v{{new_version}}" \
+      --body "Bump version to {{new_version}}. Merging this tags v{{new_version}}; then dispatch the release workflow from that tag to publish to npm."
+    echo "Release PR opened for v{{new_version}}"

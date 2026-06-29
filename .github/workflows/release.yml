@@ -1,0 +1,120 @@
+name: release
+
+# Publishes @simpllyf/ditty to npm. MANUAL ONLY — dispatch this workflow from a tag
+# (e.g. v0.1.0). It never runs on its own, so leaving it undispatched is the off switch.
+#
+# Normal flow: `just release <version>` opens a version-bump PR → merging it creates
+# the v<version> tag (tag.yml) → dispatch this workflow from that tag to publish.
+#
+# One-time setup — npm "trusted publishing" via GitHub OIDC (no npm token to store):
+#   1. Publish the FIRST version manually from your machine to create the package and
+#      claim the name (trusted publishing can only be configured once it exists):
+#          just setup && just build
+#          npm publish --access public          # logged in to npm
+#   2. On npmjs.com → the package → Settings → Trusted Publishing → add a GitHub
+#      Actions publisher: repository `simpllyf/ditty`, workflow `release.yml`.
+# From the SECOND release on, this workflow publishes via OIDC with provenance.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # draft / edit the GitHub release
+  id-token: write # npm OIDC trusted publishing + provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: validate version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: validate ref is a tag
+        run: |
+          if [[ ! "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "::error::Dispatch this workflow from a tag (e.g. v0.1.0), not a branch."
+            exit 1
+          fi
+
+      - name: extract + verify version matches package.json
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$PKG" != "$VERSION" ]; then
+            echo "::error::package.json version ($PKG) != tag ($VERSION). Run 'just release $VERSION'."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
+
+  create-release:
+    name: draft release
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: create draft release (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists, skipping"
+          else
+            gh release create "v$VERSION" --draft --generate-notes --title "v$VERSION"
+          fi
+
+  publish-npm:
+    name: publish to npm
+    needs: [version, create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - uses: jdx/mise-action@v4
+        with:
+          cache: true
+
+      - name: install + build
+        run: mise exec -- just setup && mise exec -- just build
+
+      - name: publish (idempotent)
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if npm view "@simpllyf/ditty@$VERSION" version >/dev/null 2>&1; then
+            echo "@simpllyf/ditty@$VERSION already on npm, skipping"
+          else
+            mise exec -- pnpm publish --access public --no-git-checks --provenance
+          fi
+
+  publish-release:
+    name: publish release
+    needs: [version, publish-npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: un-draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: gh release edit "v$VERSION" --draft=false
