@@ -128,3 +128,65 @@ describe("chordTonesInScale", () => {
     expect(new Set(chordTonesInScale(tonic, SCALES.major))).toEqual(new Set(tonic.pcs));
   });
 });
+
+describe("generateHarmony — borrowed chords (modal interchange)", () => {
+  const pcsOf = (s: readonly number[]) => new Set(s);
+  const nonDiatonic = (p: ReturnType<typeof plan>, scale: readonly number[]) =>
+    p.bars.some((b) => b.chord.pcs.some((pc) => !pcsOf(scale).has(pc)));
+
+  it("introduces an occasional non-diatonic chord over a bright-major parent", () => {
+    let found = false;
+    for (let s = 1; s < 60 && !found; s++) {
+      found = nonDiatonic(plan(s, { scale: SCALES.major, bars: 8, borrow: true }), SCALES.major);
+    }
+    expect(found).toBe(true);
+  });
+
+  it("stays diatonic over a non-bright parent even with borrow on", () => {
+    for (let s = 1; s < 40; s++) {
+      const p = plan(s, { scale: SCALES.naturalMinor, bars: 8, borrow: true });
+      expect(nonDiatonic(p, SCALES.naturalMinor)).toBe(false);
+    }
+  });
+
+  it("stays fully diatonic when borrow is off (the default)", () => {
+    for (let s = 1; s < 40; s++) {
+      expect(nonDiatonic(plan(s, { scale: SCALES.major, bars: 8 }), SCALES.major)).toBe(false);
+    }
+  });
+
+  it("never borrows on the tonic anchor or the cadence bars", () => {
+    for (let s = 1; s < 60; s++) {
+      const p = plan(s, { scale: SCALES.major, bars: 8, borrow: true });
+      const protectedBars = new Set([0, p.cadences.half, p.cadences.final, p.cadences.final - 1]);
+      const borrowedIdx = p.bars
+        .map((b, i) => ({ b, i }))
+        .filter(({ b }) => b.chord.pcs.some((pc) => !pcsOf(SCALES.major).has(pc)))
+        .map(({ i }) => i);
+      for (const i of borrowedIdx) expect(protectedBars.has(i)).toBe(false);
+    }
+  });
+});
+
+describe("generateHarmony — borrowed chords are tonic-relative (any key)", () => {
+  it("places ♭VII/♭VI/iv at the same tonic-relative pcs regardless of rootMidi", () => {
+    const SHAPES = [
+      [10, 2, 5], // ♭VII major
+      [8, 0, 3], // ♭VI major
+      [5, 8, 0], // iv minor
+    ].map((a) => [...a].sort((x, y) => x - y).join(","));
+    const majorPcs = new Set<number>(SCALES.major);
+    for (const rootMidi of [60, 62, 57, 65]) {
+      // C, D, A, F tonics
+      for (let s = 1; s < 80; s++) {
+        const p = plan(s, { scale: SCALES.major, rootMidi, bars: 8, borrow: true });
+        const borrowed = p.bars
+          .map((b) => b.chord)
+          .filter((c) => c.pcs.some((pc) => !majorPcs.has(pc)));
+        for (const c of borrowed) {
+          expect(SHAPES).toContain([...c.pcs].sort((x, y) => x - y).join(","));
+        }
+      }
+    }
+  });
+});

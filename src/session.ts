@@ -53,6 +53,8 @@ export interface SessionOptions {
   evolve?: boolean;
   /** Nudge timing/dynamics off the grid for a human feel (default true). */
   humanize?: boolean;
+  /** Allow occasional borrowed (non-diatonic) chords in bright-major keys (default true). */
+  chromatic?: boolean;
 }
 
 /** A read-only view of one section of the piece's form (for display/inspection). */
@@ -154,6 +156,7 @@ export function createSession(options: SessionOptions): Session {
     beatsPerBar,
     density,
     groove,
+    borrow: options.chromatic ?? true,
   });
 
   // Nudge timing/dynamics off the grid via its own rng fork, so toggling humanize

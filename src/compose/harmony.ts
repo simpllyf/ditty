@@ -11,16 +11,20 @@
  * requires a 7-note scale and rejects anything else.
  */
 import type { Rng } from "../rng";
-import { type Chord, diatonicChord } from "../theory/chords";
+import { type Chord, type ChordQuality, diatonicChord, makeChord } from "../theory/chords";
 import { PROGRESSIONS, functionalProgression } from "../theory/progressions";
 import { DEFAULT_ROOT_MIDI, pitchClass } from "../theory/pitch";
 import { SCALES, type Scale } from "../theory/scales";
 
 /** One bar of harmony: the chosen degree root and its triad (size-3 convenience). */
 export interface HarmonicBar {
-  /** 0-based scale-degree root — the source of truth (recompute richer voicings from this). */
+  /**
+   * 0-based scale degree the bar was built from. Identifies the chord for diatonic
+   * bars; a borrowed (modal-interchange) bar keeps its original degree but its
+   * `chord` is non-diatonic — read `chord` directly, don't recompute from `degree`.
+   */
   readonly degree: number;
-  /** The diatonic triad on `degree` (pitch classes). */
+  /** The bar's triad (pitch classes) — diatonic on `degree`, or a borrowed chord. */
   readonly chord: Chord;
 }
 
@@ -49,10 +53,30 @@ export interface HarmonyOptions {
   progression?: readonly number[];
   /** Use the functional generator instead of a library progression. */
   generate?: boolean;
+  /** Allow an occasional borrowed (non-diatonic) chord — only over bright-major keys. */
+  borrow?: boolean;
 }
 
 const DEFAULT_BARS = 8;
 const DEFAULT_BEATS_PER_BAR = 4;
+
+/** Chance a borrow-eligible plan actually swaps in one borrowed chord. */
+const BORROW_RATE = 0.4;
+/**
+ * Borrowed chords (modal interchange), relative to the tonic. Each shares a tone
+ * with the tonic and with any in-key raga, so the melody still lands consonantly.
+ */
+const BORROWED_CHORDS: ReadonlyArray<{ shift: number; quality: ChordQuality }> = [
+  { shift: 10, quality: "major" }, // ♭VII
+  { shift: 8, quality: "major" }, // ♭VI
+  { shift: 5, quality: "minor" }, // iv
+];
+
+/** A bright-major key (major / lydian / mixolydian) — where these borrowings are idiomatic. */
+function isBrightMajor(scale: Scale): boolean {
+  const pcs = new Set(scale.map(pitchClass));
+  return pcs.has(4) && pcs.has(7) && !pcs.has(1) && !pcs.has(3);
+}
 
 /** Build a {@link HarmonicPlan}. */
 export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
@@ -107,6 +131,25 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
     degree,
     chord: diatonicChord(scale, degree),
   }));
+
+  // Modal interchange: occasionally swap one non-cadence bar for a borrowed chord —
+  // colour without losing the key. Bright-major only, and never on the tonic anchor
+  // or the cadence bars, so the loop still resolves cleanly. (Roll always consumed.)
+  if (options.borrow && isBrightMajor(scale) && rng.next() < BORROW_RATE) {
+    const eligible = barsOut
+      .map((_, i) => i)
+      .filter((i) => i !== 0 && i !== half && i !== final && i !== final - 1);
+    if (eligible.length > 0) {
+      const i = rng.pick(eligible);
+      const borrowed = rng.pick(BORROWED_CHORDS);
+      // pcs are tonic-relative (0 = tonic), so the shift IS the root — exactly like
+      // diatonicChord's degree offsets and the pad/bass `rootMidi + pc` playback.
+      barsOut[i] = {
+        degree: barsOut[i]!.degree,
+        chord: makeChord(borrowed.shift, borrowed.quality),
+      };
+    }
+  }
 
   return { scale, rootMidi, beatsPerBar, bars: barsOut, cadences: { half, final } };
 }
