@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { type ScoreVoice, arrange } from "../src/compose/arranger";
 import { makeRng } from "../src/rng";
+import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
 import { SCALES } from "../src/theory/scales";
 
@@ -101,8 +102,10 @@ describe("arrange — voices & registers", () => {
       expect(n.freq).toBeLessThanOrEqual(midiToFrequency(DEFAULT_ROOT - 1)); // low octave
     }
     for (const n of part(score, "pad")!.notes) {
+      // Root-position voicing: the root sits in the tonic octave and the chord stacks
+      // within an octave above it, so a tone can reach up to two octaves over the tonic.
       expect(n.freq).toBeGreaterThanOrEqual(midiToFrequency(DEFAULT_ROOT));
-      expect(n.freq).toBeLessThanOrEqual(midiToFrequency(DEFAULT_ROOT + 11));
+      expect(n.freq).toBeLessThanOrEqual(midiToFrequency(DEFAULT_ROOT + 22));
     }
     for (const n of part(score, "arp")!.notes) {
       expect(n.freq).toBeGreaterThanOrEqual(midiToFrequency(DEFAULT_ROOT + 12)); // high octave
@@ -118,6 +121,44 @@ describe("arrange — voices & registers", () => {
       const bassDown = bass.find((n) => n.startBeat === at)!;
       const padRoot = pad.find((n) => n.startBeat === at)!; // pad emits chord.pcs root-first
       expect(freqToPc(bassDown.freq, DEFAULT_ROOT)).toBe(freqToPc(padRoot.freq, DEFAULT_ROOT));
+    }
+  });
+
+  it("voices the pad in root position — the chord root is the lowest tone, no inversions", () => {
+    // IV, V, vi, vii° and borrowed ♭VII each have chord tones whose pitch class falls
+    // below the root, so root-position voicing must stack them an octave up — the root
+    // must still come out lowest. V (cadence) and IV recur in nearly every progression.
+    const plan = {
+      scale: SCALES.major,
+      rootMidi: DEFAULT_ROOT,
+      beatsPerBar: 4,
+      bars: [
+        { degree: 3, chord: makeChord(5, "major") }, // IV   = [5,9,0]
+        { degree: 4, chord: makeChord(7, "major") }, // V    = [7,11,2]
+        { degree: 5, chord: makeChord(9, "minor") }, // vi   = [9,0,4]
+        { degree: 6, chord: makeChord(11, "diminished") }, // vii° = [11,2,5]
+        { degree: 6, chord: makeChord(10, "major") }, // ♭VII = [10,2,5]
+        { degree: 0, chord: makeChord(0, "major") }, // I    = [0,4,7]
+      ],
+      cadences: { half: 1, final: 5 },
+    };
+    const bars = plan.bars.length;
+    const score = arrange({
+      rng: makeRng(1),
+      parent: SCALES.major,
+      raga: SCALES.mohanam,
+      bars,
+      beatsPerBar: 4,
+      plan,
+      padPattern: "sustain",
+    });
+    const pad = part(score, "pad")!.notes;
+    for (let bar = 0; bar < bars; bar++) {
+      const barNotes = pad.filter((n) => n.startBeat === bar * 4);
+      const lowest = barNotes.reduce((a, b) => (a.freq <= b.freq ? a : b));
+      const top = Math.max(...barNotes.map((n) => n.freq));
+      expect(freqToPc(lowest.freq, DEFAULT_ROOT)).toBe(plan.bars[bar]!.chord.root); // root on the bottom
+      expect(12 * Math.log2(top / lowest.freq)).toBeLessThanOrEqual(12.001); // chord within an octave
     }
   });
 

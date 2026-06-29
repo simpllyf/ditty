@@ -143,7 +143,7 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
       const i = rng.pick(eligible);
       const borrowed = rng.pick(BORROWED_CHORDS);
       // pcs are tonic-relative (0 = tonic), so the shift IS the root — exactly like
-      // diatonicChord's degree offsets and the pad/bass `rootMidi + pc` playback.
+      // diatonicChord's degree offsets and the bass `rootMidi + pc` playback.
       barsOut[i] = {
         degree: barsOut[i]!.degree,
         chord: makeChord(borrowed.shift, borrowed.quality),
