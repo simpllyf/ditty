@@ -11,6 +11,7 @@ import {
   type Score,
   type VoiceToggles,
   arrange,
+  assertMusicalParams,
 } from "./compose/arranger";
 import { type SectionProfile, buildForm } from "./compose/form";
 import { humanize } from "./compose/humanize";
@@ -158,6 +159,9 @@ export function createSession(options: SessionOptions): Session {
   const groove = options.groove ?? chosen.groove;
   const density = options.density ?? chosen.density;
   const swing = options.swing ?? chosen.swing;
+  // Validate the resolved params eagerly (same checks arrange runs), so a bad config
+  // throws here at construction rather than inside the first scheduled tick.
+  assertMusicalParams({ swing, density, rootMidi, groove, parent, raga });
 
   // Build the piece-level FORM once: an ordered set of contrasting
   // sections (A/B/C, each with its own progression + texture + density + bass).
