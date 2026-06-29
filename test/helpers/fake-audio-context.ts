@@ -237,6 +237,8 @@ export class FakeOfflineAudioContext extends FakeAudioContext {
   readonly length: number;
   readonly numberOfChannels: number;
   renderCount = 0;
+  /** Optional: stamp known content into each rendered channel — lets tests assert DSP that runs on the result (e.g. the gapless tail-wrap), instead of an all-zero buffer. */
+  onRenderFill?: (data: Float32Array, channel: number) => void;
 
   constructor(length: number, sampleRate = 44100, numberOfChannels = 2) {
     super(sampleRate);
@@ -246,6 +248,11 @@ export class FakeOfflineAudioContext extends FakeAudioContext {
 
   startRendering(): Promise<FakeBuffer> {
     this.renderCount++;
-    return Promise.resolve(new FakeBuffer(this.length, this.numberOfChannels));
+    const buffer = new FakeBuffer(this.length, this.numberOfChannels);
+    if (this.onRenderFill) {
+      for (let ch = 0; ch < this.numberOfChannels; ch++)
+        this.onRenderFill(buffer.getChannelData(ch), ch);
+    }
+    return Promise.resolve(buffer);
   }
 }
