@@ -11,6 +11,7 @@
  * changes. Pure brain: data in, data out, no Web Audio.
  */
 import type { Rng } from "../rng";
+import type { DrumGrooveName } from "../theory/rhythm";
 import type { Scale } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
@@ -26,6 +27,7 @@ export interface SectionProfile {
   readonly density: number; // melodic density 0..1 (contrast: B sparser, C busier)
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
   readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
+  readonly groove: DrumGrooveName; // drum groove (B sparser, C busier than home)
   readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
   readonly padPattern: PadPattern; // how the pad voices chords (sustain / broken / stabs)
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
@@ -49,6 +51,7 @@ export interface FormOptions {
   readonly bars: number; // bars per section
   readonly beatsPerBar: number;
   readonly density: number; // base melodic density (section A's level)
+  readonly groove: DrumGrooveName; // home groove (section A); B/C contrast it
 }
 
 /** Bars the recurring theme spans (stated at the head of every section). */
@@ -69,6 +72,12 @@ const modulate = (base: number, shift: number) => {
   const m = base + shift;
   return m >= 40 && m <= 78 ? m : base;
 };
+
+/** A calmer / busier groove than the home one, for the bridge / climax contrast. */
+const sparser = (g: DrumGrooveName): DrumGrooveName =>
+  g === "halfTime" || g === "soft" || g === "none" ? "soft" : "halfTime";
+const busier = (g: DrumGrooveName): DrumGrooveName =>
+  g === "busy" || g === "halfDouble" ? "fourOnFloor" : "busy";
 
 /** This section's tonic: home for A; a related key for the bridge; a lift for the climax. */
 function sectionRoot(label: string, o: FormOptions): number {
@@ -98,6 +107,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       density: clampDensity(o.density * 0.6),
       dynamics: 0.82,
       bpmScale: 0.96, // bridge eases back a touch
+      groove: sparser(o.groove),
       arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
       padPattern: "broken", // pad drifts through the chord — gentle bridge movement
     };
@@ -113,6 +123,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       density: clampDensity(o.density * 1.25),
       dynamics: 1.12,
       bpmScale: 1.06, // climax pushes ahead
+      groove: busier(o.groove),
       arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
       padPattern: "stabs", // pad punches on each beat — drives the climax
     };
@@ -127,6 +138,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     density: clampDensity(o.density),
     dynamics: 1,
     bpmScale: 1, // home tempo
+    groove: o.groove, // home groove (the style's pick)
     arpRole: "arp", // the arp keeps the running figure — the bed
     padPattern: "sustain", // pad holds the chord — the steady bed
   };
