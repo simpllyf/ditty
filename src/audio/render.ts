@@ -78,6 +78,14 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
     if (!Number.isInteger(loops) || loops <= 0) {
       throw new RangeError(`renderOffline loops must be a positive integer, got ${loops}`);
     }
+    // Bound the count BEFORE the loop (each iteration composes a whole Score), so an
+    // absurd `loops` can't spin/OOM before the post-hoc seconds guard. Per-section
+    // tempo only nudges durations ±~6%, so nominal length is a safe up-front estimate.
+    if (loops * nominalLoopSeconds > MAX_RENDER_SECONDS) {
+      throw new RangeError(
+        `renderOffline: ${loops} loops (~${Math.round(loops * nominalLoopSeconds)}s) exceeds the ${MAX_RENDER_SECONDS}s limit (render in chunks for longer)`,
+      );
+    }
     for (let i = 0; i < loops; i++) {
       const score = session.nextScore();
       scores.push(score);

@@ -60,6 +60,30 @@ describe("renderOffline", () => {
     expect(cap.ctx!.length).toBeGreaterThan(loopLen); // but rendered longer to capture the ring-out
   });
 
+  it("overlap-adds the exact ring-out samples onto the head (verified on known content)", async () => {
+    // Stamp a 1/256-stepped ramp into the rendered buffer (float32-exact, in range) so we can
+    // verify the wrap math AND its offset, not merely that the head changed.
+    const v = (i: number) => ((i % 256) - 128) / 256;
+    const cap: Cap = {};
+    const fillFactory = (channels: number, length: number, sampleRate: number) => {
+      const ctx = new FakeOfflineAudioContext(length, sampleRate, channels);
+      ctx.onRenderFill = (data) => {
+        for (let i = 0; i < data.length; i++) data[i] = v(i);
+      };
+      cap.ctx = ctx;
+      return ctx;
+    };
+    const opts = { seed: 1, bpm: 120, bars: 8, beatsPerBar: 4 };
+    const r = await renderOffline({ ...opts, loops: 2, createContext: fillFactory });
+    const length = r.channels[0]!.length;
+    const overhang = cap.ctx!.length - length;
+    expect(overhang).toBeGreaterThan(0);
+    for (const i of [0, 1, 137, overhang - 1]) {
+      expect(r.channels[0]![i]).toBeCloseTo(v(i) + v(length + i), 5); // head += tail at +length
+    }
+    expect(r.channels[0]![overhang + 10]).toBeCloseTo(v(overhang + 10), 5); // past the tail: untouched
+  });
+
   it("places voices across the stereo field (pad left, arp right)", async () => {
     const cap: Cap = {};
     await renderOffline({ seed: 7, seconds: 4, createContext: factory(cap) });
@@ -155,6 +179,14 @@ describe("renderOffline", () => {
     await expect(renderOffline({ seconds: 100000, createContext: factory({}) })).rejects.toThrow(
       RangeError,
     );
+  });
+
+  it("rejects an absurd loops count up front, before composing a single loop", async () => {
+    const cap: Cap = {};
+    await expect(renderOffline({ loops: 1e7, createContext: factory(cap) })).rejects.toThrow(
+      RangeError,
+    );
+    expect(cap.ctx).toBeUndefined(); // bailed before even allocating the context
   });
 
   it("rejects a degenerate loop length (bars: 0)", async () => {
