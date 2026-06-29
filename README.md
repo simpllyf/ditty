@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/logo.png" width="88" height="88" alt="Ditty" />
-</p>
-
 # Ditty
 
 **A zero-dependency, framework-agnostic generative music engine for the browser.**
