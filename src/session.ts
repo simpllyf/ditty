@@ -7,6 +7,7 @@
  */
 import { type ArpRole, type ArrangeOptions, type Score, arrange } from "./compose/arranger";
 import { type SectionProfile, buildForm } from "./compose/form";
+import { humanize } from "./compose/humanize";
 import {
   DRUM_KITS,
   type DrumKitName,
@@ -50,6 +51,8 @@ export interface SessionOptions {
   voices?: ArrangeOptions["voices"];
   /** Re-arrange each loop for endless variety (default true); false reuses one arrangement. */
   evolve?: boolean;
+  /** Nudge timing/dynamics off the grid for a human feel (default true). */
+  humanize?: boolean;
 }
 
 /** A read-only view of one section of the piece's form (for display/inspection). */
@@ -152,8 +155,13 @@ export function createSession(options: SessionOptions): Session {
     density,
   });
 
-  const arrangeSection = (section: SectionProfile): Score =>
-    arrange({
+  // Nudge timing/dynamics off the grid via its own rng fork, so toggling humanize
+  // never reshuffles the composition. With `evolve` on, the nudges re-draw each pass.
+  const humanizeOn = options.humanize ?? true;
+  const humanizeRng = arrangeRng.fork();
+
+  const arrangeSection = (section: SectionProfile): Score => {
+    const score = arrange({
       rng: arrangeRng,
       bpm: Math.round(bpm * section.bpmScale), // per-section tempo (B pulls back, C pushes)
       beatsPerBar,
@@ -175,6 +183,8 @@ export function createSession(options: SessionOptions): Session {
       motifBars: form.motifBars,
       ...(options.voices !== undefined ? { voices: options.voices } : {}),
     });
+    return humanizeOn ? humanize(score, humanizeRng) : score;
+  };
 
   const sections: readonly SectionView[] = form.sections.map((s) => ({
     label: s.label,
