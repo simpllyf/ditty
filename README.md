@@ -38,9 +38,9 @@ reusable anywhere.
 - **Small.** ~12.5 KB min+gzip for the full engine, tree-shakeable, side-effect-free.
 - **Framework-agnostic.** No DOM access, no framework imports.
 
-> **Pre-release (0.0.x).** Feature-complete, thoroughly unit-tested (340+ tests,
+> **Early release (0.1.x).** Feature-complete, thoroughly unit-tested (350+ tests,
 > property-based + golden snapshots), and validated end-to-end in Chromium,
-> Firefox, and WebKit (real Web Audio output), pending the first npm publish.
+> Firefox, and WebKit (real Web Audio output). Pre-1.0: the API may still change.
 
 ## Install
 
