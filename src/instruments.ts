@@ -65,6 +65,14 @@ export interface NoiseLayer {
   readonly lowpass?: number; // Hz — optional top roll-off
 }
 
+/** One vocal formant — a resonant band-pass peak. A few in parallel shape a buzzy
+ * source into a vowel (the "aah"/"ooh" of a voice or choir). */
+export interface Formant {
+  readonly freq: number; // centre frequency in Hz (F1/F2/F3 of the vowel)
+  readonly q: number; // resonance (higher = narrower, more vocal)
+  readonly gain: number; // band mix 0..1
+}
+
 export interface Instrument {
   readonly name: string;
   readonly voices: readonly ScoreVoice[]; // roles this patch suits → randomizer pool
@@ -76,6 +84,7 @@ export interface Instrument {
   readonly vibrato?: Vibrato; // pitch LFO (flute/strings/voice)
   readonly tremolo?: Tremolo; // amplitude LFO (organ/pad shimmer)
   readonly noise?: NoiseLayer; // breath/bow noise (flute/strings/reed)
+  readonly formant?: readonly Formant[]; // parallel band-pass bank → vowel/choir timbre
 }
 
 /** Default reverb send per voice when a patch doesn't specify one. */
@@ -251,6 +260,23 @@ export const INSTRUMENTS = {
     noise: { gain: 0.03, highpass: 3000 }, // bow
     gain: 0.9,
     reverbSend: 0.5,
+  },
+  choir: {
+    name: "choir",
+    // Voices on "aah": detuned saws run through a vowel formant bank, with a slow
+    // swell, vibrato and a wisp of breath. The formant peaks make it read as vocal.
+    voices: ["pad", "lead"],
+    layers: [{ kind: "sawtooth" }, { kind: "sawtooth", detuneCents: 9, gain: 0.5 }],
+    amp: { attack: 0.18, decay: 0.25, sustain: 0.85, release: 0.45 },
+    formant: [
+      { freq: 800, q: 8, gain: 1 }, // F1 "aah"
+      { freq: 1150, q: 10, gain: 0.6 }, // F2
+      { freq: 2900, q: 12, gain: 0.3 }, // F3
+    ],
+    vibrato: { rateHz: 5, depthCents: 14, delaySec: 0.5 },
+    noise: { gain: 0.03, highpass: 3000 }, // breath
+    gain: 0.6, // saws + resonant bands run hot
+    reverbSend: 0.55,
   },
 
   // ── bass ──

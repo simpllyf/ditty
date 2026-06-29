@@ -277,6 +277,27 @@ export class Synth {
       sink = filter;
     }
 
+    // Formant bank: parallel resonant band-passes that carve vowel peaks into the
+    // (buzzy) source — the "aah"/"ooh" of a voice. Feeds whatever sink precedes it.
+    if (patch.formant && patch.formant.length > 0) {
+      const formantIn = ctx.createGain();
+      const dest = sink;
+      for (const f of patch.formant) {
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.setValueAtTime(clamp(f.freq, 20, this.nyquist), t0);
+        bp.Q.value = clamp(f.q, 0.0001, 30);
+        const g = ctx.createGain();
+        g.gain.value = clamp(f.gain, 0, 1);
+        formantIn.connect(bp);
+        bp.connect(g);
+        g.connect(dest);
+        nodes.push(bp, g);
+      }
+      nodes.push(formantIn);
+      sink = formantIn;
+    }
+
     for (const layer of patch.layers) {
       const osc = ctx.createOscillator();
       osc.type = layer.kind;
