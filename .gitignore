@@ -10,3 +10,8 @@ playwright-report/
 .cache/
 e2e/*.bundle.js
 site/lib/
+
+# Profiling artifacts (node --cpu-prof / --heap-prof, devtools snapshots)
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
