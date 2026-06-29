@@ -1,0 +1,46 @@
+name: tag
+
+# When package.json's version changes on main (i.e. a `just release` PR is merged),
+# create the matching `v<version>` git tag. The release workflow is then dispatched
+# manually from that tag. Skips the 0.0.0 placeholder, so no tag until a real release.
+
+on:
+  push:
+    branches: [main]
+    paths: ["package.json"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag
+  cancel-in-progress: false
+
+jobs:
+  create-tag:
+    name: create tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: read version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: create tag (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "$VERSION" = "0.0.0" ]; then
+            echo "Version is the 0.0.0 placeholder — no tag until a real release."
+            exit 0
+          fi
+          V="v$VERSION"
+          if gh api "repos/${{ github.repository }}/git/refs/tags/$V" >/dev/null 2>&1; then
+            echo "Tag $V already exists, skipping"
+          else
+            gh api "repos/${{ github.repository }}/git/refs" \
+              -f "ref=refs/tags/$V" -f "sha=${{ github.sha }}"
+            echo "Created tag $V"
+          fi

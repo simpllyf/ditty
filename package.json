@@ -28,6 +28,10 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "build": "tsup",
