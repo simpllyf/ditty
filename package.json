@@ -26,8 +26,7 @@
   "unpkg": "./dist/ditty.global.js",
   "jsdelivr": "./dist/ditty.global.js",
   "files": [
-    "dist",
-    "assets"
+    "dist"
   ],
   "packageManager": "pnpm@10.33.2",
   "scripts": {
