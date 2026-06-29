@@ -5,7 +5,13 @@
  * looping the whole form (melodies re-draw each pass when `evolve`). Pure: no Web
  * Audio (the audio layer's `buildLoop` binds these Scores to a synth).
  */
-import { type ArpRole, type ArrangeOptions, type Score, arrange } from "./compose/arranger";
+import {
+  type ArpRole,
+  type ArrangeOptions,
+  type Score,
+  type VoiceToggles,
+  arrange,
+} from "./compose/arranger";
 import { type SectionProfile, buildForm } from "./compose/form";
 import { humanize } from "./compose/humanize";
 import {
@@ -92,6 +98,17 @@ function randomSeed(): number {
 
 function pickInstrument(rng: Rng, pool: readonly InstrumentName[]): Instrument {
   return INSTRUMENTS[rng.pick(pool)];
+}
+
+/** A voice plays only if BOTH the section and the caller allow it (either may silence it). */
+function mergeVoices(section: VoiceToggles, user: VoiceToggles | undefined): VoiceToggles {
+  const out: VoiceToggles = { ...section };
+  if (user) {
+    for (const key of Object.keys(user) as (keyof VoiceToggles)[]) {
+      if (user[key] === false) out[key] = false;
+    }
+  }
+  return out;
 }
 
 /** Build the seed→music session. Validates bpm; deterministic for a seed. */
@@ -185,7 +202,7 @@ export function createSession(options: SessionOptions): Session {
       padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)
       motif: form.motif, // the recurring theme, stated at the head of every section
       motifBars: form.motifBars,
-      ...(options.voices !== undefined ? { voices: options.voices } : {}),
+      voices: mergeVoices(section.voices, options.voices), // section enter/leave ∧ caller toggles
     });
     return humanizeOn ? humanize(score, humanizeRng) : score;
   };
