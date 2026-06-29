@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { chordTonesInScale, generateHarmony } from "../src/compose/harmony";
 import { type MelodyNote, type MelodyOptions, generateMelody } from "../src/compose/melody";
 import { makeRng } from "../src/rng";
+import { makeChord } from "../src/theory/chords";
 import { SCALES, type Scale, degreePitchClass } from "../src/theory/scales";
 
 interface SetupOpts {
@@ -66,10 +67,38 @@ describe("generateMelody — invariants", () => {
       motif,
       motifBars: 1,
     });
-    expect(withMotif.slice(0, 2)).toEqual(motif); // head is the theme, verbatim
+    // Head is the theme; its strong beat (tonic) is already a chord tone of bar 0 (I),
+    // so the chord re-fit is a no-op here and the motif states unchanged.
+    expect(withMotif.slice(0, 2)).toEqual(motif);
     expect(withMotif[2]!.startBeat).toBeGreaterThanOrEqual(4); // continuation starts after bar 0
     const withoutMotif = generateMelody({ rng: makeRng(9), plan, scale: SCALES.mohanam });
     expect(withMotif).not.toEqual(withoutMotif); // the motif actually shaped the line
+  });
+
+  it("re-fits the motif's strong-beat notes onto the section's own chords", () => {
+    const motif: MelodyNote[] = [
+      { startBeat: 0, durationBeats: 1, degree: 0, velocity: 0.7, strong: true }, // tonic — off a V chord
+      { startBeat: 1, durationBeats: 1, degree: 3, velocity: 0.6, strong: false }, // weak passing tone
+    ];
+    // a section whose first bar is a V chord (pcs 7,11,2); the tonic (pc 0) is not in it
+    const plan = {
+      scale: SCALES.major,
+      rootMidi: 60,
+      beatsPerBar: 4,
+      bars: [{ degree: 4, chord: makeChord(7, "major") }],
+      cadences: { half: -1, final: -1 },
+    } as const;
+    const line = generateMelody({
+      rng: makeRng(3),
+      plan,
+      scale: SCALES.major,
+      motif,
+      motifBars: 1,
+    });
+    const vTones = new Set([7, 11, 2]);
+    expect(vTones.has(degreePitchClass(SCALES.major, line[0]!.degree))).toBe(true); // strong note snaps onto V
+    expect(line[0]!.degree).not.toBe(0); // it actually moved off the off-chord tonic
+    expect(line[1]).toEqual(motif[1]); // the weak/passing tone is left exactly as drawn
   });
 
   it("lands a chord tone on every strong beat (mohanam over major, default leap)", () => {
