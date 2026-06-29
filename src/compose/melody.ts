@@ -83,6 +83,20 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
   const pcOf = (degree: number) => degreePitchClass(scale, degree);
   const ragaPcs = new Set(scale.map(pitchClass)); // loop-invariant: the raga's pitch classes
 
+  /**
+   * Nearest degree to `degree` whose pitch class is a chord tone (in `pcs`), searched
+   * outward (down first) so the motif's contour is preserved. Returns `degree`
+   * unchanged when it is already a chord tone or `pcs` is empty.
+   */
+  const snapToChordTone = (degree: number, pcs: readonly number[]): number => {
+    if (pcs.length === 0 || pcs.includes(pcOf(degree))) return degree;
+    for (let r = 1; r <= scale.length; r++) {
+      if (pcs.includes(pcOf(degree - r))) return degree - r;
+      if (pcs.includes(pcOf(degree + r))) return degree + r;
+    }
+    return degree;
+  };
+
   const notes: MelodyNote[] = [];
   const recent: number[] = [];
   const remember = (degree: number) => {
@@ -120,15 +134,21 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
     }
   }
 
-  // State the theme verbatim at the head (if any), then generate the continuation
-  // from where it left off — so every section opens with the recognisable tune.
+  // State the theme at the head (if any), then generate the continuation from where
+  // it left off — so every section opens with the recognisable tune. The motif is
+  // drawn once over section A, so re-fit its STRONG-beat notes to whatever chord this
+  // section puts under them (keeping it on the harmony); weak/passing tones are left
+  // as drawn, preserving the motif's shape.
   let startBar = 0;
   const motif = options.motif;
   if (motif && motif.length > 0) {
     for (const n of motif) {
-      notes.push(n);
-      remember(n.degree);
-      prev = n.degree;
+      const bar = Math.min(Math.floor(n.startBeat / plan.beatsPerBar), plan.bars.length - 1);
+      const chordRagaPcs = plan.bars[bar]!.chord.pcs.filter((pc) => ragaPcs.has(pc));
+      const degree = n.strong ? snapToChordTone(n.degree, chordRagaPcs) : n.degree;
+      notes.push(degree === n.degree ? n : { ...n, degree });
+      remember(degree);
+      prev = degree;
     }
     startBar = options.motifBars ?? 0;
   }
