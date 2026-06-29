@@ -1047,8 +1047,8 @@
     </div>
 
     <script type="module">
-      // Engine source = the CURRENT branch, built into ./lib by `just site` (gitignored).
-      // POST-PUBLISH: swap these two lines to a CDN to auto-track the released version, e.g.
+      // Engine source = this repo, built into ./lib by `just site` (gitignored).
+      // To track a published release instead, import from a CDN, e.g.
       //   import { createEngine, renderOffline, encodeWav } from "https://esm.sh/@simpllyf/ditty";
       //   import { makeRng, pickStyle, SCALES, createSession } from "https://esm.sh/@simpllyf/ditty/core";
       import { createEngine, renderOffline, encodeWav } from "./lib/index.js";

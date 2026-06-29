@@ -1,6 +1,6 @@
 /**
  * Seeded pseudo-random number generator — the heart of the engine's
- * determinism (spec §10). Given a seed, every method produces an identical
+ * determinism. Given a seed, every method produces an identical
  * sequence across runs and platforms, so the entire musical event stream is
  * reproducible byte-for-byte. **No `Math.random()` lives anywhere in the
  * engine**; all randomness flows through here.

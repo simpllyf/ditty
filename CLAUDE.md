@@ -58,6 +58,27 @@ src/index.ts (engine)   src/core.ts (pure layer)                ← entry points
   invariants are asserted and snapshots are committed.
 - Don't edit unrelated files or revert user changes.
 
+## Comments
+
+A comment is a long-term liability — it must keep earning its place every time
+someone reads the code, long after the change that prompted it.
+
+- **Explain _why_, not _what_.** Comment intent, non-obvious constraints,
+  invariants, gotchas, and the reason a surprising choice is correct. Never
+  restate what the code already says.
+- **No change-narration.** Comments must read as if the code was always this way.
+  No history, no WIP notes, no "now/previously/used to/was X", no "(unchanged)",
+  no PR/issue/step/phase references. That context is real but belongs on the PR
+  and commit message — where it's dated and discoverable — not in the source,
+  where it rots into a lie.
+- **Stay true under change.** Don't write a comment that a future edit will
+  silently falsify. If a comment would need updating whenever nearby code does,
+  it's probably describing _what_, not _why_.
+- **Be concise and well-placed.** One sharp line beats a paragraph; put it on the
+  thing it explains. Prefer a clear name or type over a comment.
+- Stable, documented concept names (e.g. "gentle evolve", "raga ⊆ parent") are
+  fine as labels — they're vocabulary, not history.
+
 ## Stack & commands
 
 - TypeScript, ESM. Build with `tsup` (ESM + `.d.ts` + a minified IIFE global for
