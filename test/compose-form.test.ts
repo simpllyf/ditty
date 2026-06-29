@@ -11,6 +11,7 @@ const base = {
   beatsPerBar: 4,
   density: 0.5,
   groove: "straight",
+  borrow: false,
 } as const;
 
 /** First seed whose form contains a B section (a contrasting part). */

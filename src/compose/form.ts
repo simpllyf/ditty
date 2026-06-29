@@ -52,6 +52,7 @@ export interface FormOptions {
   readonly beatsPerBar: number;
   readonly density: number; // base melodic density (section A's level)
   readonly groove: DrumGrooveName; // home groove (section A); B/C contrast it
+  readonly borrow: boolean; // allow occasional borrowed (non-diatonic) chords
 }
 
 /** Bars the recurring theme spans (stated at the head of every section). */
@@ -95,6 +96,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     rootMidi,
     bars: o.bars,
     beatsPerBar: o.beatsPerBar,
+    borrow: o.borrow,
   });
   if (label === "B") {
     // Bridge/breakdown: thinner, gentler, and quieter than home (often a new key).
