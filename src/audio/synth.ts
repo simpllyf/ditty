@@ -47,6 +47,7 @@ export interface BiquadFilterLike extends AudioNodeLike {
 }
 export interface WaveShaperLike extends AudioNodeLike {
   curve: Float32Array | null;
+  oversample: OverSampleType;
 }
 export interface DelayLike extends AudioNodeLike {
   readonly delayTime: AudioParamLike;
@@ -150,6 +151,9 @@ export class Synth {
     this.tone.Q.value = 0.5;
     this.limiter = ctx.createWaveShaper();
     this.limiter.curve = softClipCurve();
+    // The tanh curve adds harmonics; oversample so they don't fold back as aliasing
+    // when a dense mix actually drives the limiter.
+    this.limiter.oversample = "4x";
     this.master.connect(this.tone);
     this.tone.connect(this.limiter);
     this.limiter.connect(ctx.destination);
