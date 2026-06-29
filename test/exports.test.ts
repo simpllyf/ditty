@@ -13,6 +13,7 @@ describe("public exports", () => {
       "renderOffline",
       "encodeWav",
       "createSession",
+      "STREAM_EPOCH",
       "SCALES",
       "STYLES",
       "INSTRUMENTS",
@@ -26,12 +27,25 @@ describe("public exports", () => {
   });
 
   it("the pure entry (/core) exposes the brain but NOT the audio shell", () => {
-    for (const key of ["createSession", "arrange", "generateHarmony", "SCALES", "encodeWav"]) {
+    for (const key of [
+      "createSession",
+      "STREAM_EPOCH",
+      "arrange",
+      "generateHarmony",
+      "SCALES",
+      "encodeWav",
+    ]) {
       expect(core, `core is missing "${key}"`).toHaveProperty(key);
     }
     // The audio engine must never leak into the pure entry.
     expect(core).not.toHaveProperty("createEngine");
     expect(core).not.toHaveProperty("renderOffline");
+  });
+
+  it("STREAM_EPOCH is a positive integer the two entries agree on", () => {
+    expect(Number.isInteger(index.STREAM_EPOCH)).toBe(true);
+    expect(index.STREAM_EPOCH).toBeGreaterThan(0);
+    expect(core.STREAM_EPOCH).toBe(index.STREAM_EPOCH);
   });
 
   it("exposes SectionView (what Session.sections yields) from the engine entry", () => {

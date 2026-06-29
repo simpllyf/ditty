@@ -70,7 +70,7 @@ export { encodeWav } from "./wav";
 
 // The seed→music brain (pure: no AudioContext) — the base of EngineOptions /
 // RenderOptions, and what you need to build your own playback shell.
-export { createSession } from "./session";
+export { createSession, STREAM_EPOCH } from "./session";
 export type { Session, SessionOptions, SectionView } from "./session";
 
 export {
