@@ -294,7 +294,7 @@ describe("arrange — golden & validation", () => {
   it("dynamics scales every velocity (clamped); fill reworks only the last bar", () => {
     const o = { bars: 8, beatsPerBar: 4 } as const;
     const base = arrange({ rng: makeRng(1), ...o });
-    // explicit defaults are byte-identical to a bare arrange()
+    // explicit defaults match a bare arrange()
     expect(arrange({ rng: makeRng(1), ...o, dynamics: 1, fill: false })).toEqual(base);
     // dynamics < 1 scales note velocities down
     const soft = arrange({ rng: makeRng(1), ...o, dynamics: 0.5 });
@@ -319,7 +319,7 @@ describe("arrange — golden & validation", () => {
     const o = { bars: 8, beatsPerBar: 4 } as const;
     const bass = (p?: "rootFifth" | "walking" | "pulse" | "sustained") =>
       part(arrange({ rng: makeRng(1), ...o, ...(p ? { bassPattern: p } : {}) }), "bass")!.notes;
-    expect(bass()).toEqual(bass("rootFifth")); // default === rootFifth, byte-identical
+    expect(bass()).toEqual(bass("rootFifth")); // default is rootFifth
     expect(bass("rootFifth").length).toBe(8 * 2);
     expect(bass("pulse").length).toBe(8 * 4); // a hit every beat
     expect(bass("walking").length).toBe(8 * 4);

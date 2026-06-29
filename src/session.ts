@@ -137,7 +137,7 @@ export function createSession(options: SessionOptions): Session {
   const density = options.density ?? chosen.density;
   const swing = options.swing ?? chosen.swing;
 
-  // Phase E — build the piece-level FORM once: an ordered set of contrasting
+  // Build the piece-level FORM once: an ordered set of contrasting
   // sections (A/B/C, each with its own progression + texture + density + bass).
   // nextScore() walks them in order and loops the whole form, so the music has
   // real shape (verse/bridge/return). The chord progressions stay put; with
