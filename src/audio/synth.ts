@@ -22,6 +22,8 @@ export interface AudioParamLike {
   linearRampToValueAtTime(value: number, endTime: number): void;
   setTargetAtTime(target: number, startTime: number, timeConstant: number): void;
   cancelScheduledValues(startTime: number): void;
+  /** Hold the current value and cancel pending automation (not in very old browsers). */
+  cancelAndHoldAtTime?(cancelTime: number): void;
 }
 /** The slice of `AudioNode` the synth uses. A node can drive another node or an
  * `AudioParam` (the latter is how an LFO modulates frequency/detune/gain). */
@@ -166,7 +168,30 @@ export class Synth {
 
   /** Set master volume, 0..1. Ramped (~20 ms) so live changes don't zipper-click. */
   setVolume(volume: number): void {
-    this.master.gain.setTargetAtTime(clamp(volume, 0, 1), this.ctx.currentTime, 0.02);
+    const g = this.master.gain;
+    // Cancel any in-flight pause/resume fade so this target is authoritative — otherwise a
+    // leftover ramp (e.g. start()'s fade) and this setTarget fight and can leave the gain stuck.
+    if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(this.ctx.currentTime);
+    g.setTargetAtTime(clamp(volume, 0, 1), this.ctx.currentTime, 0.02);
+  }
+
+  /**
+   * Linear master ramp to EXACTLY `target` over `seconds`, for a click-free pause/resume
+   * edge. cancelAndHoldAtTime holds the param's true current value (no fragile `.value`
+   * read, no step) before ramping; a linear ramp then actually REACHES the target — so a
+   * fade-out hits true 0 before the context is suspended. (A setTargetAtTime ramp is
+   * asymptotic and leaves a sliver of signal for the suspend to chop = a click.)
+   */
+  fade(target: number, seconds = 0.1): void {
+    const now = this.ctx.currentTime;
+    const g = this.master.gain;
+    if (g.cancelAndHoldAtTime) {
+      g.cancelAndHoldAtTime(now);
+    } else {
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+    }
+    g.linearRampToValueAtTime(clamp(target, 0, 1), now + Math.max(0.01, seconds));
   }
 
   private buildReverb(opts: { decay?: number; damping?: number; mix?: number }): GainNodeLike {

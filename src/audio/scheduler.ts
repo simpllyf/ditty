@@ -117,20 +117,24 @@ export class Scheduler {
     this.loop = null;
   }
 
-  /**
-   * Pause the timer but KEEP the position (anchor/loop/index), so {@link resume}
-   * continues from where it left off rather than restarting. Pair with suspending
-   * the audio context (which freezes the clock, so the anchor stays valid).
-   */
+  /** Pause the timer, keeping the loop so {@link resume} continues it. No-op if not running. */
   pause(): void {
     if (!this.running) return;
     this.running = false;
     this.clock.stop();
   }
 
-  /** Resume after {@link pause}, continuing from the kept position. No-op if never started. */
+  /**
+   * Resume after {@link pause}, RE-ANCHORED to the current time. While paused the audio
+   * clock may have advanced (some browsers keep the context running when hidden), so
+   * replaying the same loop against a stale anchor would drop a burst of overdue events
+   * — an audible glitch on the way back. Restart the loop from its head at "now" instead,
+   * seamless for a background bed. No-op if never started.
+   */
   resume(): void {
     if (this.running || !this.loop) return;
+    this.anchor = this.context.currentTime;
+    this.index = 0;
     this.running = true;
     this.clock.start(() => this.tick(), this.intervalMs);
     this.tick();

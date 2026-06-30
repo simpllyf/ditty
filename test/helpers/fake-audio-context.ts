@@ -18,7 +18,7 @@ import type {
   WaveShaperLike,
 } from "../../src/audio/synth";
 
-export type ParamEventType = "set" | "linramp" | "target" | "cancel";
+export type ParamEventType = "set" | "linramp" | "target" | "cancel" | "hold";
 
 export interface ParamEvent {
   readonly type: ParamEventType;
@@ -49,6 +49,10 @@ export class FakeParam implements AudioParamLike {
 
   cancelScheduledValues(startTime: number): void {
     this.events.push({ type: "cancel", value: 0, time: startTime });
+  }
+
+  cancelAndHoldAtTime(cancelTime: number): void {
+    this.events.push({ type: "hold", value: this.value, time: cancelTime });
   }
 }
 
