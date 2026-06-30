@@ -1469,6 +1469,12 @@
         }
       }
       function shuffle() {
+        // "New track" rolls a new VIBE (not just a new seed) — the breadth lives across
+        // styles (meter, scale family, tempo, instruments), so shuffling within one vibe
+        // sounds same-y by design. Pick a different style, then a fresh seed.
+        const others = STYLE_NAMES.filter((s) => s !== state.style);
+        state.style = others[(Math.random() * others.length) | 0];
+        renderStyles();
         commitSeed(String((Math.random() * 0xffffffff) >>> 0));
       }
       function commitSeed(str) {
