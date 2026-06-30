@@ -107,19 +107,18 @@ describe("createEngine", () => {
     expect(evolving).toBeGreaterThan(repeating); // melodies re-draw on each pass
   });
 
-  it("fades the master to silence before suspending, and fades back up on resume", async () => {
+  it("ramps the master to silence on pause then back up on resume, suspending only after", async () => {
     const { ctx, engine } = setup({ volume: 0.5 });
     await engine.start();
     const master = ctx.gains[0]!.gain;
     engine.pause();
-    expect(master.events.some((e) => e.type === "linramp" && e.value === 0)).toBe(true); // fade-out
-    expect(ctx.suspendCount).toBe(0); // suspend is deferred until the fade lands (no mid-note freeze → no click)
-    await new Promise((r) => setTimeout(r, 80));
+    expect(master.events.some((e) => e.type === "target" && e.value === 0)).toBe(true); // smooth fade-out
+    expect(ctx.suspendCount).toBe(0); // suspend deferred well past the fade (no mid-note freeze → no click)
+    await new Promise((r) => setTimeout(r, 350));
     expect(ctx.suspendCount).toBe(1);
     engine.resume();
     expect(ctx.resumeCount).toBeGreaterThanOrEqual(2);
-    await new Promise((r) => setTimeout(r, 5)); // let resume()'s context.resume().then() run
-    expect(master.events.some((e) => e.type === "linramp" && e.value === 0.5)).toBe(true); // faded back up
+    expect(master.events.some((e) => e.type === "target" && e.value === 0.5)).toBe(true); // ramped back up
   });
 
   it("setVolume ramps the master gain", async () => {
@@ -177,7 +176,7 @@ describe("createEngine", () => {
     const engine = createEngine({ seed: 1, audioContext: ctx, clock: new TickClock() });
     await engine.start();
     expect(() => engine.pause()).not.toThrow();
-    await new Promise((r) => setTimeout(r, 80)); // the deferred suspend fires + rejects → swallowed
+    await new Promise((r) => setTimeout(r, 350)); // the deferred suspend fires + rejects → swallowed
     engine.dispose();
   });
 

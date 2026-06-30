@@ -50,9 +50,11 @@ export interface Engine {
 // NaN-guarded clamp — a NaN volume must never reach the master AudioParam.
 const clamp = clampSafe;
 
-// Pause/resume fade the master over this many seconds so suspending the context
-// (which freezes the waveform instantly) lands on silence instead of mid-note — no click.
-const PAUSE_FADE_SECONDS = 0.03;
+// Suspend only well after the master fade has settled (the synth ramps it over ~0.25 s),
+// so the freeze lands on silence — no click. Far past the fade and click-safe; saves CPU on a
+// foreground pause. (On a hidden tab the timer is throttled and the OS suspends anyway; resume
+// re-anchors regardless, so the exact timing isn't critical.)
+const SUSPEND_AFTER_MS = 300;
 
 /** The audio graph, built lazily on first start(); null until then (SSR-safe). */
 interface Graph {
@@ -108,7 +110,7 @@ export function createEngine(options: EngineOptions = {}): Engine {
       await context.resume();
       if (disposed) return; // dispose() may have run during the await
       scheduler.start();
-      synth.fade(volume, PAUSE_FADE_SECONDS); // fade in (covers a (re)start from a faded state)
+      synth.fade(volume); // fade in (covers a (re)start from a faded state)
     },
 
     stop(): void {
@@ -120,27 +122,24 @@ export function createEngine(options: EngineOptions = {}): Engine {
       if (disposed || !graph) return;
       cancelPendingSuspend();
       const g = graph;
-      g.synth.fade(0, PAUSE_FADE_SECONDS); // fade to silence FIRST...
-      g.scheduler.pause(); // keep position so resume() continues, not restarts
-      // ...then suspend once the fade has landed, so the freeze is on silence — no click.
-      suspendTimer = setTimeout(
-        () => {
-          suspendTimer = null;
-          if (!disposed && graph === g) void g.context.suspend().catch(() => {});
-        },
-        PAUSE_FADE_SECONDS * 1000 + 20,
-      );
+      g.synth.fade(0); // fade to silence FIRST...
+      g.scheduler.pause();
+      // ...then suspend well after the fade has settled, so the freeze is on silence — no click.
+      suspendTimer = setTimeout(() => {
+        suspendTimer = null;
+        if (!disposed && graph === g) void g.context.suspend().catch(() => {});
+      }, SUSPEND_AFTER_MS);
     },
 
     resume(): void {
       if (disposed || !graph) return;
       cancelPendingSuspend();
       const g = graph;
-      g.scheduler.resume();
+      g.synth.fade(volume); // ramp up from silence as we come back
       void g.context
         .resume()
         .then(() => {
-          if (!disposed && graph === g) g.synth.fade(volume, PAUSE_FADE_SECONDS); // fade back up
+          if (!disposed && graph === g) g.scheduler.resume(); // re-anchor on the now-running clock
         })
         .catch(() => {});
     },
