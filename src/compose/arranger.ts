@@ -230,7 +230,9 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
   const { plan, beatsPerBar, bars, rootMidi, fit, bassRng } = ctx;
   const notes: ScoreNote[] = [];
   const bassPattern = ctx.options.bassPattern ?? "rootFifth";
-  const half = beatsPerBar / 2;
+  // The metric midpoint, snapped to a beat so it lands on-grid in odd meters
+  // (4/4 → 2, 6/8 → 3, 3/4 → beat 1); the two halves fill the bar exactly.
+  const mid = Math.floor(beatsPerBar / 2);
   const low = (pc: number) => midiToFrequency(rootMidi - OCTAVE + pc); // always below the pad
   for (let bar = 0; bar < bars; bar++) {
     const chord = plan.bars[bar]!.chord;
@@ -242,15 +244,15 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
     if (bassPattern === "rootFifth") {
       notes.push({
         startBeat: barStart,
-        durationBeats: fit(barStart, half),
+        durationBeats: fit(barStart, mid),
         freq: low(root),
         velocity: 0.85,
       });
       const second = bassRng.next() < 0.5 ? root : fifth;
-      const midStart = barStart + half;
+      const midStart = barStart + mid;
       notes.push({
         startBeat: midStart,
-        durationBeats: fit(midStart, half),
+        durationBeats: fit(midStart, beatsPerBar - mid),
         freq: low(second),
         velocity: 0.8,
       });

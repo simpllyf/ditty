@@ -59,7 +59,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
   {
     "bpm": 84,
     "density": 0.358,
-    "groove": "soft",
+    "groove": "halfTime",
     "instruments": {
       "arp": [
         "musicBox",
@@ -114,7 +114,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
   {
     "bpm": 131,
     "density": 0.758,
-    "groove": "straight",
+    "groove": "syncopated",
     "instruments": {
       "arp": [
         "synthArp",
@@ -167,7 +167,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
   {
     "bpm": 91,
     "density": 0.458,
-    "groove": "halfTime",
+    "groove": "straight",
     "instruments": {
       "arp": [
         "bell",
@@ -320,7 +320,7 @@ exports[`pickStyle > locks the seed→choice mapping (golden — guards rng draw
   {
     "bpm": 70,
     "density": 0.282,
-    "groove": "halfTime",
+    "groove": "none",
     "instruments": {
       "arp": [
         "bell",

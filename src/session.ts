@@ -26,6 +26,7 @@ import {
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
 import { type StyleName, pickStyle } from "./styles";
+import { DRUM_GROOVES } from "./theory/rhythm";
 import type { DrumName, ScoreVoice } from "./voices";
 
 /**
@@ -135,16 +136,7 @@ export function createSession(options: SessionOptions): Session {
   if (!(bpm > 0) || !Number.isFinite(bpm)) {
     throw new RangeError(`createSession: bpm must be a positive number, got ${bpm}`);
   }
-  const beatsPerBar = options.beatsPerBar ?? 4;
   const bars = options.bars ?? 8;
-  // Validate the grid eagerly (not lazily at the first arrange) so a bad config
-  // fails at construction rather than bricking the first scheduler tick.
-  if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
-    throw new RangeError(`createSession: beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
-  }
-  if (!Number.isInteger(bars) || bars < 4) {
-    throw new RangeError(`createSession: bars must be an integer >= 4, got ${bars}`);
-  }
   const evolve = options.evolve ?? true;
 
   const instruments: Record<ScoreVoice, Instrument> = {
@@ -170,6 +162,17 @@ export function createSession(options: SessionOptions): Session {
   // Validate the resolved params eagerly (same checks arrange runs), so a bad config
   // throws here at construction rather than inside the first scheduled tick.
   assertMusicalParams({ swing, density, rootMidi, groove, parent, raga });
+
+  // The meter follows the chosen groove (a waltz IS 3/4), unless the caller pins it.
+  const beatsPerBar = options.beatsPerBar ?? DRUM_GROOVES[groove].beatsPerBar;
+  // Validate the grid eagerly (not lazily at the first arrange) so a bad config
+  // fails at construction rather than bricking the first scheduler tick.
+  if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
+    throw new RangeError(`createSession: beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
+  }
+  if (!Number.isInteger(bars) || bars < 4) {
+    throw new RangeError(`createSession: bars must be an integer >= 4, got ${bars}`);
+  }
 
   // Build the piece-level FORM once: an ordered set of contrasting
   // sections (A/B/C, each with its own progression + texture + density + bass).

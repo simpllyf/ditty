@@ -11,7 +11,7 @@
  * changes. Pure brain: data in, data out, no Web Audio.
  */
 import type { Rng } from "../rng";
-import type { DrumGrooveName } from "../theory/rhythm";
+import { DRUM_GROOVES, type DrumGrooveName } from "../theory/rhythm";
 import type { Scale } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
@@ -78,11 +78,21 @@ const modulate = (base: number, shift: number) => {
   return m >= 40 && m <= 78 ? m : base;
 };
 
-/** A calmer / busier groove than the home one, for the bridge / climax contrast. */
+// A calmer / busier groove than the home one, for the bridge / climax contrast.
+// Only the 4/4 grooves have sparse/busy counterparts; a non-4/4 groove (waltz, 6/8)
+// keeps its meter and lets density/dynamics/tempo carry the section contrast instead.
 const sparser = (g: DrumGrooveName): DrumGrooveName =>
-  g === "halfTime" || g === "soft" || g === "none" ? "soft" : "halfTime";
+  DRUM_GROOVES[g].beatsPerBar !== 4
+    ? g
+    : g === "halfTime" || g === "soft" || g === "none"
+      ? "soft"
+      : "halfTime";
 const busier = (g: DrumGrooveName): DrumGrooveName =>
-  g === "busy" || g === "halfDouble" ? "fourOnFloor" : "busy";
+  DRUM_GROOVES[g].beatsPerBar !== 4
+    ? g
+    : g === "busy" || g === "halfDouble"
+      ? "fourOnFloor"
+      : "busy";
 
 /** This section's tonic: home for A; a related key for the bridge; a lift for the climax. */
 function sectionRoot(label: string, o: FormOptions): number {

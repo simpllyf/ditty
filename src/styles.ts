@@ -79,7 +79,7 @@ export const STYLES = {
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi }, // wistful
       { parent: SCALES.dorian, raga: SCALES.minorPentatonic },
     ],
-    grooves: ["soft", "halfTime"],
+    grooves: ["soft", "halfTime", "waltz"],
     bpm: [68, 92],
     swing: [0, 0.4],
     density: [0.2, 0.5],
@@ -101,7 +101,15 @@ export const STYLES = {
       { parent: SCALES.major, raga: SCALES.majorPentatonic },
       { parent: SCALES.mayamalavagowla, raga: SCALES.mayamalavagowla }, // exotic spice
     ],
-    grooves: ["fourOnFloor", "busy", "straight", "syncopated", "breakbeat", "halfDouble"],
+    grooves: [
+      "fourOnFloor",
+      "busy",
+      "straight",
+      "syncopated",
+      "breakbeat",
+      "halfDouble",
+      "sixEight",
+    ],
     bpm: [112, 140],
     swing: [0.1, 0.4],
     density: [0.6, 0.9],
@@ -124,7 +132,7 @@ export const STYLES = {
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
     ],
-    grooves: ["soft", "halfTime", "straight"],
+    grooves: ["soft", "halfTime", "straight", "waltz", "sixEight"],
     bpm: [72, 100],
     swing: [0, 0.3],
     density: [0.3, 0.6],
@@ -165,7 +173,7 @@ export const STYLES = {
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
     ],
-    grooves: ["halfTime", "straight", "soft"],
+    grooves: ["halfTime", "straight", "soft", "sixEight"],
     bpm: [70, 100],
     swing: [0, 0.2],
     density: [0.35, 0.65],
@@ -186,7 +194,7 @@ export const STYLES = {
       { parent: SCALES.lydian, raga: SCALES.kalyani },
       { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
     ],
-    grooves: ["soft", "halfTime", "none"], // often drumless
+    grooves: ["soft", "halfTime", "none", "waltz", "sixEight"], // often drumless
     bpm: [56, 76],
     swing: [0, 0.2],
     density: [0.15, 0.4], // sparse, floating
