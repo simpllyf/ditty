@@ -82,28 +82,41 @@ describe("melodyRhythm", () => {
 });
 
 describe("DRUM_GROOVES & fitGroove", () => {
-  it.each(Object.entries(DRUM_GROOVES))("%s has grid-aligned hits within 4/4", (_, groove) => {
-    for (const lane of [groove.kick, groove.snare, groove.hat]) {
-      for (const pos of lane) {
-        expect(pos).toBeGreaterThanOrEqual(0);
-        expect(pos).toBeLessThan(4);
-        expect((pos * 4) % 1).toBe(0); // multiple of a sixteenth
+  it.each(Object.entries(DRUM_GROOVES))(
+    "%s has grid-aligned hits within its own meter",
+    (_, groove) => {
+      for (const lane of [groove.kick, groove.snare, groove.hat]) {
+        for (const pos of lane) {
+          expect(pos).toBeGreaterThanOrEqual(0);
+          expect(pos).toBeLessThan(groove.beatsPerBar); // hits stay inside the groove's bar
+          expect((pos * 4) % 1).toBe(0); // multiple of a sixteenth
+        }
       }
-    }
+    },
+  );
+
+  it("waltz is 3/4 and sixEight is 6/8", () => {
+    expect(DRUM_GROOVES.waltz.beatsPerBar).toBe(3);
+    expect(DRUM_GROOVES.sixEight.beatsPerBar).toBe(6);
+    expect(DRUM_GROOVES.straight.beatsPerBar).toBe(4); // unchanged grooves stay 4/4
   });
 
-  it("'none' is silent", () => {
-    expect(DRUM_GROOVES.none).toEqual({ kick: [], snare: [], hat: [] });
+  it("'none' is a silent 4/4 groove", () => {
+    expect(DRUM_GROOVES.none).toEqual({ beatsPerBar: 4, kick: [], snare: [], hat: [] });
   });
 
   it("fitGroove keeps a subset and drops hits at/after the meter", () => {
     const fit = fitGroove(DRUM_GROOVES.straight, 3);
+    expect(fit.beatsPerBar).toBe(3); // re-tagged to the clipped meter
     for (const lane of [fit.kick, fit.snare, fit.hat]) {
       for (const pos of lane) expect(pos).toBeLessThan(3);
     }
     expect(fit.snare).not.toContain(3); // the beat-3 backbeat is dropped in 3/4
-    // wider meter keeps every 4/4 hit (max position 3.5 < 6)
-    expect(fitGroove(DRUM_GROOVES.straight, 6)).toEqual(DRUM_GROOVES.straight);
+    // wider meter keeps every 4/4 hit (max position 3.5 < 6); only the meter tag changes
+    expect(fitGroove(DRUM_GROOVES.straight, 6)).toEqual({
+      ...DRUM_GROOVES.straight,
+      beatsPerBar: 6,
+    });
   });
 });
 

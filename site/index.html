@@ -696,6 +696,24 @@
               min-height: 18px;
             "
           ></div>
+          <details id="advanced" style="padding: 0 22px 22px">
+            <summary
+              style="
+                cursor: pointer;
+                font-size: 13.5px;
+                font-weight: 600;
+                color: var(--ink2);
+                user-select: none;
+                padding: 6px 0;
+              "
+            >
+              Advanced
+            </summary>
+            <div
+              id="advancedBody"
+              style="margin-top: 14px; display: flex; flex-direction: column; gap: 18px"
+            ></div>
+          </details>
         </div>
       </section>
 
@@ -1052,7 +1070,7 @@
       //   import { createEngine, renderOffline, encodeWav } from "https://esm.sh/@simpllyf/ditty";
       //   import { makeRng, pickStyle, SCALES, createSession } from "https://esm.sh/@simpllyf/ditty/core";
       import { createEngine, renderOffline, encodeWav } from "./lib/index.js";
-      import { makeRng, pickStyle, SCALES, createSession } from "./lib/core.js";
+      import { makeRng, pickStyle, SCALES, createSession, DRUM_GROOVES } from "./lib/core.js";
 
       const $ = (id) => document.getElementById(id);
       const STYLE_META = {
@@ -1090,6 +1108,14 @@
         form: [], // the piece's sections (for the live form strip)
         bars: 8,
         beatsPerBar: 4,
+        // advanced (collapsed by default)
+        groove: "", // "" = auto (the style picks); else forces a groove (and its meter)
+        contour: "", // "" = auto (form varies per section); else forces one melody shape
+        arpRole: "", // "" = auto (form orchestrates); else forces the arp's role
+        evolve: true,
+        humanize: true,
+        chromatic: true,
+        voices: { lead: true, bass: true, pad: true, arp: true, drums: true },
       };
       let engine = null,
         audio = null,
@@ -1125,15 +1151,30 @@
       }
 
       // ---- engine ----
-      const engineOpts = () => ({
-        seed: state.seed,
-        style: state.style,
-        bpm: state.bpm,
-        density: state.density / 100,
-        swing: state.swing / 100,
-        volume: state.volume / 100,
-        audioContext: ensureAudio().ctx,
-      });
+      const VOICE_LIST = ["lead", "bass", "pad", "arp", "drums"];
+      const ADV_TOGGLES = ["evolve", "humanize", "chromatic"];
+      const engineOpts = () => {
+        const o = {
+          seed: state.seed,
+          style: state.style,
+          bpm: state.bpm,
+          density: state.density / 100,
+          swing: state.swing / 100,
+          volume: state.volume / 100,
+          bars: state.bars,
+          evolve: state.evolve,
+          humanize: state.humanize,
+          chromatic: state.chromatic,
+          audioContext: ensureAudio().ctx,
+        };
+        if (state.groove) o.groove = state.groove; // else the style picks (and sets the meter)
+        if (state.contour) o.contour = state.contour; // else the form varies it per section
+        if (state.arpRole) o.arpRole = state.arpRole; // else the form orchestrates per section
+        const off = {};
+        for (const v of VOICE_LIST) if (!state.voices[v]) off[v] = false;
+        if (Object.keys(off).length) o.voices = off;
+        return o;
+      };
 
       // Rebuilding the engine (any option change needs it) — crossfade so it never
       // hard-cuts: fade the old one out, swap, fade the new one in.
@@ -1175,12 +1216,14 @@
       // ---- derive the recipe (exact: pickStyle for key/raga/groove, createSession for instruments) ----
       function derive(seed, style) {
         const chosen = pickStyle(makeRng(seed).fork(), style); // styleRng = master's first fork
-        const sess = createSession({ seed, style });
+        const sessOpts = { seed, style, bars: state.bars };
+        if (state.groove) sessOpts.groove = state.groove; // forced groove → its meter
+        const sess = createSession(sessOpts);
         return {
           bpm: chosen.bpm,
           density: Math.round(chosen.density * 100),
           swing: Math.round(chosen.swing * 100),
-          groove: chosen.groove,
+          groove: state.groove || chosen.groove, // show the effective groove
           key: scaleName(chosen.parent),
           raga: scaleName(chosen.raga),
           instruments: {
@@ -1206,6 +1249,17 @@
         renderKnobs();
         renderRecipe(d);
         renderFormStrip(state.playing ? lastFormIdx : -1);
+      }
+      // Re-derive after an ADVANCED change (groove/meter, bars, toggles, voices) WITHOUT
+      // resetting the tempo/density/swing sliders, then rebuild the engine.
+      function reflectAdvanced() {
+        const d = derive(state.seed, state.style);
+        state.beatsPerBar = d.beatsPerBar;
+        state.form = d.sections;
+        lastFormIdx = -1;
+        renderRecipe(d);
+        renderFormStrip(state.playing ? lastFormIdx : -1);
+        rebuildSoon();
       }
       // The live form strip: section chips (A A B A) with the current one lit, plus
       // a one-line "now" descriptor (part · key shift · arp role).
@@ -1247,9 +1301,11 @@
         el.innerHTML = `<span>form</span>${chips}${now}`;
       }
       function renderRecipe(d) {
+        const meter = d.beatsPerBar === 6 ? "6/8" : d.beatsPerBar + "/4";
         const rows = [
           ["key", d.key],
           ["raga", d.raga],
+          ["meter", meter],
           ["groove", d.groove],
           ["lead", d.instruments.lead],
           ["pad", d.instruments.pad],
@@ -1297,6 +1353,79 @@
           input.oninput = (e) => setKnob(k, e.target.value, wrap);
           row.appendChild(wrap);
         }
+      }
+
+      // ---- advanced panel: groove/meter, bars, evolve/humanize/chromatic, voices ----
+      function renderAdvanced() {
+        const body = $("advancedBody");
+        const sel =
+          "font-family:var(--font-mono);font-size:13px;padding:6px 9px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);border-radius:8px;cursor:pointer";
+        const meterOf = (g) =>
+          DRUM_GROOVES[g].beatsPerBar === 6 ? "6/8" : DRUM_GROOVES[g].beatsPerBar + "/4";
+        const grooveOpts = ['<option value="">auto (style picks)</option>']
+          .concat(
+            Object.keys(DRUM_GROOVES).map(
+              (g) =>
+                `<option value="${g}"${state.groove === g ? " selected" : ""}>${g} · ${meterOf(g)}</option>`,
+            ),
+          )
+          .join("");
+        const barsOpts = [4, 8, 12, 16]
+          .map((b) => `<option value="${b}"${state.bars === b ? " selected" : ""}>${b}</option>`)
+          .join("");
+        const contourOpts = ['<option value="">auto (per section)</option>']
+          .concat(
+            ["arch", "rising", "falling", "flat"].map(
+              (c) => `<option value="${c}"${state.contour === c ? " selected" : ""}>${c}</option>`,
+            ),
+          )
+          .join("");
+        const arpRoleOpts = ['<option value="">auto (per section)</option>']
+          .concat(
+            ["arp", "double", "harmony", "counter"].map(
+              (r) => `<option value="${r}"${state.arpRole === r ? " selected" : ""}>${r}</option>`,
+            ),
+          )
+          .join("");
+        const lbl = (t) =>
+          `<span style="font-size:13px;font-weight:600;color:var(--ink2)">${t}</span>`;
+        const check = (id, label, on) =>
+          `<label style="display:inline-flex;gap:7px;align-items:center;font-size:13px;color:var(--ink2);cursor:pointer"><input type="checkbox" id="${id}"${on ? " checked" : ""} style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer">${label}</label>`;
+        body.innerHTML =
+          `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("groove / meter")}<select id="advGroove" style="${sel}">${grooveOpts}</select></label>` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("bars")}<select id="advBars" style="${sel}">${barsOpts}</select></label>` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("contour")}<select id="advContour" style="${sel}">${contourOpts}</select></label>` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("arp role")}<select id="advArpRole" style="${sel}">${arpRoleOpts}</select></label>` +
+          `</div>` +
+          `<div style="display:flex;gap:20px;flex-wrap:wrap">${ADV_TOGGLES.map((k) => check("adv-" + k, k, state[k])).join("")}</div>` +
+          `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">${lbl("voices")}${VOICE_LIST.map((v) => check("voice-" + v, v, state.voices[v])).join("")}</div>`;
+        $("advGroove").onchange = (e) => {
+          state.groove = e.target.value;
+          reflectAdvanced();
+        };
+        $("advBars").onchange = (e) => {
+          state.bars = +e.target.value;
+          reflectAdvanced();
+        };
+        $("advContour").onchange = (e) => {
+          state.contour = e.target.value;
+          reflectAdvanced();
+        };
+        $("advArpRole").onchange = (e) => {
+          state.arpRole = e.target.value;
+          reflectAdvanced();
+        };
+        for (const k of ADV_TOGGLES)
+          $("adv-" + k).onchange = (e) => {
+            state[k] = e.target.checked;
+            reflectAdvanced();
+          };
+        for (const v of VOICE_LIST)
+          $("voice-" + v).onchange = (e) => {
+            state.voices[v] = e.target.checked;
+            reflectAdvanced();
+          };
       }
 
       // ---- handlers ----
@@ -1608,6 +1737,7 @@
         renderStatic();
         renderStyles();
         applyDerived();
+        renderAdvanced();
         updatePlay();
         updateStatus();
         startViz();

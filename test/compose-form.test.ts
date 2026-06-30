@@ -81,12 +81,12 @@ describe("buildForm", () => {
       expect(c.bpmScale).toBeGreaterThan(1);
   });
 
-  it("orchestrates the arp per section: A arpeggiates, B harmonises, C doubles", () => {
+  it("orchestrates the arp per section: A arpeggiates, B is two-part, C doubles", () => {
+    const allowed = (label: string) =>
+      label === "A" ? ["arp"] : label === "B" ? ["harmony", "counter"] : ["double"];
     for (let s = 1; s < 30; s++) {
-      const form = buildForm({ rng: makeRng(s), ...base });
-      for (const sec of form.sections) {
-        const expected = sec.label === "A" ? "arp" : sec.label === "B" ? "harmony" : "double";
-        expect(sec.arpRole).toBe(expected);
+      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+        expect(allowed(sec.label)).toContain(sec.arpRole);
       }
     }
   });
@@ -114,6 +114,33 @@ describe("buildForm", () => {
         expect(sec.padPattern).toBe(expected);
       }
     }
+  });
+
+  it("shapes a melodic contour per section: C builds, B settles, and they vary", () => {
+    const allowed = (label: string) =>
+      label === "C"
+        ? ["rising", "arch"] // climax builds
+        : label === "B"
+          ? ["falling", "flat", "arch"] // bridge settles
+          : ["arch", "rising", "flat"]; // home varies
+    const seen = new Set<string>();
+    for (let s = 1; s < 40; s++) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+        seen.add(sec.contour);
+        expect(allowed(sec.label)).toContain(sec.contour);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(1); // the contour genuinely varies across the corpus
+  });
+
+  it("orchestrates the bridge as a two-part texture — parallel harmony or an antiphonal counter", () => {
+    const bridgeRoles = new Set<string>();
+    for (let s = 1; s < 40; s++) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+        if (sec.label === "B") bridgeRoles.add(sec.arpRole);
+      }
+    }
+    expect([...bridgeRoles].sort()).toEqual(["counter", "harmony"]); // both appear, nothing else
   });
 
   it("carries a recurring theme stated within its motif span", () => {

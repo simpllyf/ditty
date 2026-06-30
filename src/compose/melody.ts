@@ -1,10 +1,10 @@
 /**
  * Harmony-aware melody — the line that follows the chords. Strong beats land on
- * chord tones, weak beats step between, a gentle arch shapes each phrase, and the
+ * chord tones, weak beats step between, a phrase contour shapes the arc, and the
  * cadence bars resolve. Pure and deterministic; the arranger turns degrees into
  * sound. Coherence comes from following the {@link HarmonicPlan}.
  */
-import { contourTarget, exceedsRepeatLimit } from "../constraints";
+import { type ContourShape, contourTarget, exceedsRepeatLimit } from "../constraints";
 import { clamp } from "../math";
 import type { Rng } from "../rng";
 import { pitchClass } from "../theory/pitch";
@@ -37,6 +37,8 @@ export interface MelodyOptions {
    * bound is `maxNoteRepeat + 1`.
    */
   maxNoteRepeat?: number;
+  /** Phrase contour shape — the arc the line gravitates toward. Default "arch". */
+  contour?: ContourShape;
   /** Contour amplitude, in degrees. Default 4. */
   contourAmplitude?: number;
   /** Rhythm density 0..1. Default 0.5. */
@@ -63,6 +65,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
   const maxLeap = options.maxLeap ?? 4;
   const maxNoteRepeat = options.maxNoteRepeat ?? 2;
   const amplitude = options.contourAmplitude ?? 4;
+  const contour = options.contour ?? "arch";
   const density = options.density ?? 0.5;
   const baseVelocity = clamp(options.velocity ?? 0.7, 0, 1);
 
@@ -162,8 +165,12 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
       const onset = onsets[i]!;
       const isLast = i === onsets.length - 1;
       const phraseT = ((bar % 4) + onset.startBeat / plan.beatsPerBar) / 4; // 0..1 across a 4-bar phrase
-      // contourTarget("arch", t, 2, amp) === sin(π·t)·amp — an arch peaking mid-phrase.
-      const target = clamp(home + Math.round(contourTarget("arch", phraseT, 2, amplitude)), lo, hi);
+      // Soft-bias each note toward the phrase's contour; pickNote still enforces key + leap cap.
+      const target = clamp(
+        home + Math.round(contourTarget(contour, phraseT, 2, amplitude)),
+        lo,
+        hi,
+      );
 
       let degree: number;
       if (isLast && bar === plan.cadences.final) {

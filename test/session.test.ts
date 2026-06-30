@@ -103,6 +103,26 @@ describe("createSession", () => {
     expect(STYLES.calm.instruments.lead).toContain(s.instruments.lead.name); // from calm's pool
   });
 
+  it("takes its meter from the chosen groove (waltz → 3/4, sixEight → 6/8)", () => {
+    expect(createSession({ groove: "waltz" }).beatsPerBar).toBe(3);
+    expect(createSession({ groove: "sixEight" }).beatsPerBar).toBe(6);
+    expect(createSession({ groove: "straight" }).beatsPerBar).toBe(4);
+    expect(createSession({ groove: "waltz", beatsPerBar: 4 }).beatsPerBar).toBe(4); // explicit wins
+  });
+
+  it("locks a 3/4 (waltz) and a 6/8 (sixEight) session (golden — non-4/4 determinism)", () => {
+    const fingerprint = (groove: "waltz" | "sixEight") => {
+      const s = createSession({ seed: 5, style: "calm", groove, humanize: false });
+      const sc = s.nextScore();
+      return {
+        beatsPerBar: s.beatsPerBar,
+        firstFreqs: sc.parts.flatMap((p) => p.notes.slice(0, 3).map((n) => Math.round(n.freq))),
+        drums: sc.drums.slice(0, 6).map((d) => `${d.drum}@${d.startBeat}`),
+      };
+    };
+    expect({ waltz: fingerprint("waltz"), sixEight: fingerprint("sixEight") }).toMatchSnapshot();
+  });
+
   it("locks the seed→session mapping (golden — pins the style/instrument/arrange/noise fork chain)", () => {
     const s = createSession({ seed: 42, style: "peppy" });
     const score = s.nextScore();

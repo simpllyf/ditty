@@ -101,6 +101,27 @@ describe("generateMelody — invariants", () => {
     expect(line[1]).toEqual(motif[1]); // the weak/passing tone is left exactly as drawn
   });
 
+  it("the contour biases the line's arc — rising trends up where falling trends down", () => {
+    const plan = generateHarmony({ rng: makeRng(1), scale: SCALES.major, bars: 8 });
+    const degrees = (contour: "rising" | "falling" | "arch", seed: number) =>
+      generateMelody({ rng: makeRng(seed), plan, scale: SCALES.major, contour }).map(
+        (n) => n.degree,
+      );
+    expect(degrees("rising", 2)).not.toEqual(degrees("falling", 2)); // the option is actually wired
+    // averaged over seeds, a rising contour ends higher than it starts; a falling one, lower
+    const trend = (contour: "rising" | "falling") => {
+      let sum = 0;
+      for (let s = 0; s < 30; s++) {
+        const d = degrees(contour, s);
+        const h = Math.floor(d.length / 2);
+        const mean = (a: number[]) => a.reduce((x, n) => x + n, 0) / a.length;
+        sum += mean(d.slice(h)) - mean(d.slice(0, h));
+      }
+      return sum / 30;
+    };
+    expect(trend("rising")).toBeGreaterThan(trend("falling"));
+  });
+
   it("lands a chord tone on every strong beat (mohanam over major, default leap)", () => {
     fc.assert(
       fc.property(fc.integer(), (seed) => {

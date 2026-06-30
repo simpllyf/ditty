@@ -22,6 +22,10 @@ export const PROGRESSIONS = {
   doowop: [0, 5, 1, 4], // I–vi–ii–V
   ascending: [0, 3, 4, 5], // I–IV–V–vi
   pachelbel: [0, 4, 5, 2, 3, 0, 3, 4], // I–V–vi–iii–IV–I–IV–V
+  royalRoad: [3, 4, 2, 5], // IV–V–iii–vi — bright, yearning (J-pop "royal road")
+  jazzTurn: [0, 3, 1, 4], // I–IV–ii–V — a turnaround
+  descending: [0, 5, 3, 1], // I–vi–IV–ii — a gently descending bass
+  folk: [0, 4, 3, 4], // I–V–IV–V — a folk/rock vamp
 } as const satisfies Record<string, readonly number[]>;
 
 /** Name of a built-in progression. */

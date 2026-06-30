@@ -26,6 +26,7 @@ import {
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
 import { type StyleName, pickStyle } from "./styles";
+import { DRUM_GROOVES } from "./theory/rhythm";
 import type { DrumName, ScoreVoice } from "./voices";
 
 /**
@@ -62,6 +63,10 @@ export interface SessionOptions {
   density?: number;
   /** Swing amount 0..1. Default: from the style. */
   swing?: number;
+  /** Force one melody contour for every section. Default: the form varies it per section. */
+  contour?: ArrangeOptions["contour"];
+  /** Force the arp's role (arp / double / harmony / counter). Default: the form orchestrates per section. */
+  arpRole?: ArrangeOptions["arpRole"];
   /** Per-voice toggles, e.g. `{ pad: false, drums: false }`. Default: all on. */
   voices?: ArrangeOptions["voices"];
   /** Re-arrange each loop for endless variety (default true); false reuses one arrangement. */
@@ -135,16 +140,7 @@ export function createSession(options: SessionOptions): Session {
   if (!(bpm > 0) || !Number.isFinite(bpm)) {
     throw new RangeError(`createSession: bpm must be a positive number, got ${bpm}`);
   }
-  const beatsPerBar = options.beatsPerBar ?? 4;
   const bars = options.bars ?? 8;
-  // Validate the grid eagerly (not lazily at the first arrange) so a bad config
-  // fails at construction rather than bricking the first scheduler tick.
-  if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
-    throw new RangeError(`createSession: beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
-  }
-  if (!Number.isInteger(bars) || bars < 4) {
-    throw new RangeError(`createSession: bars must be an integer >= 4, got ${bars}`);
-  }
   const evolve = options.evolve ?? true;
 
   const instruments: Record<ScoreVoice, Instrument> = {
@@ -170,6 +166,17 @@ export function createSession(options: SessionOptions): Session {
   // Validate the resolved params eagerly (same checks arrange runs), so a bad config
   // throws here at construction rather than inside the first scheduled tick.
   assertMusicalParams({ swing, density, rootMidi, groove, parent, raga });
+
+  // The meter follows the chosen groove (a waltz IS 3/4), unless the caller pins it.
+  const beatsPerBar = options.beatsPerBar ?? DRUM_GROOVES[groove].beatsPerBar;
+  // Validate the grid eagerly (not lazily at the first arrange) so a bad config
+  // fails at construction rather than bricking the first scheduler tick.
+  if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
+    throw new RangeError(`createSession: beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
+  }
+  if (!Number.isInteger(bars) || bars < 4) {
+    throw new RangeError(`createSession: bars must be an integer >= 4, got ${bars}`);
+  }
 
   // Build the piece-level FORM once: an ordered set of contrasting
   // sections (A/B/C, each with its own progression + texture + density + bass).
@@ -208,9 +215,10 @@ export function createSession(options: SessionOptions): Session {
       plan: section.plan,
       texture: section.texture,
       bassPattern: section.bassPattern,
+      contour: options.contour ?? section.contour, // caller can pin one shape for the whole piece
       dynamics: section.dynamics,
       fill: section.fill,
-      arpRole: section.arpRole, // orchestration: arp arpeggiates / harmonises / doubles the theme
+      arpRole: options.arpRole ?? section.arpRole, // arp arpeggiates / harmonises / doubles / counters the theme
       padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)
       motif: form.motif, // the recurring theme, stated at the head of every section
       motifBars: form.motifBars,

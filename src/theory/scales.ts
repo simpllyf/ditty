@@ -46,6 +46,9 @@ export const SCALES = {
   madhyamavati: [0, 2, 5, 7, 10],
   abhogi: [0, 2, 3, 5, 9],
   mayamalavagowla: [0, 1, 4, 5, 7, 8, 11],
+  sriranjani: [0, 2, 3, 5, 9, 10], // ⊆ dorian — wistful, drops the fifth
+  revati: [0, 1, 5, 7, 10], // ⊆ phrygian — serene b2 pentatonic
+  charukesi: [0, 2, 4, 5, 7, 8, 10], // bright tonic with b6 b7 — bittersweet (a self-paired parent)
 } as const satisfies Record<string, Scale>;
 
 /** Name of a built-in scale. */

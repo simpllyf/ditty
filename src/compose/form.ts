@@ -10,8 +10,9 @@
  * The instruments (the "band") stay fixed across sections; only the arrangement
  * changes. Pure brain: data in, data out, no Web Audio.
  */
+import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
-import type { DrumGrooveName } from "../theory/rhythm";
+import { DRUM_GROOVES, type DrumGrooveName } from "../theory/rhythm";
 import type { Scale } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
@@ -25,6 +26,7 @@ export interface SectionProfile {
   readonly texture: TextureName; // arp/drums dynamic arc
   readonly bassPattern: BassPatternName;
   readonly density: number; // melodic density 0..1 (contrast: B sparser, C busier)
+  readonly contour: ContourShape; // melodic phrase arc — A varies, B settles, C builds
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
   readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
   readonly groove: DrumGrooveName; // drum groove (B sparser, C busier than home)
@@ -78,11 +80,21 @@ const modulate = (base: number, shift: number) => {
   return m >= 40 && m <= 78 ? m : base;
 };
 
-/** A calmer / busier groove than the home one, for the bridge / climax contrast. */
+// A calmer / busier groove than the home one, for the bridge / climax contrast.
+// Only the 4/4 grooves have sparse/busy counterparts; a non-4/4 groove (waltz, 6/8)
+// keeps its meter and lets density/dynamics/tempo carry the section contrast instead.
 const sparser = (g: DrumGrooveName): DrumGrooveName =>
-  g === "halfTime" || g === "soft" || g === "none" ? "soft" : "halfTime";
+  DRUM_GROOVES[g].beatsPerBar !== 4
+    ? g
+    : g === "halfTime" || g === "soft" || g === "none"
+      ? "soft"
+      : "halfTime";
 const busier = (g: DrumGrooveName): DrumGrooveName =>
-  g === "busy" || g === "halfDouble" ? "fourOnFloor" : "busy";
+  DRUM_GROOVES[g].beatsPerBar !== 4
+    ? g
+    : g === "busy" || g === "halfDouble"
+      ? "fourOnFloor"
+      : "busy";
 
 /** This section's tonic: home for A; a related key for the bridge; a lift for the climax. */
 function sectionRoot(label: string, o: FormOptions): number {
@@ -111,11 +123,12 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       texture: o.rng.pick(["breakdown", "build", "pulse"]),
       bassPattern: o.rng.pick(["sustained", "walking", "rootFifth"]),
       density: clampDensity(o.density * 0.6),
+      contour: o.rng.pick(["falling", "flat", "arch"]),
       dynamics: 0.82,
       bpmScale: 0.96, // bridge eases back a touch
       groove: sparser(o.groove),
       voices: { drums: false }, // drums drop out — an intimate, drumless bridge
-      arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
+      arpRole: o.rng.pick(["harmony", "counter"]), // two-part bridge: parallel harmony or an antiphonal counter
       padPattern: "broken", // pad drifts through the chord — gentle bridge movement
     };
   }
@@ -128,6 +141,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       texture: "full",
       bassPattern: "pulse",
       density: clampDensity(o.density * 1.25),
+      contour: o.rng.pick(["rising", "arch"]),
       dynamics: 1.12,
       bpmScale: 1.06, // climax pushes ahead
       groove: busier(o.groove),
@@ -144,6 +158,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     texture: "full",
     bassPattern: o.rng.pick(["rootFifth", "rootFifth", "walking"]),
     density: clampDensity(o.density),
+    contour: o.rng.pick(["arch", "arch", "rising", "flat"]),
     dynamics: 1,
     bpmScale: 1, // home tempo
     groove: o.groove, // home groove (the style's pick)
