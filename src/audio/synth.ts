@@ -169,6 +169,18 @@ export class Synth {
     this.master.gain.setTargetAtTime(clamp(volume, 0, 1), this.ctx.currentTime, 0.02);
   }
 
+  /**
+   * Linear master fade to `target` over `seconds` — a click-free edge for pause/resume.
+   * Anchors at the current value first so the ramp is continuous even mid-fade.
+   */
+  fade(target: number, seconds: number): void {
+    const now = this.ctx.currentTime;
+    const g = this.master.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(clamp(target, 0, 1), now + Math.max(0.005, seconds));
+  }
+
   private buildReverb(opts: { decay?: number; damping?: number; mix?: number }): GainNodeLike {
     const input = this.ctx.createGain();
     const wet = this.ctx.createGain();

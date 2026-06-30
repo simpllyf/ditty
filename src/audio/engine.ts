@@ -50,6 +50,10 @@ export interface Engine {
 // NaN-guarded clamp — a NaN volume must never reach the master AudioParam.
 const clamp = clampSafe;
 
+// Pause/resume fade the master over this many seconds so suspending the context
+// (which freezes the waveform instantly) lands on silence instead of mid-note — no click.
+const PAUSE_FADE_SECONDS = 0.03;
+
 /** The audio graph, built lazily on first start(); null until then (SSR-safe). */
 interface Graph {
   readonly context: EngineAudioContext;
@@ -64,6 +68,13 @@ export function createEngine(options: EngineOptions = {}): Engine {
   let volume = clamp(options.volume ?? 0.3, 0, 1);
   let graph: Graph | null = null;
   let disposed = false;
+  let suspendTimer: ReturnType<typeof setTimeout> | null = null;
+  const cancelPendingSuspend = () => {
+    if (suspendTimer !== null) {
+      clearTimeout(suspendTimer);
+      suspendTimer = null;
+    }
+  };
 
   function ensureGraph(): Graph {
     if (graph) return graph;
@@ -92,26 +103,46 @@ export function createEngine(options: EngineOptions = {}): Engine {
   return {
     async start(): Promise<void> {
       if (disposed) return;
-      const { context, scheduler } = ensureGraph();
+      cancelPendingSuspend();
+      const { context, scheduler, synth } = ensureGraph();
       await context.resume();
       if (disposed) return; // dispose() may have run during the await
       scheduler.start();
+      synth.fade(volume, PAUSE_FADE_SECONDS); // fade in (covers a (re)start from a faded state)
     },
 
     stop(): void {
+      cancelPendingSuspend();
       graph?.scheduler.stop();
     },
 
     pause(): void {
-      if (disposed) return;
-      graph?.scheduler.pause(); // keep position so resume() continues, not restarts
-      void graph?.context.suspend().catch(() => {});
+      if (disposed || !graph) return;
+      cancelPendingSuspend();
+      const g = graph;
+      g.synth.fade(0, PAUSE_FADE_SECONDS); // fade to silence FIRST...
+      g.scheduler.pause(); // keep position so resume() continues, not restarts
+      // ...then suspend once the fade has landed, so the freeze is on silence — no click.
+      suspendTimer = setTimeout(
+        () => {
+          suspendTimer = null;
+          if (!disposed && graph === g) void g.context.suspend().catch(() => {});
+        },
+        PAUSE_FADE_SECONDS * 1000 + 20,
+      );
     },
 
     resume(): void {
       if (disposed || !graph) return;
-      void graph.context.resume().catch(() => {});
-      graph.scheduler.resume();
+      cancelPendingSuspend();
+      const g = graph;
+      g.scheduler.resume();
+      void g.context
+        .resume()
+        .then(() => {
+          if (!disposed && graph === g) g.synth.fade(volume, PAUSE_FADE_SECONDS); // fade back up
+        })
+        .catch(() => {});
     },
 
     setVolume(value: number): void {
@@ -122,6 +153,7 @@ export function createEngine(options: EngineOptions = {}): Engine {
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      cancelPendingSuspend();
       graph?.scheduler.stop();
       graph?.synth.dispose();
       if (graph?.ownsContext) void graph.context.close().catch(() => {});
