@@ -63,6 +63,23 @@ Pick a vibe and let the seed do the rest, or pin any knob yourself — explicit
 options always override the style, e.g.
 `createEngine({ style: "calm", bpm: 84, voices: { arp: false } })`.
 
+### Background playback
+
+Ditty _synthesizes_ audio from a JavaScript timer — it doesn't stream a pre-rendered
+file the way a music app does. Mobile browsers throttle that timer when the tab is
+hidden or the screen locks, which starves the scheduler and breaks the audio into gaps.
+The engine is deliberately DOM-free, so handle this in your app by pausing while hidden:
+
+```js
+document.addEventListener("visibilitychange", () => {
+  document.hidden ? engine.pause() : engine.resume();
+});
+```
+
+For background music that's also the behavior users expect, and it saves battery. (Truly
+playing on while the screen is locked is a different thing — it needs a streamed media
+element, which a synthesis engine isn't.)
+
 ### Options
 
 | Option                           | Default          | Notes                                                                                    |

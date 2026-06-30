@@ -1757,6 +1757,28 @@
             e.target.blur();
           }
         };
+
+        // Pause when the tab/screen is backgrounded. Ditty schedules audio just ahead of
+        // the playhead from a JS timer; mobile browsers throttle that timer to ~1 Hz when
+        // hidden, which starves the look-ahead and breaks the audio into gaps. Pausing
+        // sidesteps it entirely (and matches what users expect of app BGM); we resume only
+        // what we auto-paused, so a manual pause stays paused.
+        let autoPaused = false;
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            if (state.playing && engine) {
+              try {
+                engine.pause();
+                autoPaused = true;
+              } catch (e) {}
+            }
+          } else if (autoPaused) {
+            autoPaused = false;
+            try {
+              engine && engine.resume();
+            } catch (e) {}
+          }
+        });
       }
       init();
     </script>
