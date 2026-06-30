@@ -120,12 +120,21 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
     degrees = Array.from({ length: bars }, (_, i) => base[i % base.length] as number);
   }
 
-  // Cadences: authentic V→I into the loop point, half-cadence on V at the midpoint.
+  // Cadence: the final bar always resolves to the tonic (the seamless loop point) and
+  // the midpoint stays an open V "question"; the APPROACH to the resolution varies.
   const final = bars - 1;
   const half = Math.floor(bars / 2) - 1;
-  degrees[final] = 0; // I
-  degrees[final - 1] = 4; // V
-  degrees[half] = 4; // V (open)
+  degrees[final] = 0; // I — the resolution / loop point
+  degrees[half] = 4; // V — the open half-cadence
+  const cadence = rng.pick(["authentic", "plagal", "iiV"] as const);
+  if (cadence === "plagal") {
+    degrees[final - 1] = 3; // IV→I — a gentle plagal "amen"
+  } else if (cadence === "iiV" && final - 2 > half) {
+    degrees[final - 2] = 1; // ii
+    degrees[final - 1] = 4; // V — a fuller ii–V–I
+  } else {
+    degrees[final - 1] = 4; // V→I — the authentic cadence
+  }
 
   const barsOut: HarmonicBar[] = degrees.map((degree) => ({
     degree,

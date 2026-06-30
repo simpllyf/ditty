@@ -62,7 +62,7 @@ exports[`arrange — golden & validation > matches a committed structural golden
         },
         {
           "durationBeats": 2,
-          "freq": 220,
+          "freq": 174.61,
           "startBeat": 4,
           "velocity": 0.85,
         },

@@ -66,27 +66,43 @@ describe("generateHarmony — invariants (any seed, any heptatonic parent)", () 
     );
   });
 
-  it("places the cadences: V at the midpoint, V→I into the loop", () => {
+  it("anchors the cadence: tonic at the loop, open V at the midpoint, a V-or-IV approach", () => {
     fc.assert(
       fc.property(fc.integer(), fc.integer({ min: 4, max: 24 }), (seed, bars) => {
         const p = plan(seed, { bars, generate: true });
         expect(p.cadences.final).toBe(bars - 1);
         expect(p.cadences.half).toBe(Math.floor(bars / 2) - 1);
-        expect(p.bars[p.cadences.final]!.degree).toBe(0); // I
-        expect(p.bars[bars - 2]!.degree).toBe(4); // V
-        expect(p.bars[p.cadences.half]!.degree).toBe(4); // V (open)
+        expect(p.bars[p.cadences.final]!.degree).toBe(0); // I — always resolves at the loop point
+        expect(p.bars[p.cadences.half]!.degree).toBe(4); // V — the open half-cadence
+        expect([3, 4]).toContain(p.bars[bars - 2]!.degree); // approach: IV (plagal) or V (authentic / ii–V)
       }),
       { numRuns: 200 },
     );
   });
+
+  it("varies the cadence approach across the corpus — both plagal (IV) and authentic (V) appear", () => {
+    const approaches = new Set<number>();
+    for (let s = 1; s < 60; s++) {
+      approaches.add(
+        generateHarmony({ rng: makeRng(s), scale: SCALES.major, bars: 8 }).bars[6]!.degree,
+      );
+    }
+    expect(approaches.has(3)).toBe(true); // plagal IV→I
+    expect(approaches.has(4)).toBe(true); // authentic V→I
+  });
 });
 
 describe("generateHarmony — progression sources", () => {
-  it("tiles an explicit progression, overwriting exactly the three cadence bars", () => {
-    // Base [0,3,5,2,0,3,5,2]; cadences overwrite half(3): 2→V, final-1(6): 5→V, final(7): 2→I.
-    // Chosen so all three overwrites differ from the tiled body (proves each happened).
-    const p = generateHarmony({ rng: makeRng(1), progression: [0, 3, 5, 2], bars: 8 });
-    expect(p.bars.map((b) => b.degree)).toEqual([0, 3, 5, 4, 0, 3, 4, 0]);
+  it("tiles an explicit progression, then overwrites the cadence bars", () => {
+    // Base [0,3,5,2] tiles to [0,3,5,2,0,3,5,2]; the cadence then overwrites the tail.
+    const degs = generateHarmony({ rng: makeRng(1), progression: [0, 3, 5, 2], bars: 8 }).bars.map(
+      (b) => b.degree,
+    );
+    expect(degs.slice(0, 3)).toEqual([0, 3, 5]); // body shows the tiled progression, untouched
+    expect([degs[4], degs[5]]).toEqual([0, 3]); // …and again before the cadence
+    expect(degs[3]).toBe(4); // half → V
+    expect(degs[7]).toBe(0); // final → I
+    expect([3, 4]).toContain(degs[6]); // approach → IV (plagal) or V
   });
 
   it("supports odd bar counts (no even requirement)", () => {
