@@ -1,5 +1,60 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golden — non-4/4 determinism) 1`] = `
+{
+  "sixEight": {
+    "beatsPerBar": 6,
+    "drums": [
+      "kick@0",
+      "kick@3",
+      "snare@3",
+      "hat@0",
+      "hat@1",
+      "hat@2",
+    ],
+    "firstFreqs": [
+      523,
+      440,
+      392,
+      131,
+      165,
+      196,
+      262,
+      330,
+      392,
+      523,
+      659,
+      784,
+    ],
+  },
+  "waltz": {
+    "beatsPerBar": 3,
+    "drums": [
+      "kick@0",
+      "snare@1",
+      "snare@2",
+      "hat@0",
+      "hat@1",
+      "hat@2",
+    ],
+    "firstFreqs": [
+      523,
+      523,
+      659,
+      131,
+      165,
+      196,
+      262,
+      330,
+      392,
+      523,
+      659,
+      784,
+    ],
+  },
+}
+`;
+
 exports[`createSession > locks the seed→session mapping (golden — pins the style/instrument/arrange/noise fork chain) 1`] = `
 {
   "bars": 8,

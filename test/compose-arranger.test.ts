@@ -4,6 +4,7 @@ import { PART_ARRANGERS, type ScoreVoice, arrange, thirdBelow } from "../src/com
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
+import { DRUM_GROOVES } from "../src/theory/rhythm";
 import { SCALES, type Scale, degreeToSemitone } from "../src/theory/scales";
 
 const DEFAULT_ROOT = 60;
@@ -67,6 +68,33 @@ describe("arrange — voices & registers", () => {
     const score = arr({ seed: 3 });
     expect(score.parts.map((p) => p.voice)).toEqual(["lead", "bass", "pad", "arp"]);
     expect(score.drums.length).toBeGreaterThan(0);
+  });
+
+  it("arranges valid music in 3/4 (waltz) and 6/8 (sixEight) — nothing spills past the loop", () => {
+    for (const groove of ["waltz", "sixEight"] as const) {
+      const bpb = DRUM_GROOVES[groove].beatsPerBar;
+      const score = arrange({
+        rng: makeRng(3),
+        parent: SCALES.major,
+        raga: SCALES.mohanam,
+        bars: 6,
+        beatsPerBar: bpb,
+        groove,
+      });
+      expect(score.beatsPerBar).toBe(bpb);
+      const loopBeats = score.bars * bpb;
+      for (const p of score.parts) {
+        for (const n of p.notes) {
+          expect(Number.isFinite(n.freq)).toBe(true);
+          expect(n.startBeat).toBeGreaterThanOrEqual(0);
+          expect(n.startBeat + n.durationBeats).toBeLessThanOrEqual(loopBeats + 1e-9);
+        }
+      }
+      for (const h of score.drums) {
+        expect(h.startBeat).toBeGreaterThanOrEqual(0);
+        expect(h.startBeat).toBeLessThan(loopBeats);
+      }
+    }
   });
 
   it("drives the ensemble from the PART_ARRANGERS registry, in registry order", () => {
