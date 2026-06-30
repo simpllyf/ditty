@@ -128,7 +128,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       bpmScale: 0.96, // bridge eases back a touch
       groove: sparser(o.groove),
       voices: { drums: false }, // drums drop out — an intimate, drumless bridge
-      arpRole: "harmony", // the arp harmonises the theme — a lyrical two-part bridge
+      arpRole: o.rng.pick(["harmony", "counter"]), // two-part bridge: parallel harmony or an antiphonal counter
       padPattern: "broken", // pad drifts through the chord — gentle bridge movement
     };
   }

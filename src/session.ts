@@ -65,6 +65,8 @@ export interface SessionOptions {
   swing?: number;
   /** Force one melody contour for every section. Default: the form varies it per section. */
   contour?: ArrangeOptions["contour"];
+  /** Force the arp's role (arp / double / harmony / counter). Default: the form orchestrates per section. */
+  arpRole?: ArrangeOptions["arpRole"];
   /** Per-voice toggles, e.g. `{ pad: false, drums: false }`. Default: all on. */
   voices?: ArrangeOptions["voices"];
   /** Re-arrange each loop for endless variety (default true); false reuses one arrangement. */
@@ -216,7 +218,7 @@ export function createSession(options: SessionOptions): Session {
       contour: options.contour ?? section.contour, // caller can pin one shape for the whole piece
       dynamics: section.dynamics,
       fill: section.fill,
-      arpRole: section.arpRole, // orchestration: arp arpeggiates / harmonises / doubles the theme
+      arpRole: options.arpRole ?? section.arpRole, // arp arpeggiates / harmonises / doubles / counters the theme
       padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)
       motif: form.motif, // the recurring theme, stated at the head of every section
       motifBars: form.motifBars,

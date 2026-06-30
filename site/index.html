@@ -1111,6 +1111,7 @@
         // advanced (collapsed by default)
         groove: "", // "" = auto (the style picks); else forces a groove (and its meter)
         contour: "", // "" = auto (form varies per section); else forces one melody shape
+        arpRole: "", // "" = auto (form orchestrates); else forces the arp's role
         evolve: true,
         humanize: true,
         chromatic: true,
@@ -1168,6 +1169,7 @@
         };
         if (state.groove) o.groove = state.groove; // else the style picks (and sets the meter)
         if (state.contour) o.contour = state.contour; // else the form varies it per section
+        if (state.arpRole) o.arpRole = state.arpRole; // else the form orchestrates per section
         const off = {};
         for (const v of VOICE_LIST) if (!state.voices[v]) off[v] = false;
         if (Object.keys(off).length) o.voices = off;
@@ -1378,6 +1380,13 @@
             ),
           )
           .join("");
+        const arpRoleOpts = ['<option value="">auto (per section)</option>']
+          .concat(
+            ["arp", "double", "harmony", "counter"].map(
+              (r) => `<option value="${r}"${state.arpRole === r ? " selected" : ""}>${r}</option>`,
+            ),
+          )
+          .join("");
         const lbl = (t) =>
           `<span style="font-size:13px;font-weight:600;color:var(--ink2)">${t}</span>`;
         const check = (id, label, on) =>
@@ -1387,6 +1396,7 @@
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("groove / meter")}<select id="advGroove" style="${sel}">${grooveOpts}</select></label>` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("bars")}<select id="advBars" style="${sel}">${barsOpts}</select></label>` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("contour")}<select id="advContour" style="${sel}">${contourOpts}</select></label>` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("arp role")}<select id="advArpRole" style="${sel}">${arpRoleOpts}</select></label>` +
           `</div>` +
           `<div style="display:flex;gap:20px;flex-wrap:wrap">${ADV_TOGGLES.map((k) => check("adv-" + k, k, state[k])).join("")}</div>` +
           `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">${lbl("voices")}${VOICE_LIST.map((v) => check("voice-" + v, v, state.voices[v])).join("")}</div>`;
@@ -1400,6 +1410,10 @@
         };
         $("advContour").onchange = (e) => {
           state.contour = e.target.value;
+          reflectAdvanced();
+        };
+        $("advArpRole").onchange = (e) => {
+          state.arpRole = e.target.value;
           reflectAdvanced();
         };
         for (const k of ADV_TOGGLES)

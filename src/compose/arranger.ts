@@ -113,7 +113,7 @@ export const BASS_PATTERNS = ["rootFifth", "walking", "pulse", "sustained"] as c
 export type BassPatternName = (typeof BASS_PATTERNS)[number];
 
 /** What the arp instrument plays — its own arpeggio, or an orchestrated role on the theme. */
-export type ArpRole = "arp" | "double" | "harmony";
+export type ArpRole = "arp" | "double" | "harmony" | "counter";
 
 /** How the pad voices a chord — held block, broken (staggered), or rhythmic stabs. */
 export type PadPattern = "sustain" | "stabs" | "broken";
@@ -346,7 +346,7 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
 function arrangeArp(ctx: PartContext): ScoreNote[] {
   const { plan, beatsPerBar, bars, rootMidi, raga, fit, swung, active, texture, arpRng } = ctx;
   const arpRole = ctx.options.arpRole ?? "arp";
-  if (arpRole !== "arp") {
+  if (arpRole === "double" || arpRole === "harmony") {
     // Orchestration: the arp instrument follows the THEME instead of arpeggiating —
     // doubling it an octave up (a tutti climax) or harmonising it a third below (a
     // two-part bridge). Tracks the lead, so it sits in the same phrasing.
@@ -361,6 +361,45 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
         velocity: n.velocity * 0.7, // sits just under the lead
       };
     });
+  }
+  if (arpRole === "counter") {
+    // A slow counter-line: one chord tone every two beats, wandering through a register
+    // band beneath the lead — a second melodic voice that converses with the busy theme
+    // by moving against it at a contrasting pace. Chord tones keep it consonant with the
+    // lead's chord-tone strong beats; it steps to the nearest tone but avoids repeating,
+    // so it actually moves instead of pedalling.
+    const counter: ScoreNote[] = [];
+    const stride = 2; // beats between counter notes
+    const loBand = rootMidi - 2;
+    const hiBand = rootMidi + OCTAVE - 3; // a tenor band that stays under the lead's soprano
+    let prevMidi = rootMidi + 2;
+    for (let bar = 0; bar < bars; bar++) {
+      const pcs = plan.bars[bar]!.chord.pcs;
+      const cands = pcs
+        .flatMap((pc) => [rootMidi + pc, rootMidi + pc + OCTAVE])
+        .filter((m) => m >= loBand && m <= hiBand);
+      for (let b = 0; b < beatsPerBar; b += stride) {
+        const start = swung(bar * beatsPerBar + b);
+        if (!active(texture.arp, start)) continue;
+        let pick = cands[0] ?? rootMidi;
+        let best = Infinity;
+        for (const m of cands) {
+          const cost = Math.abs(m - prevMidi) + (m === prevMidi ? 5 : 0); // nudge it off a repeat
+          if (cost < best) {
+            best = cost;
+            pick = m;
+          }
+        }
+        counter.push({
+          startBeat: start,
+          durationBeats: fit(start, stride * 0.95),
+          freq: midiToFrequency(pick),
+          velocity: 0.4,
+        });
+        prevMidi = pick;
+      }
+    }
+    return counter;
   }
   const notes: ScoreNote[] = [];
   const pattern = arpRng.pick(ARP_PATTERNS);

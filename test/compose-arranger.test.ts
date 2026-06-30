@@ -70,6 +70,29 @@ describe("arrange — voices & registers", () => {
     expect(score.drums.length).toBeGreaterThan(0);
   });
 
+  it("the 'counter' arp role weaves a moving chord-tone line beneath the lead", () => {
+    const score = arrange({
+      rng: makeRng(7),
+      parent: SCALES.major,
+      raga: SCALES.mohanam,
+      bars: 8,
+      beatsPerBar: 4,
+      arpRole: "counter",
+    });
+    const mean = (ns: readonly { freq: number }[]) =>
+      ns.reduce((s, n) => s + n.freq, 0) / ns.length;
+    const lead = score.parts.find((p) => p.voice === "lead")!.notes;
+    const counter = score.parts.find((p) => p.voice === "arp")!.notes;
+    expect(counter.length).toBeGreaterThan(0);
+    expect(counter.every((n) => Number.isFinite(n.freq))).toBe(true);
+    expect(mean(counter)).toBeLessThan(mean(lead)); // sits under the lead's soprano
+    const semis = counter.map((n) => Math.round(12 * Math.log2(n.freq / 261.6256)));
+    expect(new Set(semis).size).toBeGreaterThan(1); // it actually moves (not a pedal)
+    for (let i = 1; i < semis.length; i++) {
+      expect(Math.abs(semis[i]! - semis[i - 1]!)).toBeLessThanOrEqual(7); // stays within a fifth — smooth
+    }
+  });
+
   it("arranges valid music in 3/4 (waltz) and 6/8 (sixEight) — nothing spills past the loop", () => {
     for (const groove of ["waltz", "sixEight"] as const) {
       const bpb = DRUM_GROOVES[groove].beatsPerBar;
