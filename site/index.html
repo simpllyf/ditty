@@ -1153,6 +1153,20 @@
       // ---- engine ----
       const VOICE_LIST = ["lead", "bass", "pad", "arp", "drums"];
       const ADV_TOGGLES = ["evolve", "humanize", "chromatic"];
+      // Curated arrangement archetypes "new track" draws from — each musical, each a
+      // distinctly different texture (the lever that makes tracks actually sound unlike
+      // each other, beyond tempo/scale). Disabled voices simply drop out.
+      const VOICE_ARCHETYPES = [
+        {}, // full ensemble
+        { drums: false }, // drumless — flowing / ambient
+        { pad: false }, // no wash
+        { arp: false }, // no sparkle
+        { pad: false, arp: false }, // trio: lead + bass + drums
+        { pad: false, arp: false, drums: false }, // duo: lead + bass
+        { arp: false, drums: false }, // chamber: lead + bass + pad
+        { lead: false, drums: false }, // bed: bass + pad + arp (a textural wash)
+        { lead: false, pad: false }, // groove: bass + arp + drums (instrumental)
+      ];
       const engineOpts = () => {
         const o = {
           seed: state.seed,
@@ -1302,16 +1316,16 @@
       }
       function renderRecipe(d) {
         const meter = d.beatsPerBar === 6 ? "6/8" : d.beatsPerBar + "/4";
+        const on = (v) => state.voices[v] !== false;
         const rows = [
           ["key", d.key],
           ["raga", d.raga],
           ["meter", meter],
-          ["groove", d.groove],
-          ["lead", d.instruments.lead],
-          ["pad", d.instruments.pad],
-          ["bass", d.instruments.bass],
-          ["arp", d.instruments.arp],
+          ["groove", on("drums") ? d.groove : "drumless"],
         ];
+        // Only list the instruments that are actually playing — so the recipe shows the
+        // arrangement (a trio, a drumless bed, a full ensemble), not a fixed five voices.
+        for (const v of ["lead", "pad", "bass", "arp"]) if (on(v)) rows.push([v, d.instruments[v]]);
         $("recipe").innerHTML = rows
           .map(
             ([k, v]) =>
@@ -1469,13 +1483,32 @@
         }
       }
       function shuffle() {
-        // "New track" rolls a new VIBE (not just a new seed) — the breadth lives across
-        // styles (meter, scale family, tempo, instruments), so shuffling within one vibe
-        // sounds same-y by design. Pick a different style, then a fresh seed.
-        const others = STYLE_NAMES.filter((s) => s !== state.style);
-        state.style = others[(Math.random() * others.length) | 0];
-        renderStyles();
-        commitSeed(String((Math.random() * 0xffffffff) >>> 0));
+        // "New track" rolls a genuinely new POINT in the engine's space, not just a tempo:
+        // a new vibe, a new arrangement (which voices play), form length, melody contour and
+        // arp texture. The vibe+seed already vary scale, groove, meter, tempo and instruments;
+        // these add the arrangement/texture/form variety a fixed full ensemble never showed.
+        // humanize/evolve/chromatic stay on — toggling them off degrades, it doesn't diversify.
+        const pick = (a) => a[(Math.random() * a.length) | 0];
+        state.style = pick(STYLE_NAMES.filter((s) => s !== state.style));
+        state.seed = (Math.random() * 0xffffffff) >>> 0;
+        state.groove = ""; // let the vibe pick the groove (and its meter)
+        state.bars = pick([8, 8, 12, 16]);
+        state.contour = pick(["", "", "arch", "rising", "falling", "flat"]);
+        state.arpRole = pick(["", "", "arp", "double", "harmony", "counter"]);
+        state.voices = {
+          lead: true,
+          bass: true,
+          pad: true,
+          arp: true,
+          drums: true,
+          ...pick(VOICE_ARCHETYPES),
+        };
+        $("seedInput").value = String(state.seed);
+        renderStyles(); // highlight the new vibe
+        renderAdvanced(); // reflect the rolled groove/bars/contour/arp role/voices in the panel
+        applyDerived(); // re-derive recipe/form + reset the tempo/density/swing knobs to the new vibe
+        buildEngine(false);
+        updateStatus();
       }
       function commitSeed(str) {
         let seed = parseInt(str, 10);
