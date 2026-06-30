@@ -22,6 +22,8 @@ export interface AudioParamLike {
   linearRampToValueAtTime(value: number, endTime: number): void;
   setTargetAtTime(target: number, startTime: number, timeConstant: number): void;
   cancelScheduledValues(startTime: number): void;
+  /** Hold the current value and cancel pending automation (not in very old browsers). */
+  cancelAndHoldAtTime?(cancelTime: number): void;
 }
 /** The slice of `AudioNode` the synth uses. A node can drive another node or an
  * `AudioParam` (the latter is how an LFO modulates frequency/detune/gain). */
@@ -170,14 +172,22 @@ export class Synth {
   }
 
   /**
-   * Smoothly ramp the master toward `target` for a click-free pause/resume edge.
-   * Uses setTargetAtTime — the same reliable mechanism as setVolume — so it ramps
-   * exponentially FROM the param's true current value. (A linear ramp would have to
-   * anchor at `master.gain.value`, which is unreliable mid-automation and can step the
-   * gain — itself a click.) `timeConstant` ~0.05 → ~99% of the way in ~0.25 s.
+   * Linear master ramp to EXACTLY `target` over `seconds`, for a click-free pause/resume
+   * edge. cancelAndHoldAtTime holds the param's true current value (no fragile `.value`
+   * read, no step) before ramping; a linear ramp then actually REACHES the target — so a
+   * fade-out hits true 0 before the context is suspended. (A setTargetAtTime ramp is
+   * asymptotic and leaves a sliver of signal for the suspend to chop = a click.)
    */
-  fade(target: number, timeConstant = 0.05): void {
-    this.master.gain.setTargetAtTime(clamp(target, 0, 1), this.ctx.currentTime, timeConstant);
+  fade(target: number, seconds = 0.1): void {
+    const now = this.ctx.currentTime;
+    const g = this.master.gain;
+    if (g.cancelAndHoldAtTime) {
+      g.cancelAndHoldAtTime(now);
+    } else {
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+    }
+    g.linearRampToValueAtTime(clamp(target, 0, 1), now + Math.max(0.01, seconds));
   }
 
   private buildReverb(opts: { decay?: number; damping?: number; mix?: number }): GainNodeLike {

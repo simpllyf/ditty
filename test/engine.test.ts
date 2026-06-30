@@ -112,13 +112,13 @@ describe("createEngine", () => {
     await engine.start();
     const master = ctx.gains[0]!.gain;
     engine.pause();
-    expect(master.events.some((e) => e.type === "target" && e.value === 0)).toBe(true); // smooth fade-out
-    expect(ctx.suspendCount).toBe(0); // suspend deferred well past the fade (no mid-note freeze → no click)
+    expect(master.events.some((e) => e.type === "linramp" && e.value === 0)).toBe(true); // ramp to TRUE 0
+    expect(ctx.suspendCount).toBe(0); // suspend deferred well past the fade (freeze lands on silence → no click)
     await new Promise((r) => setTimeout(r, 350));
     expect(ctx.suspendCount).toBe(1);
     engine.resume();
     expect(ctx.resumeCount).toBeGreaterThanOrEqual(2);
-    expect(master.events.some((e) => e.type === "target" && e.value === 0.5)).toBe(true); // ramped back up
+    expect(master.events.some((e) => e.type === "linramp" && e.value === 0.5)).toBe(true); // ramped back up
   });
 
   it("setVolume ramps the master gain", async () => {
