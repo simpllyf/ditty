@@ -82,8 +82,14 @@ export function melodyRhythm(
   return onsets;
 }
 
-/** A drum pattern: hit positions in beats (authored for 4/4). */
+/**
+ * A drum pattern: hit positions in beats, authored for a specific meter. The
+ * meter (`beatsPerBar`) is a property of the groove because feel and meter are
+ * inseparable — a waltz IS 3/4 — so choosing a groove also chooses the meter.
+ */
 export interface DrumGroove {
+  /** The meter this groove is written for; all hit positions are in [0, beatsPerBar). */
+  readonly beatsPerBar: number;
   readonly kick: readonly number[];
   readonly snare: readonly number[];
   readonly hat: readonly number[];
@@ -92,31 +98,32 @@ export interface DrumGroove {
 const EIGHTHS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5];
 const SIXTEENTHS = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75];
 
-/** Drum grooves, authored in 4/4 (positions 0..3.5). Pick by style; combine with {@link fitGroove}. */
+/** Drum grooves. Most are 4/4; `waltz` is 3/4 and `sixEight` a 6/8 lilt. Pick by style. */
 export const DRUM_GROOVES = {
-  straight: { kick: [0, 2], snare: [1, 3], hat: EIGHTHS },
-  fourOnFloor: { kick: [0, 1, 2, 3], snare: [1, 3], hat: [0.5, 1.5, 2.5, 3.5] },
-  halfTime: { kick: [0], snare: [2], hat: EIGHTHS },
-  soft: { kick: [0, 2], snare: [], hat: [0, 1, 2, 3] },
-  busy: { kick: [0, 1.5, 2, 3.5], snare: [1, 3], hat: EIGHTHS },
-  syncopated: { kick: [0, 1.5, 2.5], snare: [1, 3], hat: EIGHTHS }, // off-beat kick push
-  breakbeat: { kick: [0, 0.75, 2.5], snare: [1, 3], hat: EIGHTHS }, // broken kick
-  halfDouble: { kick: [0], snare: [2], hat: SIXTEENTHS }, // slow backbeat, double-time hats
-  none: { kick: [], snare: [], hat: [] },
+  straight: { beatsPerBar: 4, kick: [0, 2], snare: [1, 3], hat: EIGHTHS },
+  fourOnFloor: { beatsPerBar: 4, kick: [0, 1, 2, 3], snare: [1, 3], hat: [0.5, 1.5, 2.5, 3.5] },
+  halfTime: { beatsPerBar: 4, kick: [0], snare: [2], hat: EIGHTHS },
+  soft: { beatsPerBar: 4, kick: [0, 2], snare: [], hat: [0, 1, 2, 3] },
+  busy: { beatsPerBar: 4, kick: [0, 1.5, 2, 3.5], snare: [1, 3], hat: EIGHTHS },
+  syncopated: { beatsPerBar: 4, kick: [0, 1.5, 2.5], snare: [1, 3], hat: EIGHTHS }, // off-beat kick push
+  breakbeat: { beatsPerBar: 4, kick: [0, 0.75, 2.5], snare: [1, 3], hat: EIGHTHS }, // broken kick
+  halfDouble: { beatsPerBar: 4, kick: [0], snare: [2], hat: SIXTEENTHS }, // slow backbeat, double-time hats
+  waltz: { beatsPerBar: 3, kick: [0], snare: [1, 2], hat: [0, 1, 2] }, // 3/4 oom-pah-pah
+  sixEight: { beatsPerBar: 6, kick: [0, 3], snare: [3], hat: [0, 1, 2, 3, 4, 5] }, // 6/8 compound lilt
+  none: { beatsPerBar: 4, kick: [], snare: [], hat: [] },
 } as const satisfies Record<string, DrumGroove>;
 
 /** Name of a built-in drum groove. */
 export type DrumGrooveName = keyof typeof DRUM_GROOVES;
 
 /**
- * Restrict a groove to a meter by dropping hits at/after `beatsPerBar`.
- * Filter-only: grooves are authored for 4/4, so longer meters (5–6) leave later
- * beats empty and 3/4 drops the beat-3 hits — the arranger should pick a
- * meter-appropriate groove rather than rely on filling.
+ * Clip a groove's hits to `beatsPerBar`. A safety net for the case where the
+ * meter is overridden away from the groove's own (`DrumGroove.beatsPerBar`) — a
+ * groove played in a shorter meter would otherwise schedule hits past the loop.
  */
 export function fitGroove(groove: DrumGroove, beatsPerBar: number): DrumGroove {
   const fit = (positions: readonly number[]) => positions.filter((p) => p < beatsPerBar);
-  return { kick: fit(groove.kick), snare: fit(groove.snare), hat: fit(groove.hat) };
+  return { beatsPerBar, kick: fit(groove.kick), snare: fit(groove.snare), hat: fit(groove.hat) };
 }
 
 /** Maximum swing offset, in beats — a 2:1 (triplet) feel at amount 1; < a sixteenth, so onsets never reorder. */
