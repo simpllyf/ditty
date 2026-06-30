@@ -168,7 +168,11 @@ export class Synth {
 
   /** Set master volume, 0..1. Ramped (~20 ms) so live changes don't zipper-click. */
   setVolume(volume: number): void {
-    this.master.gain.setTargetAtTime(clamp(volume, 0, 1), this.ctx.currentTime, 0.02);
+    const g = this.master.gain;
+    // Cancel any in-flight pause/resume fade so this target is authoritative — otherwise a
+    // leftover ramp (e.g. start()'s fade) and this setTarget fight and can leave the gain stuck.
+    if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(this.ctx.currentTime);
+    g.setTargetAtTime(clamp(volume, 0, 1), this.ctx.currentTime, 0.02);
   }
 
   /**
