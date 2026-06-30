@@ -14,7 +14,7 @@ exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golde
     ],
     "firstFreqs": [
       523,
-      440,
+      392,
       392,
       131,
       165,
@@ -38,9 +38,9 @@ exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golde
       "hat@2",
     ],
     "firstFreqs": [
+      392,
+      440,
       523,
-      523,
-      659,
       131,
       165,
       196,
@@ -62,9 +62,9 @@ exports[`createSession > locks the seed→session mapping (golden — pins the s
   "bpm": 107,
   "firstFreqs": [
     659,
-    392,
-    262,
-    392,
+    523,
+    523,
+    494,
     131,
     196,
     220,

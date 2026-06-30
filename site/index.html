@@ -1110,6 +1110,7 @@
         beatsPerBar: 4,
         // advanced (collapsed by default)
         groove: "", // "" = auto (the style picks); else forces a groove (and its meter)
+        contour: "", // "" = auto (form varies per section); else forces one melody shape
         evolve: true,
         humanize: true,
         chromatic: true,
@@ -1166,6 +1167,7 @@
           audioContext: ensureAudio().ctx,
         };
         if (state.groove) o.groove = state.groove; // else the style picks (and sets the meter)
+        if (state.contour) o.contour = state.contour; // else the form varies it per section
         const off = {};
         for (const v of VOICE_LIST) if (!state.voices[v]) off[v] = false;
         if (Object.keys(off).length) o.voices = off;
@@ -1369,6 +1371,13 @@
         const barsOpts = [4, 8, 12, 16]
           .map((b) => `<option value="${b}"${state.bars === b ? " selected" : ""}>${b}</option>`)
           .join("");
+        const contourOpts = ['<option value="">auto (per section)</option>']
+          .concat(
+            ["arch", "rising", "falling", "flat"].map(
+              (c) => `<option value="${c}"${state.contour === c ? " selected" : ""}>${c}</option>`,
+            ),
+          )
+          .join("");
         const lbl = (t) =>
           `<span style="font-size:13px;font-weight:600;color:var(--ink2)">${t}</span>`;
         const check = (id, label, on) =>
@@ -1377,6 +1386,7 @@
           `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("groove / meter")}<select id="advGroove" style="${sel}">${grooveOpts}</select></label>` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("bars")}<select id="advBars" style="${sel}">${barsOpts}</select></label>` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("contour")}<select id="advContour" style="${sel}">${contourOpts}</select></label>` +
           `</div>` +
           `<div style="display:flex;gap:20px;flex-wrap:wrap">${ADV_TOGGLES.map((k) => check("adv-" + k, k, state[k])).join("")}</div>` +
           `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">${lbl("voices")}${VOICE_LIST.map((v) => check("voice-" + v, v, state.voices[v])).join("")}</div>`;
@@ -1386,6 +1396,10 @@
         };
         $("advBars").onchange = (e) => {
           state.bars = +e.target.value;
+          reflectAdvanced();
+        };
+        $("advContour").onchange = (e) => {
+          state.contour = e.target.value;
           reflectAdvanced();
         };
         for (const k of ADV_TOGGLES)

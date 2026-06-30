@@ -116,6 +116,23 @@ describe("buildForm", () => {
     }
   });
 
+  it("shapes a melodic contour per section: C builds, B settles, and they vary", () => {
+    const allowed = (label: string) =>
+      label === "C"
+        ? ["rising", "arch"] // climax builds
+        : label === "B"
+          ? ["falling", "flat", "arch"] // bridge settles
+          : ["arch", "rising", "flat"]; // home varies
+    const seen = new Set<string>();
+    for (let s = 1; s < 40; s++) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+        seen.add(sec.contour);
+        expect(allowed(sec.label)).toContain(sec.contour);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(1); // the contour genuinely varies across the corpus
+  });
+
   it("carries a recurring theme stated within its motif span", () => {
     const form = buildForm({ rng: makeRng(1), ...base });
     expect(form.motif.length).toBeGreaterThan(0); // a real theme

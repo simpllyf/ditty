@@ -8,6 +8,7 @@
  * major) so the lead's raga tones stay in key with the chord-tone pad/arp/bass;
  * throws otherwise.
  */
+import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
 import { DEFAULT_ROOT_MIDI, OCTAVE, midiToFrequency, pitchClass } from "../theory/pitch";
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
@@ -85,6 +86,8 @@ export interface ArrangeOptions {
   density?: number;
   swing?: number;
   leadRange?: readonly [number, number];
+  /** Melody phrase contour shape. Default "arch". */
+  contour?: ContourShape;
 }
 
 const MIN_ROOT_MIDI = 36;
@@ -453,6 +456,7 @@ export function arrange(options: ArrangeOptions): Score {
         scale: raga,
         range: leadRange,
         density,
+        ...(options.contour !== undefined ? { contour: options.contour } : {}),
         ...(options.motif !== undefined ? { motif: options.motif } : {}),
         ...(options.motifBars !== undefined ? { motifBars: options.motifBars } : {}),
       })

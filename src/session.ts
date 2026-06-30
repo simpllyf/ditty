@@ -63,6 +63,8 @@ export interface SessionOptions {
   density?: number;
   /** Swing amount 0..1. Default: from the style. */
   swing?: number;
+  /** Force one melody contour for every section. Default: the form varies it per section. */
+  contour?: ArrangeOptions["contour"];
   /** Per-voice toggles, e.g. `{ pad: false, drums: false }`. Default: all on. */
   voices?: ArrangeOptions["voices"];
   /** Re-arrange each loop for endless variety (default true); false reuses one arrangement. */
@@ -211,6 +213,7 @@ export function createSession(options: SessionOptions): Session {
       plan: section.plan,
       texture: section.texture,
       bassPattern: section.bassPattern,
+      contour: options.contour ?? section.contour, // caller can pin one shape for the whole piece
       dynamics: section.dynamics,
       fill: section.fill,
       arpRole: section.arpRole, // orchestration: arp arpeggiates / harmonises / doubles the theme
