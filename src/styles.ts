@@ -78,6 +78,7 @@ export const STYLES = {
       { parent: SCALES.phrygian, raga: SCALES.hindolam }, // dark, gentle
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi }, // wistful
       { parent: SCALES.dorian, raga: SCALES.minorPentatonic },
+      { parent: SCALES.dorian, raga: SCALES.sriranjani }, // wistful, fifth-less
     ],
     grooves: ["soft", "halfTime", "waltz"],
     bpm: [68, 92],
@@ -131,6 +132,7 @@ export const STYLES = {
       { parent: SCALES.harmonicMinor, raga: SCALES.harmonicMinor }, // dramatic
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
+      { parent: SCALES.dorian, raga: SCALES.sriranjani },
     ],
     grooves: ["soft", "halfTime", "straight", "waltz", "sixEight"],
     bpm: [72, 100],
@@ -151,6 +153,7 @@ export const STYLES = {
       { parent: SCALES.naturalMinor, raga: SCALES.hindolam },
       { parent: SCALES.major, raga: SCALES.mohanam },
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
+      { parent: SCALES.charukesi, raga: SCALES.charukesi },
     ],
     grooves: ["halfTime", "soft", "breakbeat"],
     bpm: [68, 88],
@@ -172,6 +175,8 @@ export const STYLES = {
       { parent: SCALES.lydian, raga: SCALES.kalyani }, // bright/epic
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
+      { parent: SCALES.phrygian, raga: SCALES.revati },
+      { parent: SCALES.charukesi, raga: SCALES.charukesi }, // bittersweet
     ],
     grooves: ["halfTime", "straight", "soft", "sixEight"],
     bpm: [70, 100],
@@ -193,6 +198,7 @@ export const STYLES = {
       { parent: SCALES.dorian, raga: SCALES.abhogi },
       { parent: SCALES.lydian, raga: SCALES.kalyani },
       { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
+      { parent: SCALES.phrygian, raga: SCALES.revati }, // serene, exotic
     ],
     grooves: ["soft", "halfTime", "none", "waltz", "sixEight"], // often drumless
     bpm: [56, 76],
