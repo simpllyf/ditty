@@ -65,21 +65,21 @@ options always override the style, e.g.
 
 ### Options
 
-| Option                           | Default        | Notes                                                                                    |
-| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
-| `style`                          | `"peppy"`      | `peppy` \| `calm` \| `playful` \| `dreamy` \| `lofi` \| `cinematic` \| `ambient`         |
-| `seed`                           | random         | Set for a reproducible track; omit for variety per session                               |
-| `bpm`                            | from style     | Beats per minute (sections may push/pull around it)                                      |
-| `beatsPerBar` / `bars`           | `4` / `8`      | Time signature and bars per section                                                      |
-| `volume`                         | `0.3`          | Master volume, 0..1                                                                      |
-| `evolve`                         | `true`         | Re-draw melodies each pass through the form; `false` repeats the form verbatim           |
-| `humanize`                       | `true`         | Subtle off-grid timing + velocity, for a human feel                                      |
-| `chromatic`                      | `true`         | Allow occasional borrowed (non-diatonic) chords in bright-major keys                     |
-| `voices`                         | all on         | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
-| `parent` / `raga`                | from style     | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
-| `groove` / `kit`                 | from style     | Drum groove name and drum kit                                                            |
-| `rootMidi` / `density` / `swing` | from style     | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
-| `audioContext`                   | created lazily | Bring your own `AudioContext` (or a compatible one)                                      |
+| Option                           | Default          | Notes                                                                                    |
+| -------------------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| `style`                          | `"peppy"`        | `peppy` \| `calm` \| `playful` \| `dreamy` \| `lofi` \| `cinematic` \| `ambient`         |
+| `seed`                           | random           | Set for a reproducible track; omit for variety per session                               |
+| `bpm`                            | from style       | Beats per minute (sections may push/pull around it)                                      |
+| `beatsPerBar` / `bars`           | from style / `8` | Time signature and bars per section (some styles use 3/4 or 6/8)                         |
+| `volume`                         | `0.3`            | Master volume, 0..1                                                                      |
+| `evolve`                         | `true`           | Re-draw melodies each pass through the form; `false` repeats the form verbatim           |
+| `humanize`                       | `true`           | Subtle off-grid timing + velocity, for a human feel                                      |
+| `chromatic`                      | `true`           | Allow occasional borrowed (non-diatonic) chords in bright-major keys                     |
+| `voices`                         | all on           | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
+| `parent` / `raga`                | from style       | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
+| `groove` / `kit`                 | from style       | Drum groove name and drum kit                                                            |
+| `rootMidi` / `density` / `swing` | from style       | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
+| `audioContext`                   | created lazily   | Bring your own `AudioContext` (or a compatible one)                                      |
 
 ## Render to a file
 
