@@ -1309,8 +1309,24 @@
               ? "arp: harmony"
               : s.arpRole === "double"
                 ? "arp: double"
-                : "arp";
-          now = `<span style="margin-left:6px;color:var(--ink2)">${part} · ${key} · ${arp}</span>`;
+                : s.arpRole === "counter"
+                  ? "arp: counter"
+                  : "arp";
+          // What this part does with the theme — named for what you can hear it do.
+          const dev = s.development || { transform: "statement", step: 0 };
+          const theme =
+            dev.transform === "sequence"
+              ? dev.step >= 0
+                ? "theme lifted"
+                : "theme lowered"
+              : dev.transform === "inversion"
+                ? "theme mirrored"
+                : dev.transform === "augmentation"
+                  ? "theme broadened"
+                  : dev.transform === "fragmentation"
+                    ? "theme fragmented"
+                    : "theme stated";
+          now = `<span style="margin-left:6px;color:var(--ink2)">${part} · ${key} · ${arp} · ${theme}</span>`;
         }
         el.innerHTML = `<span>form</span>${chips}${now}`;
       }

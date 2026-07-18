@@ -50,7 +50,12 @@ describe("public exports", () => {
 
   it("exposes SectionView (what Session.sections yields) from the engine entry", () => {
     // Type-only guard: this fails to compile if SectionView is dropped from `/index`.
-    const view: SectionView = { label: "A", keyShift: 0, arpRole: "arp" };
+    const view: SectionView = {
+      label: "A",
+      keyShift: 0,
+      arpRole: "arp",
+      development: { transform: "statement", step: 0 },
+    };
     expect(view.label).toBe("A");
   });
 });

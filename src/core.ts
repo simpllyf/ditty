@@ -40,6 +40,13 @@ export { generateHarmony, chordTonesInScale } from "./compose/harmony";
 export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
 export { generateMelody } from "./compose/melody";
 export type { MelodyNote, MelodyOptions } from "./compose/melody";
+export { developMotif, MOTIF_TRANSFORMS, PLAIN_STATEMENT } from "./compose/motif";
+export type {
+  DevelopedMotif,
+  DevelopOptions,
+  MotifDevelopment,
+  MotifTransform,
+} from "./compose/motif";
 export { arrange } from "./compose/arranger";
 export type {
   Score,
