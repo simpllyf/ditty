@@ -1240,6 +1240,7 @@
           groove: state.groove || chosen.groove, // show the effective groove
           key: scaleName(chosen.parent),
           raga: scaleName(chosen.raga),
+          paths: chosen.paths,
           instruments: {
             lead: sess.instruments.lead.name,
             bass: sess.instruments.bass.name,
@@ -1339,6 +1340,10 @@
           ["meter", meter],
           ["groove", on("drums") ? d.groove : "drumless"],
         ];
+        // Ragas that climb and descend by different notes — the arohana/avarohana.
+        if (d.paths) {
+          rows.push(["raga path", `${d.paths.up.length} notes up · ${d.paths.down.length} down`]);
+        }
         // Only list the instruments that are actually playing — so the recipe shows the
         // arrangement (a trio, a drumless bed, a full ensemble), not a fixed five voices.
         for (const v of ["lead", "pad", "bass", "arp"]) if (on(v)) rows.push([v, d.instruments[v]]);

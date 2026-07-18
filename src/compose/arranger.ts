@@ -12,7 +12,13 @@ import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
 import { DEFAULT_ROOT_MIDI, OCTAVE, midiToFrequency, pitchClass } from "../theory/pitch";
 import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
-import { SCALES, type Scale, degreeToFrequency, degreeToSemitone } from "../theory/scales";
+import {
+  SCALES,
+  type RagaPaths,
+  type Scale,
+  degreeToFrequency,
+  degreeToSemitone,
+} from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { DEFAULT_MAX_LEAP, type MelodyNote, generateMelody } from "./melody";
@@ -59,6 +65,8 @@ export interface ArrangeOptions {
   parent?: Scale;
   /** Lead/arp raga. Default = parent. Must be a pitch-class subset of `parent` (raga ⊆ parent). */
   raga?: Scale;
+  /** Arohana/avarohana for the raga — the lead may move differently up and down. */
+  paths?: RagaPaths;
   rootMidi?: number;
   progression?: readonly number[];
   generateProgression?: boolean;
@@ -521,6 +529,7 @@ export function arrange(options: ArrangeOptions): Score {
         scale: raga,
         range: leadRange,
         density,
+        ...(options.paths !== undefined ? { paths: options.paths } : {}),
         ...(options.contour !== undefined ? { contour: options.contour } : {}),
         ...(theme ? { motif: theme.notes, motifBars: theme.bars } : {}),
       })
