@@ -33,30 +33,62 @@ describe("metricStrength", () => {
 });
 
 describe("melodyRhythm", () => {
-  it("tiles the bar exactly, increasing, with the downbeat strong (any seed/meter)", () => {
+  it("stays ordered and inside the bar, downbeat always sounding (any seed/meter)", () => {
     fc.assert(
-      fc.property(fc.integer(), fc.integer({ min: 3, max: 6 }), (seed, beatsPerBar) => {
-        const onsets = melodyRhythm(makeRng(seed), beatsPerBar);
-        expect(onsets.reduce((a, o) => a + o.durationBeats, 0)).toBeCloseTo(beatsPerBar, 10);
-        expect(onsets[0]!.startBeat).toBe(0);
-        expect(onsets[0]!.strong).toBe(true);
-        for (const o of onsets) {
-          expect(o.durationBeats).toBeGreaterThan(0);
-          expect(o.strong).toBe(metricStrength(o.startBeat, beatsPerBar) >= 0.8);
-        }
-        // True tiling: each onset begins exactly where the previous ended...
-        for (let i = 1; i < onsets.length; i++) {
-          expect(onsets[i]!.startBeat).toBeCloseTo(
-            onsets[i - 1]!.startBeat + onsets[i - 1]!.durationBeats,
-            10,
-          );
-        }
-        // ...and the last onset ends exactly at the bar line (no gap/overlap).
-        const last = onsets[onsets.length - 1]!;
-        expect(last.startBeat + last.durationBeats).toBeCloseTo(beatsPerBar, 10);
-      }),
+      fc.property(
+        fc.integer(),
+        fc.integer({ min: 3, max: 6 }),
+        fc.boolean(),
+        (seed, beatsPerBar, phraseEnd) => {
+          const onsets = melodyRhythm(makeRng(seed), beatsPerBar, { phraseEnd });
+          // The bar is anchored: the downbeat always sounds, on a strong position.
+          expect(onsets[0]!.startBeat).toBe(0);
+          expect(onsets[0]!.strong).toBe(true);
+          for (const o of onsets) {
+            expect(o.durationBeats).toBeGreaterThan(0);
+            expect(o.strong).toBe(metricStrength(o.startBeat, beatsPerBar) >= 0.8);
+          }
+          // Onsets no longer tile the bar (gaps ARE the rests), but they must stay
+          // ordered, never overlap, and never spill past the bar line.
+          for (let i = 1; i < onsets.length; i++) {
+            const prevEnd = onsets[i - 1]!.startBeat + onsets[i - 1]!.durationBeats;
+            expect(onsets[i]!.startBeat).toBeGreaterThanOrEqual(prevEnd - 1e-9);
+          }
+          const last = onsets[onsets.length - 1]!;
+          expect(last.startBeat + last.durationBeats).toBeLessThanOrEqual(beatsPerBar + 1e-9);
+        },
+      ),
       { numRuns: 300 },
     );
+  });
+
+  it("breathes: leaves real rests and sustains notes across beats", () => {
+    let rests = 0;
+    let sustained = 0;
+    for (let seed = 0; seed < 200; seed++) {
+      const onsets = melodyRhythm(makeRng(seed), 4);
+      for (let i = 1; i < onsets.length; i++) {
+        const gap =
+          onsets[i]!.startBeat - (onsets[i - 1]!.startBeat + onsets[i - 1]!.durationBeats);
+        if (gap > 1e-9) rests++;
+      }
+      const last = onsets[onsets.length - 1]!;
+      if (last.startBeat + last.durationBeats < 4 - 1e-9) rests++; // trailing breath
+      sustained += onsets.filter((o) => o.durationBeats > 1).length;
+    }
+    expect(rests).toBeGreaterThan(0); // a line that never rests reads as machine-made
+    expect(sustained).toBeGreaterThan(0); // ...and one that never holds cannot sing
+  });
+
+  it("a phrase-ending bar lands, holds, then breathes out", () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const onsets = melodyRhythm(makeRng(seed), 4, { phraseEnd: true });
+      const last = onsets[onsets.length - 1]!;
+      // It always leaves silence before the bar line — that is the breath.
+      expect(last.startBeat + last.durationBeats).toBeLessThan(4);
+      // ...and the note it leaves ringing is held beyond a single beat.
+      expect(last.durationBeats).toBeGreaterThan(1);
+    }
   });
 
   it("is deterministic for a seed", () => {

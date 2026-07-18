@@ -50,14 +50,30 @@ const PATTERNS: ReadonlyArray<readonly number[]> = [
 ];
 const BASE_WEIGHTS: readonly number[] = [3, 6, 3, 2, 2, 1];
 
+/** What a beat does: sound new notes, sustain the previous one, or stay silent. */
+const BEAT_MODES = ["active", "held", "rest"] as const;
+type BeatMode = (typeof BEAT_MODES)[number];
+
 /**
- * Generate one bar of melodic onsets that tile the bar exactly. `density` (0..1,
- * default 0.5) biases toward busier (1) or sparser (0) subdivisions. Deterministic.
+ * Generate one bar of melodic onsets. Onsets are ordered and non-overlapping within
+ * the bar, but they do NOT tile it: the gaps between them are rests, and a note may
+ * be sustained across beats — a line has to breathe and hold to sound sung rather
+ * than typed.
+ *
+ * Each beat picks a mode: sound new notes (subdividing as before), sustain the
+ * previous note through this beat, or rest. `density` (0..1, default 0.5) biases both
+ * the subdivision and how often a beat sounds at all. The downbeat always sounds, so
+ * every bar is anchored and the harmony still lands on beat one.
+ *
+ * `phraseEnd` shapes the bar as land → hold → breathe: the melody arrives on the
+ * downbeat, sustains, then leaves the rest of the bar silent. That is where a sung
+ * phrase takes its breath — and where a cadence's resolution note wants to ring.
+ * Deterministic.
  */
 export function melodyRhythm(
   rng: Rng,
   beatsPerBar: number,
-  options: { density?: number } = {},
+  options: { density?: number; phraseEnd?: boolean } = {},
 ): Onset[] {
   if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
     throw new RangeError(`melodyRhythm beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
@@ -65,10 +81,13 @@ export function melodyRhythm(
   const density = clamp(options.density ?? 0.5, 0, 1);
   const tilt = (density - 0.5) * 2; // -1..1
   const weights = PATTERNS.map((p, i) => (BASE_WEIGHTS[i] as number) * p.length ** tilt);
+  // Denser → beats sound more often and rest less; `held` stays steady so sustains
+  // remain available at every density.
+  const modeWeights = [3 + 4 * density, 2, 4 - 2 * density];
 
   const onsets: Onset[] = [];
-  let step = 0; // integer grid steps from the bar start
-  for (let beat = 0; beat < beatsPerBar; beat++) {
+  let step = 0; // integer grid steps from the bar start; every mode consumes one beat
+  const sound = () => {
     for (const durSteps of rng.weighted(PATTERNS, weights)) {
       const startBeat = step / STEPS_PER_BEAT;
       onsets.push({
@@ -78,6 +97,33 @@ export function melodyRhythm(
       });
       step += durSteps;
     }
+  };
+  // Sustain the previous note through this beat — only when it ends exactly here, so a
+  // note is never resurrected across a rest. `strong` stays as drawn: it describes where
+  // the note BEGAN.
+  const sustain = (): boolean => {
+    const last = onsets[onsets.length - 1];
+    if (!last || (last.startBeat + last.durationBeats) * STEPS_PER_BEAT !== step) return false;
+    onsets[onsets.length - 1] = { ...last, durationBeats: last.durationBeats + 1 };
+    step += STEPS_PER_BEAT;
+    return true;
+  };
+
+  // A phrase-ending bar holds for roughly a third of the bar, then breathes out.
+  const holdUntil = 1 + Math.max(1, Math.floor(beatsPerBar / 3));
+
+  for (let beat = 0; beat < beatsPerBar; beat++) {
+    if (beat === 0) {
+      sound(); // always land the downbeat
+      continue;
+    }
+    let mode: BeatMode;
+    if (options.phraseEnd) mode = beat < holdUntil ? "held" : "rest";
+    else mode = rng.weighted(BEAT_MODES, modeWeights);
+
+    if (mode === "rest") step += STEPS_PER_BEAT;
+    else if (mode === "held" && sustain()) continue;
+    else sound(); // "active", or a hold with nothing contiguous to extend
   }
   return onsets;
 }

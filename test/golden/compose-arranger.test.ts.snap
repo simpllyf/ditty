@@ -22,11 +22,11 @@ exports[`arrange — golden & validation > matches a committed structural golden
   "lengthBeats": 32,
   "parts": [
     {
-      "count": 67,
+      "count": 52,
       "first3": [
         {
           "durationBeats": 0.5,
-          "freq": 392,
+          "freq": 523.25,
           "startBeat": 0,
           "velocity": 0.7,
         },
@@ -37,8 +37,8 @@ exports[`arrange — golden & validation > matches a committed structural golden
           "velocity": 0.57,
         },
         {
-          "durationBeats": 1,
-          "freq": 293.66,
+          "durationBeats": 0.25,
+          "freq": 440,
           "startBeat": 1,
           "velocity": 0.57,
         },
