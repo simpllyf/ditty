@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { PART_ARRANGERS, type ScoreVoice, arrange, thirdBelow } from "../src/compose/arranger";
-import { generateHarmony } from "../src/compose/harmony";
+import { chordAt, generateHarmony } from "../src/compose/harmony";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
@@ -414,7 +414,9 @@ describe("arrange — golden & validation", () => {
     const pad = (p?: "stabs" | "broken") =>
       part(arrange({ rng: makeRng(1), ...o, ...(p ? { padPattern: p } : {}) }), "pad")!.notes;
     const base = pad();
-    for (const n of base) expect(n.startBeat % 4).toBe(0); // sustain: block on each bar downbeat
+    // sustain: a block on each bar downbeat — or on the midpoint too, where the
+    // harmony divides the bar and the pad has to move with it.
+    for (const n of base) expect([0, 2]).toContain(n.startBeat % 4);
     const stabs = pad("stabs");
     expect(stabs.length).toBeGreaterThan(base.length); // a chord on every beat
     expect(stabs.every((n) => n.durationBeats <= 0.4 + 1e-9)).toBe(true); // short hits
@@ -485,13 +487,18 @@ describe("arrange — golden & validation", () => {
 
   it("bass patterns vary the low-end shape; default is rootFifth (unchanged)", () => {
     const o = { bars: 8, beatsPerBar: 4 } as const;
+    // Pin the harmony so the split count below describes the plan the bass actually plays.
+    const plan = generateHarmony({ rng: makeRng(1), ...o });
     const bass = (p?: "rootFifth" | "walking" | "pulse" | "sustained") =>
-      part(arrange({ rng: makeRng(1), ...o, ...(p ? { bassPattern: p } : {}) }), "bass")!.notes;
+      part(arrange({ rng: makeRng(1), ...o, plan, ...(p ? { bassPattern: p } : {}) }), "bass")!
+        .notes;
     expect(bass()).toEqual(bass("rootFifth")); // default is rootFifth
     expect(bass("rootFifth").length).toBe(8 * 2);
     expect(bass("pulse").length).toBe(8 * 4); // a hit every beat
     expect(bass("walking").length).toBe(8 * 4);
-    expect(bass("sustained").length).toBe(8); // one held note per bar
+    // One held note per bar, and a second in any bar the harmony divides.
+    const splits = plan.bars.filter((b) => b.second).length;
+    expect(bass("sustained").length).toBe(8 + splits);
     for (const n of bass("walking")) expect(n.freq).toBeLessThan(midiToFrequency(DEFAULT_ROOT)); // stays under the pad
   });
 
@@ -578,8 +585,12 @@ describe("arrange — golden & validation", () => {
       }
       expect(byBar.size).toBe(8);
       for (const [bar, pcs] of byBar) {
-        const chord = [...plan.bars[bar]!.chord.pcs].sort((x, y) => x - y);
-        expect([...pcs].sort((x, y) => x - y)).toEqual(chord); // exactly this bar's chord
+        // A divided bar sounds both of its chords, so the bar's tones are their union.
+        const barPlan = plan.bars[bar]!;
+        const expected = [
+          ...new Set([...barPlan.chord.pcs, ...(barPlan.second?.chord.pcs ?? [])]),
+        ].sort((x, y) => x - y);
+        expect([...pcs].sort((x, y) => x - y)).toEqual(expected); // exactly this bar's harmony
       }
     }
   });
@@ -619,6 +630,45 @@ describe("arrange — golden & validation", () => {
     expect(common).toBeGreaterThan(50); // the sample actually exercises shared tones
     expect(heldCommon).toBe(common); // …and every one of them is held in place
     expect(motion / moves).toBeLessThan(2); // voices step, they don't lurch
+  });
+
+  it("every voice follows a chord change inside the bar", () => {
+    // The harmony may move at the bar's midpoint. A voice that keeps reading the bar's
+    // FIRST chord sounds against the rest of the band for half a bar — the one failure
+    // this feature can cause, so it is checked on every voice at once.
+    let checked = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const plan = generateHarmony({
+        rng: makeRng(seed),
+        scale: SCALES.major,
+        bars: 8,
+        beatsPerBar: 4,
+      });
+      if (!plan.bars.some((b) => b.second)) continue;
+      const score = arrange({
+        rng: makeRng(seed + 7),
+        parent: SCALES.major,
+        raga: SCALES.major,
+        bars: 8,
+        beatsPerBar: 4,
+        plan,
+        swing: 0,
+      });
+      for (const p of score.parts) {
+        for (const n of p.notes) {
+          const bar = Math.floor(n.startBeat / 4);
+          const barPlan = plan.bars[bar]!;
+          if (!barPlan.second) continue;
+          const inBar = n.startBeat - bar * 4;
+          // The lead is a melody: only its STRONG beats owe the chord a tone.
+          if (p.voice === "lead" && inBar !== 0 && inBar !== 2) continue;
+          checked++;
+          const sounding = chordAt(barPlan, inBar, 4);
+          expect(sounding.pcs).toContain(freqToPc(n.freq, DEFAULT_ROOT));
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(100); // the sample really does contain divided bars
   });
 
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {

@@ -74,7 +74,11 @@ describe("generateHarmony — invariants (any seed, any heptatonic parent)", () 
         expect(p.cadences.half).toBe(Math.floor(bars / 2) - 1);
         expect(p.bars[p.cadences.final]!.degree).toBe(0); // I — always resolves at the loop point
         expect(p.bars[p.cadences.half]!.degree).toBe(4); // V — the open half-cadence
-        expect([3, 4]).toContain(p.bars[bars - 2]!.degree); // approach: IV (plagal) or V (authentic / ii–V)
+        // Approach: IV (plagal) or V (authentic / ii–V) — or ii when the bar divides,
+        // in which case the V it moves to is what leads into the resolution.
+        const approach = p.bars[bars - 2]!;
+        const leadsIn = approach.second ? approach.second.degree : approach.degree;
+        expect([3, 4]).toContain(leadsIn);
       }),
       { numRuns: 200 },
     );
@@ -102,7 +106,10 @@ describe("generateHarmony — progression sources", () => {
     expect([degs[4], degs[5]]).toEqual([0, 3]); // …and again before the cadence
     expect(degs[3]).toBe(4); // half → V
     expect(degs[7]).toBe(0); // final → I
-    expect([3, 4]).toContain(degs[6]); // approach → IV (plagal) or V
+    // Approach → IV or V, or a divided bar whose SECOND chord leads into the resolution.
+    const approach = generateHarmony({ rng: makeRng(1), progression: [0, 3, 5, 2], bars: 8 })
+      .bars[6]!;
+    expect([3, 4]).toContain(approach.second ? approach.second.degree : approach.degree);
   });
 
   it("supports odd bar counts (no even requirement)", () => {
