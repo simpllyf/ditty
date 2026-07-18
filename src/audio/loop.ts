@@ -11,6 +11,7 @@ import {
   REVERB_SEND_BY_VOICE,
   type DrumVoice,
   type Instrument,
+  tuneKit,
 } from "../instruments";
 import type { DrumName, ScoreVoice } from "../voices";
 import type { PreparedLoop, ScheduledEvent } from "./scheduler";
@@ -45,10 +46,13 @@ export function buildLoop(
       });
     }
   }
+  // The kit is authored at one fixed pitch; tune it to this piece's key so its body
+  // tones sit with the harmony instead of against it.
+  const kit = tuneKit(drumKit, score.rootMidi);
   for (const hit of score.drums) {
     events.push({
       beat: hit.startBeat,
-      play: (time: number) => synth.playDrum(drumKit[hit.drum], time, hit.velocity),
+      play: (time: number) => synth.playDrum(kit[hit.drum], time, hit.velocity),
     });
   }
   events.sort((a, b) => a.beat - b.beat);

@@ -434,3 +434,62 @@ export const DRUM_KITS = {
 } as const satisfies Record<string, Record<DrumName, DrumVoice>>;
 
 export type DrumKitName = keyof typeof DRUM_KITS;
+
+/** The pitch a drum voice is heard at, or null for pure noise (a hat has none). */
+function bodyPitch(voice: DrumVoice): number | null {
+  if (voice.kind === "tone") return voice.freqEnd; // where the sweep settles
+  if (voice.kind === "mixed") return voice.freqStart;
+  return null;
+}
+
+/**
+ * Semitones to the nearest tonic or fifth. Both are consonant against the key, and
+ * offering two targets means no drum ever moves more than a minor third to reach one —
+ * so a kit keeps the character it was voiced with.
+ */
+function shiftToConsonance(freq: number, rootMidi: number): number {
+  const pc = (n: number) => ((n % 12) + 12) % 12;
+  const from = pc(Math.round(69 + 12 * Math.log2(freq / 440)));
+  let best = 0;
+  let bestDistance = Infinity;
+  for (const target of [0, 7]) {
+    let shift = (pc(rootMidi + target) - from + 12) % 12;
+    if (shift > 6) shift -= 12; // take the shorter way — down a fourth, not up a fifth
+    if (Math.abs(shift) < bestDistance) {
+      bestDistance = Math.abs(shift);
+      best = shift;
+    }
+  }
+  return best;
+}
+
+/**
+ * Tune a kit to the piece's key. Body tones are authored as fixed frequencies, so in
+ * most keys they sound a fixed note against the harmony: the default kick settles on G
+ * — a tritone from a C# tonic — and the snare's tone sits on F# under every backbeat.
+ *
+ * Each pitched drum moves to the nearest tonic or fifth. Tuning them TOGETHER, as one
+ * ratio, would look tidier but carries the kit's own intervals along with it: this kit
+ * voices its snare a semitone under its kick, which would then sound a flat second
+ * against every tonic instead of only against G. Drums are tuned to the key, not to
+ * each other.
+ */
+export function tuneKit(
+  kit: Record<DrumName, DrumVoice>,
+  rootMidi: number,
+): Record<DrumName, DrumVoice> {
+  const tuned = {} as Record<DrumName, DrumVoice>;
+  for (const [name, voice] of Object.entries(kit) as [DrumName, DrumVoice][]) {
+    const body = bodyPitch(voice);
+    if (body === null || !(body > 0) || voice.kind === "noise") {
+      tuned[name] = voice; // pure noise has no pitch to tune
+      continue;
+    }
+    const ratio = 2 ** (shiftToConsonance(body, rootMidi) / 12);
+    tuned[name] =
+      voice.kind === "tone"
+        ? { ...voice, freqStart: voice.freqStart * ratio, freqEnd: voice.freqEnd * ratio }
+        : { ...voice, freqStart: voice.freqStart * ratio };
+  }
+  return tuned;
+}

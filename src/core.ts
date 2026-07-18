@@ -66,7 +66,13 @@ export type {
   VoiceToggles,
 } from "./compose/arranger";
 
-export { INSTRUMENTS, instrumentsForVoice, REVERB_SEND_BY_VOICE, DRUM_KITS } from "./instruments";
+export {
+  INSTRUMENTS,
+  instrumentsForVoice,
+  REVERB_SEND_BY_VOICE,
+  DRUM_KITS,
+  tuneKit,
+} from "./instruments";
 export type {
   Instrument,
   InstrumentName,
