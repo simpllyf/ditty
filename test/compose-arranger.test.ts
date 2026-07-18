@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { PART_ARRANGERS, type ScoreVoice, arrange, thirdBelow } from "../src/compose/arranger";
+import { generateHarmony } from "../src/compose/harmony";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
@@ -511,6 +512,69 @@ describe("arrange — golden & validation", () => {
     expect(mirrored.notes.slice(0, 3).map((n) => n.freq)).not.toEqual(
       plain.notes.slice(0, 3).map((n) => n.freq),
     );
+  });
+
+  it("voices the pad from the chord and nothing else, whatever the voicing does", () => {
+    // The guard for voice-leading: it may move a tone to another octave, never to
+    // another NOTE. (Chord tones are pitch classes relative to the tonic — reading
+    // them as absolute MIDI classes silently transposes every chord off a non-C tonic.)
+    for (const rootMidi of [57, 60, 61, 64]) {
+      const plan = generateHarmony({
+        rng: makeRng(4),
+        scale: SCALES.major,
+        rootMidi,
+        bars: 8,
+        beatsPerBar: 4,
+      });
+      const score = arr({ seed: 4, rootMidi, bars: 8, beatsPerBar: 4, plan });
+      const byBar = new Map<number, Set<number>>();
+      for (const n of part(score, "pad")!.notes) {
+        const bar = Math.floor(n.startBeat / 4);
+        byBar.set(bar, (byBar.get(bar) ?? new Set()).add(freqToPc(n.freq, rootMidi)));
+      }
+      expect(byBar.size).toBe(8);
+      for (const [bar, pcs] of byBar) {
+        const chord = [...plan.bars[bar]!.chord.pcs].sort((x, y) => x - y);
+        expect([...pcs].sort((x, y) => x - y)).toEqual(chord); // exactly this bar's chord
+      }
+    }
+  });
+
+  it("leads the pad's voices: common tones stay put and nothing leaps", () => {
+    let motion = 0;
+    let moves = 0;
+    let heldCommon = 0;
+    let common = 0;
+    for (let seed = 1; seed < 25; seed++) {
+      const score = arr({ seed, bars: 8 });
+      const beatsPerBar = score.beatsPerBar;
+      const byBar = new Map<number, Set<number>>();
+      for (const n of part(score, "pad")!.notes) {
+        const bar = Math.floor(n.startBeat / beatsPerBar);
+        const midi = Math.round(69 + 12 * Math.log2(n.freq / 440));
+        byBar.set(bar, (byBar.get(bar) ?? new Set()).add(midi));
+      }
+      const bars = [...byBar.keys()]
+        .sort((a, b) => a - b)
+        .map((b) => [...byBar.get(b)!].sort((x, y) => x - y));
+      for (let b = 1; b < bars.length; b++) {
+        const from = bars[b - 1]!;
+        const to = bars[b]!;
+        const pcsTo = new Set(to.map((m) => ((m % 12) + 12) % 12));
+        for (const midi of from) {
+          if (!pcsTo.has(((midi % 12) + 12) % 12)) continue;
+          common++;
+          if (to.includes(midi)) heldCommon++; // a shared tone should simply not move
+        }
+        for (let v = 0; v < Math.min(from.length, to.length); v++) {
+          motion += Math.abs(to[v]! - from[v]!);
+          moves++;
+        }
+      }
+    }
+    expect(common).toBeGreaterThan(50); // the sample actually exercises shared tones
+    expect(heldCommon).toBe(common); // …and every one of them is held in place
+    expect(motion / moves).toBeLessThan(2); // voices step, they don't lurch
   });
 
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {
