@@ -455,17 +455,23 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
         .filter((m) => m >= loBand && m <= hiBand);
       if (cands.length === 0) continue;
 
-      // Entries are the lead's silences inside this bar — where an answering voice
-      // belongs. A bar the lead never leaves still gets its downbeat, so the line
-      // never vanishes behind a busy theme.
+      // The line keeps its own pulse — a note every `stride` beats — and each one
+      // shifts to the nearest beat inside its slot where the lead is silent. Answering
+      // the theme must not cost the counter its rhythm: entries free to land wherever
+      // the lead happens to breathe leave a scatter of notes, not a line.
       const barStart = bar * beatsPerBar;
       const entries: number[] = [];
-      for (let beat = barStart; beat < barStart + beatsPerBar; beat += 0.5) {
-        if (leadSounds(beat)) continue;
-        if (entries.length > 0 && beat - (entries[entries.length - 1] as number) < stride) continue;
-        entries.push(beat);
+      for (let b = 0; b < beatsPerBar; b += stride) {
+        const slot = barStart + b;
+        let at = slot;
+        for (let k = 0; k < stride && slot + k < barStart + beatsPerBar; k++) {
+          if (!leadSounds(slot + k)) {
+            at = slot + k;
+            break;
+          }
+        }
+        entries.push(at);
       }
-      if (entries.length === 0) entries.push(barStart);
 
       for (const at of entries) {
         const start = swung(at);
