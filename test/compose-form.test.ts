@@ -85,7 +85,7 @@ describe("buildForm", () => {
     const allowed = (label: string) =>
       label === "A" ? ["arp"] : label === "B" ? ["harmony", "counter"] : ["double"];
     for (let s = 1; s < 30; s++) {
-      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base, form: "song" }).sections) {
         expect(allowed(sec.label)).toContain(sec.arpRole);
       }
     }
@@ -108,7 +108,7 @@ describe("buildForm", () => {
 
   it("orchestrates the pad per section: A sustains, B broken, C stabs", () => {
     for (let s = 1; s < 30; s++) {
-      const form = buildForm({ rng: makeRng(s), ...base });
+      const form = buildForm({ rng: makeRng(s), ...base, form: "song" });
       for (const sec of form.sections) {
         const expected = sec.label === "A" ? "sustain" : sec.label === "B" ? "broken" : "stabs";
         expect(sec.padPattern).toBe(expected);
@@ -125,7 +125,7 @@ describe("buildForm", () => {
           : ["arch", "rising", "flat"]; // home varies
     const seen = new Set<string>();
     for (let s = 1; s < 40; s++) {
-      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base, form: "song" }).sections) {
         seen.add(sec.contour);
         expect(allowed(sec.label)).toContain(sec.contour);
       }
@@ -136,7 +136,7 @@ describe("buildForm", () => {
   it("orchestrates the bridge as a two-part texture — parallel harmony or an antiphonal counter", () => {
     const bridgeRoles = new Set<string>();
     for (let s = 1; s < 40; s++) {
-      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base, form: "song" }).sections) {
         if (sec.label === "B") bridgeRoles.add(sec.arpRole);
       }
     }
@@ -171,6 +171,60 @@ describe("buildForm", () => {
       expect(transforms.size).toBeGreaterThan(1); // more than one device in play
       expect(transforms.has("statement")).toBe(false); // ...and never a plain repeat
     }
+  });
+
+  it("lays a kriti out as pallavi · anupallavi · pallavi · charanam · pallavi", () => {
+    const form = buildForm({ rng: makeRng(1), ...base, form: "kriti" });
+    expect(form.kind).toBe("kriti");
+    expect(form.sections.map((s) => s.part)).toEqual([
+      "pallavi",
+      "anupallavi",
+      "pallavi",
+      "charanam",
+      "pallavi",
+    ]);
+    // The refrain is the anchor: it returns between the other parts, always as itself.
+    for (const s of form.sections.filter((x) => x.part === "pallavi")) {
+      expect(s.development).toEqual({ transform: "statement", step: 0 });
+    }
+  });
+
+  it("keeps a kriti in one raga: no modulation, no groove change, nobody drops out", () => {
+    for (let s = 1; s < 30; s++) {
+      const form = buildForm({ rng: makeRng(s), ...base, form: "kriti" });
+      for (const sec of form.sections) {
+        // The raga IS the piece — a key change would make it a different raga.
+        expect(sec.rootMidi).toBe(base.rootMidi);
+        expect(sec.groove).toBe(base.groove); // the tala holds throughout
+        expect(sec.bpmScale).toBe(1);
+        expect(sec.voices).toEqual({}); // no drumless bridge — the ensemble plays on
+      }
+    }
+  });
+
+  it("tells a kriti's parts apart by register: charanam below, anupallavi above", () => {
+    for (let s = 1; s < 30; s++) {
+      const byPart = new Map<string, readonly [number, number]>();
+      for (const sec of buildForm({ rng: makeRng(s), ...base, form: "kriti" }).sections) {
+        byPart.set(sec.part, sec.range);
+      }
+      const centre = (r: readonly [number, number]) => (r[0] + r[1]) / 2;
+      const pallavi = centre(byPart.get("pallavi")!);
+      expect(centre(byPart.get("anupallavi")!)).toBeGreaterThan(pallavi); // climbs
+      expect(centre(byPart.get("charanam")!)).toBeLessThan(pallavi); // sings from below
+      // Every part still holds the theme's own degrees, so stating it never clamps.
+      for (const range of byPart.values()) {
+        expect(range[0]).toBeLessThanOrEqual(0);
+        expect(range[1]).toBeGreaterThanOrEqual(7);
+      }
+    }
+  });
+
+  it("a song form keeps one register and may modulate — the kriti rules are its own", () => {
+    const song = buildForm({ rng: makeRng(3), ...base, form: "song" });
+    expect(song.kind).toBe("song");
+    for (const sec of song.sections) expect(sec.range).toEqual([0, 7]);
+    expect(song.sections.map((s) => s.part)).toEqual(song.sections.map((s) => s.label));
   });
 
   it("keeps section density strictly within (0,1) even at extreme base density", () => {

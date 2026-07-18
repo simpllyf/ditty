@@ -13,7 +13,7 @@ import {
   arrange,
   assertMusicalParams,
 } from "./compose/arranger";
-import { type SectionProfile, buildForm } from "./compose/form";
+import { type FormKind, type SectionProfile, buildForm } from "./compose/form";
 import { humanize } from "./compose/humanize";
 import type { MotifDevelopment } from "./compose/motif";
 import {
@@ -56,6 +56,8 @@ export interface SessionOptions {
   raga?: ArrangeOptions["raga"];
   /** Arohana/avarohana for the raga: the notes the lead may use ascending vs descending. */
   paths?: ArrangeOptions["paths"];
+  /** Pin the layout: a `song` (home/bridge/climax) or a `kriti` (pallavi/anupallavi/charanam). */
+  form?: FormKind;
   /** Tonic MIDI note (integer 36–84). Default: from the style. */
   rootMidi?: number;
   /** Drum groove name. Default: from the style. */
@@ -90,6 +92,8 @@ export interface SectionView {
   readonly arpRole: ArpRole;
   /** How this section develops the theme: states it, mirrors it, broadens it… */
   readonly development: MotifDevelopment;
+  /** What this part is called — "B" in a song, "anupallavi" in a kriti. */
+  readonly part: string;
 }
 
 export interface Session {
@@ -99,6 +103,8 @@ export interface Session {
   readonly bars: number;
   readonly instruments: Record<ScoreVoice, Instrument>;
   readonly drumKit: Record<DrumName, DrumVoice>;
+  /** How the piece is laid out: a song, or a Carnatic kriti. */
+  readonly formKind: FormKind;
   /** The piece's form: the sections in play order (nextScore() walks and loops these). */
   readonly sections: readonly SectionView[];
   /** Next section of the form (advances through it and loops); cached when `evolve` is off. */
@@ -202,6 +208,7 @@ export function createSession(options: SessionOptions): Session {
     density,
     groove,
     borrow: options.chromatic ?? true,
+    ...(options.form !== undefined ? { form: options.form } : {}),
   });
 
   // Nudge timing/dynamics off the grid via its own rng fork, so toggling humanize
@@ -226,6 +233,7 @@ export function createSession(options: SessionOptions): Session {
       texture: section.texture,
       bassPattern: section.bassPattern,
       contour: options.contour ?? section.contour, // caller can pin one shape for the whole piece
+      leadRange: section.range, // the part's register — a kriti's anupallavi sings an octave up
       dynamics: section.dynamics,
       fill: section.fill,
       arpRole: options.arpRole ?? section.arpRole, // arp arpeggiates / harmonises / doubles / counters the theme
@@ -243,6 +251,7 @@ export function createSession(options: SessionOptions): Session {
     keyShift: s.rootMidi - rootMidi, // relative to the home key
     arpRole: s.arpRole,
     development: s.development,
+    part: s.part,
   }));
 
   let cursor = 0;
@@ -254,6 +263,7 @@ export function createSession(options: SessionOptions): Session {
     bars,
     instruments,
     drumKit,
+    formKind: form.kind,
     sections,
     nextScore(): Score {
       const i = cursor % form.sections.length;

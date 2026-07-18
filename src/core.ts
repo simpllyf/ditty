@@ -47,6 +47,7 @@ export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmon
 export { generateMelody } from "./compose/melody";
 export type { MelodyNote, MelodyOptions } from "./compose/melody";
 export { developMotif, MOTIF_TRANSFORMS, PLAIN_STATEMENT } from "./compose/motif";
+export type { Form, FormKind, SectionProfile } from "./compose/form";
 export type {
   DevelopedMotif,
   DevelopOptions,
