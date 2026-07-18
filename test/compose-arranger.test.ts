@@ -94,6 +94,50 @@ describe("arrange — voices & registers", () => {
     }
   });
 
+  it("the counter voice answers the lead's breaths and moves against it", () => {
+    let answered = 0;
+    let breaths = 0;
+    let contrary = 0;
+    let moves = 0;
+    for (let seed = 1; seed < 30; seed++) {
+      const score = arrange({
+        rng: makeRng(seed),
+        parent: SCALES.major,
+        raga: SCALES.mohanam,
+        bars: 8,
+        beatsPerBar: 4,
+        arpRole: "counter",
+      });
+      const lead = [...part(score, "lead")!.notes].sort((a, b) => a.startBeat - b.startBeat);
+      const counter = [...part(score, "arp")!.notes].sort((a, b) => a.startBeat - b.startBeat);
+      const semis = (f: number) => 12 * Math.log2(f / 261.6256);
+      // A real breath in the line — the silence an answering voice exists to fill.
+      for (let i = 1; i < lead.length; i++) {
+        const end = lead[i - 1]!.startBeat + lead[i - 1]!.durationBeats;
+        if (lead[i]!.startBeat - end < 1) continue;
+        breaths++;
+        if (counter.some((n) => n.startBeat >= end - 1e-9 && n.startBeat < lead[i]!.startBeat)) {
+          answered++;
+        }
+      }
+      for (let i = 1; i < counter.length; i++) {
+        const at = counter[i]!.startBeat;
+        const before = lead.filter((n) => n.startBeat <= at);
+        if (before.length < 2) continue;
+        const dLead =
+          semis(before[before.length - 1]!.freq) - semis(before[before.length - 2]!.freq);
+        const dCounter = semis(counter[i]!.freq) - semis(counter[i - 1]!.freq);
+        if (dLead === 0 || dCounter === 0) continue;
+        moves++;
+        if (Math.sign(dLead) !== Math.sign(dCounter)) contrary++;
+      }
+    }
+    expect(breaths).toBeGreaterThan(20); // the sample really does contain breaths
+    expect(answered / breaths).toBeGreaterThan(0.5); // …and most of them get an answer
+    expect(moves).toBeGreaterThan(20);
+    expect(contrary / moves).toBeGreaterThan(0.65); // two lines, not one harmonised line
+  });
+
   it("arranges valid music in 3/4 (waltz) and 6/8 (sixEight) — nothing spills past the loop", () => {
     for (const groove of ["waltz", "sixEight"] as const) {
       const bpb = DRUM_GROOVES[groove].beatsPerBar;

@@ -419,40 +419,101 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
     });
   }
   if (arpRole === "counter") {
-    // A slow counter-line: one chord tone every two beats, wandering through a register
-    // band beneath the lead — a second melodic voice that converses with the busy theme
-    // by moving against it at a contrasting pace. Chord tones keep it consonant with the
-    // lead's chord-tone strong beats; it steps to the nearest tone but avoids repeating,
-    // so it actually moves instead of pedalling.
+    // A true second voice: it ANSWERS the lead. The lead breathes — its rhythm leaves
+    // real rests — and this line speaks into those silences, so the two parts trade
+    // phrases instead of talking over each other. Where they do overlap it moves against
+    // the lead, because two lines that move apart are heard as two lines. Chord tones
+    // keep it consonant; a tenor band keeps it under the lead's soprano.
     const counter: ScoreNote[] = [];
-    const stride = 2; // beats between counter notes
+    const stride = 2; // the counter's pace: it answers phrases, not every micro-gap
     const loBand = rootMidi - 2;
     const hiBand = rootMidi + OCTAVE - 3; // a tenor band that stays under the lead's soprano
+    const lead = ctx.leadMelody;
+    const leadMidi = (n: MelodyNote) => rootMidi + degreeToSemitone(raga, n.degree);
+
+    /** Is the lead sounding here? Its rests are where this voice gets to speak. */
+    const leadSounds = (beat: number) =>
+      lead.some((n) => n.startBeat <= beat + 1e-9 && n.startBeat + n.durationBeats > beat + 1e-9);
+    /** The lead note in force at `beat`, plus which way it just moved. */
+    const leadAt = (beat: number) => {
+      let last: MelodyNote | null = null;
+      let prior: MelodyNote | null = null;
+      for (const n of lead) {
+        if (n.startBeat > beat + 1e-9) break;
+        prior = last;
+        last = n;
+      }
+      return { last, step: last && prior ? Math.sign(last.degree - prior.degree) : 0 };
+    };
+
     let prevMidi = rootMidi + 2;
+    let prevLead: number | null = null;
     for (let bar = 0; bar < bars; bar++) {
       const pcs = plan.bars[bar]!.chord.pcs;
       const cands = pcs
         .flatMap((pc) => [rootMidi + pc, rootMidi + pc + OCTAVE])
         .filter((m) => m >= loBand && m <= hiBand);
+      if (cands.length === 0) continue;
+
+      // The line keeps its own pulse — a note every `stride` beats — and each one
+      // shifts to the nearest beat inside its slot where the lead is silent. Answering
+      // the theme must not cost the counter its rhythm: entries free to land wherever
+      // the lead happens to breathe leave a scatter of notes, not a line.
+      const barStart = bar * beatsPerBar;
+      const entries: number[] = [];
       for (let b = 0; b < beatsPerBar; b += stride) {
-        const start = swung(bar * beatsPerBar + b);
-        if (!active(texture.arp, start)) continue;
-        let pick = cands[0] ?? rootMidi;
-        let best = Infinity;
-        for (const m of cands) {
-          const cost = Math.abs(m - prevMidi) + (m === prevMidi ? 5 : 0); // nudge it off a repeat
-          if (cost < best) {
-            best = cost;
-            pick = m;
+        const slot = barStart + b;
+        let at = slot;
+        for (let k = 0; k < stride && slot + k < barStart + beatsPerBar; k++) {
+          if (!leadSounds(slot + k)) {
+            at = slot + k;
+            break;
           }
         }
+        entries.push(at);
+      }
+
+      for (const at of entries) {
+        const start = swung(at);
+        if (!active(texture.arp, start)) continue;
+        // Give way when the lead comes back in: hold only until it does.
+        const next = lead.find((n) => n.startBeat > at + 1e-9);
+        const room = next ? Math.min(stride, next.startBeat - at) : stride;
+        const { last, step } = leadAt(at);
+        const here = last ? leadMidi(last) : null;
+
+        let pool = cands.filter((m) => m !== prevMidi);
+        if (pool.length === 0) pool = cands;
+        // Move against the lead where a chord tone allows it…
+        const contrary = pool.filter((m) => step === 0 || Math.sign(m - prevMidi) !== step);
+        if (contrary.length > 0) pool = contrary;
+        // …and never into a parallel fifth or octave with it.
+        if (here !== null && prevLead !== null) {
+          const wasApart = Math.abs(prevLead - prevMidi) % OCTAVE;
+          const clean = pool.filter(
+            (m) =>
+              !(
+                (wasApart === 7 || wasApart === 0) &&
+                Math.abs(here - m) % OCTAVE === wasApart &&
+                m !== prevMidi &&
+                here !== prevLead
+              ),
+          );
+          if (clean.length > 0) pool = clean;
+        }
+        const pick = pool.reduce(
+          (best, m) => (Math.abs(m - prevMidi) < Math.abs(best - prevMidi) ? m : best),
+          pool[0] as number,
+        );
+
         counter.push({
           startBeat: start,
-          durationBeats: fit(start, stride * 0.95),
+          durationBeats: fit(start, Math.max(0.5, room) * 0.95),
           freq: midiToFrequency(pick),
           velocity: 0.4,
         });
         prevMidi = pick;
+        prevLead = here;
       }
     }
     return counter;
