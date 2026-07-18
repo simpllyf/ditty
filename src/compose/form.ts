@@ -13,7 +13,7 @@
 import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
 import { DRUM_GROOVES, type DrumGrooveName } from "../theory/rhythm";
-import type { Scale } from "../theory/scales";
+import type { RagaPaths, Scale } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
@@ -52,6 +52,7 @@ export interface FormOptions {
   readonly rng: Rng;
   readonly scale: Scale; // harmony parent
   readonly raga: Scale; // melody scale (for the theme)
+  readonly paths?: RagaPaths; // arohana/avarohana — the theme moves the way the raga does
   readonly rootMidi: number;
   readonly bars: number; // bars per section
   readonly beatsPerBar: number;
@@ -219,6 +220,7 @@ export function buildForm(o: FormOptions): Form {
     },
     scale: o.raga,
     density: o.density,
+    ...(o.paths !== undefined ? { paths: o.paths } : {}),
   });
   return { sections, motif, motifBars: MOTIF_BARS };
 }

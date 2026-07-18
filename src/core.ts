@@ -11,8 +11,14 @@ export { makeRng } from "./rng";
 export type { Rng } from "./rng";
 
 export { DEFAULT_ROOT_MIDI, OCTAVE, semitoneToFrequency, midiToFrequency } from "./theory/pitch";
-export { SCALES, degreeToSemitone, degreeToFrequency, degreePitchClass } from "./theory/scales";
-export type { Scale, ScaleName } from "./theory/scales";
+export {
+  RAGA_PATHS,
+  SCALES,
+  degreeToSemitone,
+  degreeToFrequency,
+  degreePitchClass,
+} from "./theory/scales";
+export type { RagaPaths, Scale, ScaleName } from "./theory/scales";
 export {
   CHORD_QUALITIES,
   chordPitchClasses,

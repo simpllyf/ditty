@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  RAGA_PATHS,
+  type RagaPaths,
   SCALES,
   type Scale,
   degreePitchClass,
@@ -51,6 +53,31 @@ describe("degreeToSemitone", () => {
   it("throws on a non-integer degree or empty scale", () => {
     expect(() => degreeToSemitone(penta, 1.5)).toThrow(RangeError);
     expect(() => degreeToSemitone([] as Scale, 0)).toThrow(RangeError);
+  });
+});
+
+describe("RAGA_PATHS — arohana / avarohana", () => {
+  const entries = Object.entries(RAGA_PATHS) as [keyof typeof RAGA_PATHS, RagaPaths][];
+
+  it.each(entries)("%s: each path is itself a well-formed scale containing the tonic", (_, p) => {
+    for (const path of [p.up, p.down]) {
+      expect(path[0]).toBe(0); // a raga starts from the tonic in both directions
+      expect(path[path.length - 1]!).toBeLessThan(12);
+      for (let i = 1; i < path.length; i++) expect(path[i]!).toBeGreaterThan(path[i - 1]!);
+    }
+  });
+
+  it.each(entries)("%s: ascent ∪ descent is exactly its SCALES entry", (name, p) => {
+    // The union is the degree space the melody moves in; the paths only say which of
+    // its notes each direction may use. Drift here would put the lead out of its scale.
+    const union = [...new Set([...p.up, ...p.down])].sort((a, b) => a - b);
+    expect(union).toEqual([...SCALES[name]]);
+  });
+
+  it.each(entries)("%s: actually moves differently up and down", (_, p) => {
+    // A raga whose paths match belongs in SCALES alone — the registry is for the
+    // ones whose identity IS the asymmetry.
+    expect([...p.up]).not.toEqual([...p.down]);
   });
 });
 

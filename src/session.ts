@@ -54,6 +54,8 @@ export interface SessionOptions {
   parent?: ArrangeOptions["parent"];
   /** Melody raga. Overrides the style — pair with a compatible `parent` (raga ⊆ parent) to stay in key. */
   raga?: ArrangeOptions["raga"];
+  /** Arohana/avarohana for the raga: the notes the lead may use ascending vs descending. */
+  paths?: ArrangeOptions["paths"];
   /** Tonic MIDI note (integer 36–84). Default: from the style. */
   rootMidi?: number;
   /** Drum groove name. Default: from the style. */
@@ -162,6 +164,9 @@ export function createSession(options: SessionOptions): Session {
   // Resolve the (constant) musical params once.
   const parent = options.parent ?? chosen.parent;
   const raga = options.raga ?? chosen.raga;
+  // A raga override without paths means a plain raga: don't leave the previous
+  // raga's grammar attached to a different note set.
+  const paths = options.paths ?? (options.raga ? undefined : chosen.paths);
   const rootMidi = options.rootMidi ?? chosen.rootMidi;
   const groove = options.groove ?? chosen.groove;
   const density = options.density ?? chosen.density;
@@ -190,6 +195,7 @@ export function createSession(options: SessionOptions): Session {
     rng: arrangeRng.fork(),
     scale: parent,
     raga,
+    ...(paths !== undefined ? { paths } : {}),
     rootMidi,
     bars,
     beatsPerBar,
@@ -211,6 +217,7 @@ export function createSession(options: SessionOptions): Session {
       bars,
       parent,
       raga,
+      ...(paths !== undefined ? { paths } : {}),
       rootMidi: section.rootMidi, // may modulate per section (key change)
       groove: section.groove, // B sparser, C busier than home
       density: section.density,

@@ -15,7 +15,9 @@ hand-composed signature hook, but it never runs out.
   key changes and a theme that develops as it recurs — sequenced, mirrored, or
   broadened where the music turns. Never exactly repeating, always looping seamlessly.
 - **Rich, in stereo.** ~20 synthesized instruments + drum kits, a formant choir,
-  and humanized timing across a stereo field. Seven styles, ~20 scales/ragas.
+  and humanized timing across a stereo field. Seven styles, ~20 scales/ragas —
+  a few of which climb and descend by different notes (arohana/avarohana), so the
+  lead moves the way the raga moves rather than treating it as a flat note set.
 - **Zero dependencies, deterministic, tiny** (~14.5 KB min+gzip). Same seed →
   identical music; the whole pure brain also runs in Node with no `AudioContext`.
 - **Framework-agnostic.** Web Audio only — no DOM access, no framework imports.
@@ -94,6 +96,7 @@ element, which a synthesis engine isn't.)
 | `chromatic`                      | `true`           | Allow occasional borrowed (non-diatonic) chords in bright-major keys                     |
 | `voices`                         | all on           | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
 | `parent` / `raga`                | from style       | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
+| `paths`                          | from style       | Arohana/avarohana: `RAGA_PATHS.bilahari` — which notes the lead may use up vs. down      |
 | `groove` / `kit`                 | from style       | Drum groove name and drum kit                                                            |
 | `rootMidi` / `density` / `swing` | from style       | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
 | `audioContext`                   | created lazily   | Bring your own `AudioContext` (or a compatible one)                                      |

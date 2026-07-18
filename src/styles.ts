@@ -8,17 +8,23 @@
  * SUBSET of it, so the lead always stays in key. Several pairings are load-bearing:
  * madhyamavati needs mixolydian (b7), hindolam needs naturalMinor (b6), abhogi
  * needs dorian (natural 6) — do not "simplify" these to a major parent.
+ *
+ * A pairing may also carry `paths` (arohana/avarohana). Those ragas are defined by
+ * the way they move, not by their note set — drop the paths and bilahari is just
+ * major — so the two always travel together.
  */
 import { type ScoreVoice } from "./voices";
 import { type InstrumentName, instrumentsForVoice } from "./instruments";
 import type { Rng } from "./rng";
 import type { DrumGrooveName } from "./theory/rhythm";
-import { SCALES, type Scale } from "./theory/scales";
+import { RAGA_PATHS, type RagaPaths, SCALES, type Scale } from "./theory/scales";
 
 /** A parent-scale + raga pairing a style may draw on (raga ⊆ parent). */
 export interface ScaleKey {
   readonly parent: Scale;
   readonly raga: Scale;
+  /** Arohana/avarohana, for a raga that moves differently up and down. */
+  readonly paths?: RagaPaths;
 }
 
 export interface Style {
@@ -37,6 +43,7 @@ export interface Style {
 export interface ChosenStyle {
   readonly parent: Scale;
   readonly raga: Scale;
+  readonly paths?: RagaPaths;
   readonly rootMidi: number;
   readonly groove: DrumGrooveName;
   readonly bpm: number;
@@ -56,6 +63,7 @@ export const STYLES = {
       { parent: SCALES.lydian, raga: SCALES.kalyani }, // bright, floaty (#4)
       { parent: SCALES.lydian, raga: SCALES.majorPentatonic },
       { parent: SCALES.major, raga: SCALES.majorPentatonic },
+      { parent: SCALES.major, raga: SCALES.bilahari, paths: RAGA_PATHS.bilahari }, // climbs bright, comes down full
     ],
     grooves: ["straight", "fourOnFloor", "busy", "syncopated"],
     bpm: [104, 132],
@@ -79,6 +87,7 @@ export const STYLES = {
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi }, // wistful
       { parent: SCALES.dorian, raga: SCALES.minorPentatonic },
       { parent: SCALES.dorian, raga: SCALES.sriranjani }, // wistful, fifth-less
+      { parent: SCALES.mixolydian, raga: SCALES.kambhoji, paths: RAGA_PATHS.kambhoji }, // warm, the b7 only on the way down
     ],
     grooves: ["soft", "halfTime", "waltz"],
     bpm: [68, 92],
@@ -101,6 +110,7 @@ export const STYLES = {
       { parent: SCALES.lydian, raga: SCALES.kalyani },
       { parent: SCALES.major, raga: SCALES.majorPentatonic },
       { parent: SCALES.mayamalavagowla, raga: SCALES.mayamalavagowla }, // exotic spice
+      { parent: SCALES.major, raga: SCALES.arabhi, paths: RAGA_PATHS.arabhi }, // bold ascent, full descent
     ],
     grooves: [
       "fourOnFloor",
@@ -133,6 +143,11 @@ export const STYLES = {
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic }, // dark
       { parent: SCALES.melodicMinor, raga: SCALES.abhogi },
       { parent: SCALES.dorian, raga: SCALES.sriranjani },
+      {
+        parent: SCALES.lydian,
+        raga: SCALES.mohanakalyani,
+        paths: RAGA_PATHS.mohanakalyani, // pentatonic up, the #4 waiting on the way down
+      },
     ],
     grooves: ["soft", "halfTime", "straight", "waltz", "sixEight"],
     bpm: [72, 100],
@@ -250,6 +265,7 @@ export function pickStyle(rng: Rng, name: StyleName = "peppy"): ChosenStyle {
   return {
     parent: key.parent,
     raga: key.raga,
+    ...(key.paths !== undefined ? { paths: key.paths } : {}),
     rootMidi,
     groove,
     bpm,

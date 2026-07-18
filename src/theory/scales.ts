@@ -49,7 +49,43 @@ export const SCALES = {
   sriranjani: [0, 2, 3, 5, 9, 10], // ⊆ dorian — wistful, drops the fifth
   revati: [0, 1, 5, 7, 10], // ⊆ phrygian — serene b2 pentatonic
   charukesi: [0, 2, 4, 5, 7, 8, 10], // bright tonic with b6 b7 — bittersweet (a self-paired parent)
+  // --- ragas defined by their PATH, not their note set (see RAGA_PATHS) ---
+  // Each entry is the union of the raga's ascent and descent. Bilahari and arabhi
+  // share that union with major; what tells them apart is which notes each one is
+  // allowed to use going up versus coming down.
+  bilahari: [0, 2, 4, 5, 7, 9, 11],
+  arabhi: [0, 2, 4, 5, 7, 9, 11],
+  kambhoji: [0, 2, 4, 5, 7, 9, 10], // ⊆ mixolydian (Harikambhoji)
+  mohanakalyani: [0, 2, 4, 6, 7, 9, 11], // ⊆ lydian (Mechakalyani)
 } as const satisfies Record<string, Scale>;
+
+/**
+ * A raga's melodic paths: the notes available while ASCENDING (**arohana**) and
+ * while DESCENDING (**avarohana**). Many ragas are not a single note set but a
+ * pair of them — bilahari climbs a bright pentatonic and comes down the full
+ * seven, which is what makes it bilahari rather than major.
+ *
+ * These are the "straight" (non-vakra) ragas: their paths are SETS, so the rule is
+ * simply which notes a line may touch in each direction. Vakra ragas, whose ascent
+ * zigzags through a fixed ordered figure, are a different mechanism and are not
+ * modelled here.
+ */
+export interface RagaPaths {
+  readonly up: Scale;
+  readonly down: Scale;
+}
+
+/**
+ * Ragas whose ascent and descent differ. Every entry's `up ∪ down` equals the
+ * matching {@link SCALES} entry — the union is the degree space the melody moves
+ * in, and these paths say which of its notes each direction may use.
+ */
+export const RAGA_PATHS = {
+  bilahari: { up: [0, 2, 4, 7, 9], down: [0, 2, 4, 5, 7, 9, 11] },
+  arabhi: { up: [0, 2, 5, 7, 9], down: [0, 2, 4, 5, 7, 9, 11] },
+  kambhoji: { up: [0, 2, 4, 5, 7, 9], down: [0, 2, 4, 5, 7, 9, 10] },
+  mohanakalyani: { up: [0, 2, 4, 7, 9], down: [0, 2, 4, 6, 7, 9, 11] },
+} as const satisfies Record<string, RagaPaths>;
 
 /** Name of a built-in scale. */
 export type ScaleName = keyof typeof SCALES;

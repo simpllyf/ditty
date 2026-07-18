@@ -4,7 +4,7 @@ import { chordTonesInScale, generateHarmony } from "../src/compose/harmony";
 import { type MelodyNote, type MelodyOptions, generateMelody } from "../src/compose/melody";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
-import { SCALES, type Scale, degreePitchClass } from "../src/theory/scales";
+import { RAGA_PATHS, SCALES, type Scale, degreePitchClass } from "../src/theory/scales";
 
 interface SetupOpts {
   seed?: number;
@@ -303,5 +303,107 @@ describe("generateMelody — validation", () => {
     expect(() => generateMelody({ ...base, maxLeap: 0 })).toThrow(RangeError);
     expect(() => generateMelody({ ...base, maxNoteRepeat: 0 })).toThrow(RangeError);
     expect(() => generateMelody({ ...base, contourAmplitude: -1 })).toThrow(RangeError);
+  });
+});
+
+describe("generateMelody — arohana / avarohana", () => {
+  const paths = RAGA_PATHS.bilahari;
+  const up = new Set<number>(paths.up);
+  const down = new Set<number>(paths.down);
+
+  /** Where the line moves against the raga's grammar, and whether harmony forced it. */
+  function offPath(notes: readonly MelodyNote[], scale: Scale) {
+    const strays: MelodyNote[] = [];
+    for (let i = 1; i < notes.length; i++) {
+      const prev = notes[i - 1]!.degree;
+      const cur = notes[i]!;
+      if (cur.degree === prev) continue; // holding a note is free in either direction
+      const pc = degreePitchClass(scale, cur.degree);
+      if (!(cur.degree > prev ? up.has(pc) : down.has(pc))) strays.push(cur);
+    }
+    return strays;
+  }
+
+  function melody(seed: number, withPaths: boolean) {
+    const plan = generateHarmony({ rng: makeRng(seed), scale: SCALES.major, bars: 8 });
+    return generateMelody({
+      rng: makeRng(seed + 1000),
+      plan,
+      scale: SCALES.bilahari,
+      ...(withPaths ? { paths } : {}),
+    });
+  }
+
+  it("rises on the arohana and falls on the avarohana, for any seed", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 5000 }), (seed) => {
+        // On a weak beat nothing competes with the grammar, so it must hold absolutely.
+        const strayOnWeakBeat = offPath(melody(seed, true), SCALES.bilahari).filter(
+          (n) => !n.strong,
+        );
+        expect(strayOnWeakBeat).toEqual([]);
+      }),
+      { numRuns: 250 },
+    );
+  });
+
+  it("is what puts the line on the path — the same raga without it wanders off", () => {
+    // Bilahari's whole identity is the M1 and N3 it may only touch coming down. Without
+    // the paths it is just major, and the lead climbs through them freely.
+    let free = 0;
+    for (let seed = 0; seed < 60; seed++)
+      free += offPath(melody(seed, false), SCALES.bilahari).length;
+    expect(free).toBeGreaterThan(0);
+    let bound = 0;
+    for (let seed = 0; seed < 60; seed++)
+      bound += offPath(melody(seed, true), SCALES.bilahari).length;
+    expect(bound).toBe(0);
+  });
+
+  it("states the theme on the path too, however the theme was developed", () => {
+    // A transformed motif (here mirrored) arrives with its own contour; stating it must
+    // still land the notes where the raga allows them.
+    const plan = generateHarmony({ rng: makeRng(4), scale: SCALES.major, bars: 8 });
+    const motif = generateMelody({
+      rng: makeRng(5),
+      plan: { ...plan, bars: plan.bars.slice(0, 2) },
+      scale: SCALES.bilahari,
+    });
+    const pivot = motif[0]!.degree;
+    const mirrored = motif.map((n) => ({ ...n, degree: 2 * pivot - n.degree }));
+    const notes = generateMelody({
+      rng: makeRng(6),
+      plan,
+      scale: SCALES.bilahari,
+      paths,
+      motif: mirrored,
+      motifBars: 2,
+    });
+    expect(offPath(notes, SCALES.bilahari).filter((n) => !n.strong)).toEqual([]);
+  });
+
+  it("shapes the line but never strands it: an impossible ascent still sings", () => {
+    // Only the tonic may be climbed to — the grammar has nowhere legal to go, and the
+    // melody must fall back rather than stall or emit nothing.
+    const plan = generateHarmony({ rng: makeRng(7), scale: SCALES.major, bars: 8 });
+    const notes = generateMelody({
+      rng: makeRng(8),
+      plan,
+      scale: SCALES.major,
+      paths: { up: [0], down: SCALES.major },
+    });
+    expect(notes.length).toBeGreaterThan(0);
+    for (const n of notes) expect(Number.isInteger(n.degree)).toBe(true);
+  });
+
+  it("leaves a raga that moves alike both ways exactly as it was", () => {
+    const plain = melody(11, false);
+    const symmetric = generateMelody({
+      rng: makeRng(11 + 1000),
+      plan: generateHarmony({ rng: makeRng(11), scale: SCALES.major, bars: 8 }),
+      scale: SCALES.bilahari,
+      paths: { up: SCALES.bilahari, down: SCALES.bilahari },
+    });
+    expect(symmetric).toEqual(plain);
   });
 });

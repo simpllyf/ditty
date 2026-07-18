@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ScoreVoice } from "../src/compose/arranger";
 import { instrumentsForVoice } from "../src/instruments";
 import { makeRng } from "../src/rng";
-import { STYLES, type StyleName, pickStyle } from "../src/styles";
+import { STYLES, type Style, type StyleName, pickStyle } from "../src/styles";
 
 const VOICES: ScoreVoice[] = ["lead", "bass", "pad", "arp"];
 const STYLE_NAMES = Object.keys(STYLES) as StyleName[];
@@ -16,6 +16,21 @@ describe("STYLES registry well-formedness", () => {
     for (const { parent, raga } of style.keys) {
       const parentPcs = pcs(parent);
       for (const pc of pcs(raga)) expect(parentPcs.has(pc)).toBe(true);
+    }
+  });
+
+  it.each(STYLE_NAMES)("%s keeps every raga path in-key and true to its raga", (name) => {
+    const style: Style = STYLES[name];
+    for (const { parent, raga, paths } of style.keys) {
+      if (!paths) continue;
+      const parentPcs = pcs(parent);
+      for (const path of [paths.up, paths.down]) {
+        for (const pc of pcs(path)) expect(parentPcs.has(pc)).toBe(true); // both directions stay in key
+      }
+      // The paths ARE the raga: mispair them and the lead would be told to move
+      // through notes its own scale doesn't contain.
+      const union = [...new Set([...paths.up, ...paths.down])].sort((a, b) => a - b);
+      expect(union).toEqual([...raga]);
     }
   });
 
