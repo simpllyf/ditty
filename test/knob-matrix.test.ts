@@ -78,6 +78,19 @@ function check(options: SessionOptions, label: string, bad: string[]) {
       const padFloor = Math.min(...pad.map((n) => n.freq));
       if (bassTop >= padFloor) fail(`${where} bass reaches into the pad`);
     }
+    // The voices stack: a lead singing under its own bass inverts the arrangement and
+    // muddies both. A part given a low register is the way this gets broken.
+    if (bass.length > 0 && lead.length > 0) {
+      const bassTop = Math.max(...bass.map((n) => n.freq));
+      const leadFloor = Math.min(...lead.map((n) => n.freq));
+      if (leadFloor <= bassTop) fail(`${where} lead sings under the bass`);
+    }
+    // Register is set in scale DEGREES, which cover different ground per raga — a
+    // pentatonic's degree 14 is over two octaves up. Unchecked, that sends a lifted
+    // part shrieking.
+    for (const n of lead) {
+      if (n.freq > 2000) fail(`${where} lead is shrill at ${n.freq.toFixed(0)}Hz`);
+    }
 
     // The pad connects its chords rather than re-stacking them. Group by the nearest
     // bar line: humanize nudges a chord a hair early, and flooring would file those

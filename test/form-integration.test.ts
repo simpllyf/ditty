@@ -68,8 +68,9 @@ describe("form integration — the full stacked arrangement", () => {
   });
 
   it("a kriti sings its parts in different registers, in one raga throughout", () => {
-    // The pallavi is the reference; the anupallavi answers from above and the charanam
-    // from below. Register is what tells a kriti's parts apart — it never changes key.
+    // The pallavi is the reference, the anupallavi answers an octave above it, and the
+    // charanam climbs past where the pallavi sits. Register is what tells a kriti's
+    // parts apart — it never changes key.
     const semis = (freq: number) => 12 * Math.log2(freq / 261.6256);
     const heights = new Map<string, number[]>();
     for (const style of STYLE_NAMES) {
@@ -91,7 +92,8 @@ describe("form integration — the full stacked arrangement", () => {
       return xs.reduce((a, b) => a + b, 0) / xs.length;
     };
     expect(avg("anupallavi")).toBeGreaterThan(avg("pallavi") + 1); // audibly higher
-    expect(avg("charanam")).toBeLessThan(avg("pallavi") - 1); // audibly lower
+    expect(avg("charanam")).toBeGreaterThan(avg("pallavi")); // climbs past where it began
+    expect(avg("anupallavi")).toBeGreaterThan(avg("charanam")); // three distinct levels
   });
 
   it("the theme is transformed where it recurs, not merely repeated", () => {
