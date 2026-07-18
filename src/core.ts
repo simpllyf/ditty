@@ -42,7 +42,7 @@ export {
 } from "./theory/rhythm";
 export type { Onset, DrumGroove, DrumGrooveName } from "./theory/rhythm";
 
-export { generateHarmony, chordTonesInScale } from "./compose/harmony";
+export { generateHarmony, chordTonesInScale, chordAt } from "./compose/harmony";
 export type { HarmonicPlan, HarmonicBar, HarmonyOptions } from "./compose/harmony";
 export { generateMelody } from "./compose/melody";
 export type { MelodyNote, MelodyOptions } from "./compose/melody";

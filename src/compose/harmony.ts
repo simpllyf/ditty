@@ -26,6 +26,22 @@ export interface HarmonicBar {
   readonly degree: number;
   /** The bar's triad (pitch classes) — diatonic on `degree`, or a borrowed chord. */
   readonly chord: Chord;
+  /**
+   * A second chord taking over at the bar's midpoint, when the harmony moves twice as
+   * fast for a bar. Absent on the great majority of bars — one chord per bar is the
+   * rule and this is the exception that makes an approach to a cadence feel like one.
+   * Read it through {@link chordAt}; a voice that ignores it will sound against the
+   * bar's second half.
+   */
+  readonly second?: { readonly degree: number; readonly chord: Chord };
+}
+
+/**
+ * The chord sounding at `beatInBar`. The midpoint is floored to a beat so it lands on
+ * the grid in every meter, matching where the bass already divides its bar.
+ */
+export function chordAt(bar: HarmonicBar, beatInBar: number, beatsPerBar: number): Chord {
+  return bar.second && beatInBar >= Math.floor(beatsPerBar / 2) ? bar.second.chord : bar.chord;
 }
 
 /** A bar-by-bar harmonic plan over a heptatonic parent key. */
@@ -61,6 +77,9 @@ const DEFAULT_BARS = 8;
 const DEFAULT_BEATS_PER_BAR = 4;
 
 /** Chance a borrow-eligible plan actually swaps in one borrowed chord. */
+/** How often the approach to a cadence divides into two chords. */
+const SPLIT_RATE = 0.4;
+
 const BORROW_RATE = 0.4;
 /**
  * Borrowed chords (modal interchange), relative to the tonic. Each shares a tone
@@ -140,6 +159,20 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
     degree,
     chord: diatonicChord(scale, degree),
   }));
+
+  // Harmonic rhythm: the approach to a cadence may move twice as fast, compressing
+  // ii-V into the bar before the resolution. One chord per bar everywhere else — a
+  // piece that changed chords constantly would read as restless, not as arriving.
+  // (Roll always consumed, so the seed stream doesn't shift with the meter.)
+  const splitApproach = rng.next() < SPLIT_RATE;
+  if (splitApproach && cadence !== "iiV" && beatsPerBar % 2 === 0 && final - 1 > half) {
+    const approach = final - 1;
+    barsOut[approach] = {
+      degree: 1, // ii for the first half…
+      chord: diatonicChord(scale, 1),
+      second: { degree: 4, chord: diatonicChord(scale, 4) }, // …V for the second
+    };
+  }
 
   // Modal interchange: occasionally swap one non-cadence bar for a borrowed chord —
   // colour without losing the key. Bright-major only, and never on the tonic anchor

@@ -20,7 +20,7 @@ import {
   degreeToSemitone,
 } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
-import { type HarmonicPlan, generateHarmony } from "./harmony";
+import { type HarmonicPlan, chordAt, generateHarmony } from "./harmony";
 import { DEFAULT_MAX_LEAP, type MelodyNote, generateMelody } from "./melody";
 import { type MotifDevelopment, PLAIN_STATEMENT, developMotif } from "./motif";
 
@@ -249,12 +249,19 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
   const mid = Math.floor(beatsPerBar / 2);
   const low = (pc: number) => midiToFrequency(rootMidi - OCTAVE + pc); // always below the pad
   for (let bar = 0; bar < bars; bar++) {
-    const chord = plan.bars[bar]!.chord;
+    const barPlan = plan.bars[bar]!;
+    const chord = barPlan.chord;
+    // The bar already divides here, so a split bar simply gives each half its chord.
     const barStart = bar * beatsPerBar;
     const root = chord.root;
     // The chord's ACTUAL fifth (3rd stacked tone), not a blind perfect fifth —
     // a perfect fifth over a diminished/augmented triad is out of key.
-    const fifth = chord.pcs[2] ?? chord.root;
+    /** The chord under this beat, and its ACTUAL fifth (3rd stacked tone) — a blind
+     * perfect fifth over a diminished or augmented triad would be out of key. */
+    const under = (beat: number) => {
+      const c = chordAt(barPlan, beat - barStart, beatsPerBar);
+      return { root: c.root, fifth: c.pcs[2] ?? c.root, pcs: c.pcs };
+    };
     if (bassPattern === "rootFifth") {
       notes.push({
         startBeat: barStart,
@@ -262,7 +269,8 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
         freq: low(root),
         velocity: 0.85,
       });
-      const second = bassRng.next() < 0.5 ? root : fifth;
+      const half = under(barStart + mid);
+      const second = bassRng.next() < 0.5 ? half.root : half.fifth;
       const midStart = barStart + mid;
       notes.push({
         startBeat: midStart,
@@ -276,7 +284,7 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
         notes.push({
           startBeat: at,
           durationBeats: fit(at, 0.9),
-          freq: low(root),
+          freq: low(under(at).root),
           velocity: b === 0 ? 0.85 : 0.72,
         });
       }
@@ -286,18 +294,26 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
         notes.push({
           startBeat: at,
           durationBeats: fit(at, 0.9),
-          freq: low(chord.pcs[b % chord.pcs.length] ?? root),
+          freq: low(under(at).pcs[b % under(at).pcs.length] ?? under(at).root),
           velocity: b === 0 ? 0.85 : 0.75,
         });
       }
     } else {
-      // sustained: root held the whole bar
-      notes.push({
-        startBeat: barStart,
-        durationBeats: fit(barStart, beatsPerBar),
-        freq: low(root),
-        velocity: 0.8,
-      });
+      // sustained: the root held for the bar, or for each half of a split one
+      const spans: readonly (readonly [number, number])[] = barPlan.second
+        ? [
+            [barStart, mid],
+            [barStart + mid, beatsPerBar - mid],
+          ]
+        : [[barStart, beatsPerBar]];
+      for (const [beat, span] of spans) {
+        notes.push({
+          startBeat: beat,
+          durationBeats: fit(beat, span),
+          freq: low(under(beat).root),
+          velocity: 0.8,
+        });
+      }
     }
   }
   return notes;
@@ -347,6 +363,7 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
   // The pad's register: above the bass (which never rises past rootMidi - 1) and
   // within two octaves of the tonic.
   const padHi = rootMidi + 2 * OCTAVE;
+  const mid = Math.floor(beatsPerBar / 2); // where a split bar changes chord
   // Open in root position — that states the harmony plainly — then lead the voices
   // from bar to bar.
   const opening = plan.bars[0]!.chord;
@@ -354,46 +371,67 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
     (pc) => rootMidi + opening.root + ((pc - opening.root + OCTAVE) % OCTAVE),
   );
   for (let bar = 0; bar < bars; bar++) {
-    const chord = plan.bars[bar]!.chord;
+    const barPlan = plan.bars[bar]!;
     const barStart = bar * beatsPerBar;
-    if (bar > 0) voicing = voiceLead(chord.pcs, voicing, rootMidi, padHi);
-    const padVoice = (_pc: number, _root: number, i: number) =>
-      midiToFrequency(voicing[i] as number);
+    if (bar > 0) voicing = voiceLead(barPlan.chord.pcs, voicing, rootMidi, padHi);
+    // A split bar is voiced twice, the second half led from the first — the pad has to
+    // move with the harmony or it holds a chord the rest of the band has left behind.
+    const late = barPlan.second
+      ? voiceLead(barPlan.second.chord.pcs, voicing, rootMidi, padHi)
+      : null;
+    /** The voicing sounding at this point in the bar. */
+    const at = (beat: number) => (late && beat - barStart >= mid ? late : voicing);
+
     if (padPattern === "stabs") {
       // Rhythmic chord hits on each beat — a driving climax pad.
       for (let b = 0; b < beatsPerBar; b++) {
-        const at = barStart + b;
-        chord.pcs.forEach((pc, i) => {
+        const beat = barStart + b;
+        for (const midi of at(beat)) {
           notes.push({
-            startBeat: at,
-            durationBeats: fit(at, 0.4),
-            freq: padVoice(pc, chord.root, i),
+            startBeat: beat,
+            durationBeats: fit(beat, 0.4),
+            freq: midiToFrequency(midi),
             velocity: 0.32,
           });
-        });
+        }
       }
     } else if (padPattern === "broken") {
-      // Chord tones enter one per beat, each held to the bar end — gentle bridge movement.
-      chord.pcs.forEach((pc, i) => {
-        const at = barStart + Math.min(i, beatsPerBar - 1);
-        notes.push({
-          startBeat: at,
-          durationBeats: fit(at, beatsPerBar - (at - barStart)),
-          freq: padVoice(pc, chord.root, i),
-          velocity: 0.3,
+      // Chord tones enter one per beat, each held to the end of its half — gentle
+      // bridge movement that still gives way when the harmony moves.
+      const until = late ? [mid, beatsPerBar] : [beatsPerBar];
+      let from = 0;
+      for (const edge of until) {
+        const voices = at(barStart + from);
+        voices.forEach((midi, i) => {
+          const beat = barStart + Math.min(from + i, edge - 1);
+          notes.push({
+            startBeat: beat,
+            durationBeats: fit(beat, barStart + edge - beat),
+            freq: midiToFrequency(midi),
+            velocity: 0.3,
+          });
         });
-      });
+        from = edge;
+      }
     } else {
-      // sustain: whole-bar block chord (default).
-      const dur = fit(barStart, beatsPerBar);
-      chord.pcs.forEach((pc, i) => {
-        notes.push({
-          startBeat: barStart,
-          durationBeats: dur,
-          freq: padVoice(pc, chord.root, i),
-          velocity: 0.3,
-        });
-      });
+      // sustain: a block chord held for the bar, or for each half of a split one.
+      const spans: readonly (readonly [number, number])[] = late
+        ? [
+            [barStart, mid],
+            [barStart + mid, beatsPerBar - mid],
+          ]
+        : [[barStart, beatsPerBar]];
+      for (const [beat, span] of spans) {
+        const dur = fit(beat, span);
+        for (const midi of at(beat)) {
+          notes.push({
+            startBeat: beat,
+            durationBeats: dur,
+            freq: midiToFrequency(midi),
+            velocity: 0.3,
+          });
+        }
+      }
     }
   }
   return notes;
@@ -452,11 +490,12 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
     let prevMidi = rootMidi + 2;
     let prevLead: number | null = null;
     for (let bar = 0; bar < bars; bar++) {
-      const pcs = plan.bars[bar]!.chord.pcs;
-      const cands = pcs
-        .flatMap((pc) => [rootMidi + pc, rootMidi + pc + OCTAVE])
-        .filter((m) => m >= loBand && m <= hiBand);
-      if (cands.length === 0) continue;
+      const barPlan = plan.bars[bar]!;
+      const tonesAt = (beat: number) =>
+        chordAt(barPlan, beat - bar * beatsPerBar, beatsPerBar)
+          .pcs.flatMap((pc) => [rootMidi + pc, rootMidi + pc + OCTAVE])
+          .filter((m) => m >= loBand && m <= hiBand);
+      if (tonesAt(bar * beatsPerBar).length === 0) continue;
 
       // The line keeps its own pulse — a note every `stride` beats — and each one
       // shifts to the nearest beat inside its slot where the lead is silent. Answering
@@ -485,6 +524,8 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
         const { last, step } = leadAt(at);
         const here = last ? leadMidi(last) : null;
 
+        const cands = tonesAt(at);
+        if (cands.length === 0) continue;
         let pool = cands.filter((m) => m !== prevMidi);
         if (pool.length === 0) pool = cands;
         // Move against the lead where a chord tone allows it…
@@ -525,8 +566,13 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
   const pattern = arpRng.pick(ARP_PATTERNS);
   const stepsPerBar = beatsPerBar * 2; // eighth notes, so swing bites
   for (let bar = 0; bar < bars; bar++) {
-    const seq = arpSequence(plan.bars[bar]!.chord.pcs, pattern);
+    const barPlan = plan.bars[bar]!;
+    const early = arpSequence(barPlan.chord.pcs, pattern);
+    // The same figure over the second chord, so a split bar keeps its shape while the
+    // harmony underneath it moves.
+    const late = barPlan.second ? arpSequence(barPlan.second.chord.pcs, pattern) : early;
     for (let s = 0; s < stepsPerBar; s++) {
+      const seq = s * 0.5 >= Math.floor(beatsPerBar / 2) ? late : early;
       const pc = seq[s % seq.length]!;
       const start = swung(bar * beatsPerBar + s * 0.5);
       if (!active(texture.arp, start)) continue; // gated out this section

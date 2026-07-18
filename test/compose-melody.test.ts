@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { chordTonesInScale, generateHarmony } from "../src/compose/harmony";
+import { chordAt, chordTonesInScale, generateHarmony } from "../src/compose/harmony";
 import { type MelodyNote, type MelodyOptions, generateMelody } from "../src/compose/melody";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
@@ -128,8 +128,12 @@ describe("generateMelody — invariants", () => {
         const { plan, raga, notes } = setup({ seed });
         for (const note of notes) {
           if (!note.strong) continue;
-          const chord = plan.bars[barOf(note.startBeat, plan.beatsPerBar)]!.chord;
-          expect(chord.pcs).toContain(degreePitchClass(raga, note.degree));
+          // The harmony can change inside a bar, so read the chord under THIS note.
+          const bar = plan.bars[barOf(note.startBeat, plan.beatsPerBar)]!;
+          const inBar = note.startBeat % plan.beatsPerBar;
+          expect(chordAt(bar, inBar, plan.beatsPerBar).pcs).toContain(
+            degreePitchClass(raga, note.degree),
+          );
         }
       }),
       { numRuns: 200 },
@@ -221,7 +225,8 @@ describe("generateMelody — invariants", () => {
         const { plan, notes } = setup({ seed, parent, raga });
         for (const n of notes) {
           if (!n.strong) continue;
-          const chord = plan.bars[barOf(n.startBeat, plan.beatsPerBar)]!.chord;
+          const bar = plan.bars[barOf(n.startBeat, plan.beatsPerBar)]!;
+          const chord = chordAt(bar, n.startBeat % plan.beatsPerBar, plan.beatsPerBar);
           const shared = chordTonesInScale(chord, raga);
           if (shared.length === 0) continue; // no chord tone in the raga → fallback is exempt
           expect(shared).toContain(degreePitchClass(raga, n.degree));

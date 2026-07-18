@@ -10,7 +10,7 @@ import type { Rng } from "../rng";
 import { pitchClass } from "../theory/pitch";
 import { melodyRhythm } from "../theory/rhythm";
 import { type RagaPaths, type Scale, degreePitchClass } from "../theory/scales";
-import type { HarmonicPlan } from "./harmony";
+import { type HarmonicPlan, chordAt } from "./harmony";
 
 /** One melody note. `degree` is a melody-scale degree (any integer); the arranger maps it to Hz. */
 export interface MelodyNote {
@@ -195,7 +195,10 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
   if (motif && motif.length > 0) {
     for (const n of motif) {
       const bar = Math.min(Math.floor(n.startBeat / plan.beatsPerBar), plan.bars.length - 1);
-      const chordRagaPcs = plan.bars[bar]!.chord.pcs.filter((pc) => ragaPcs.has(pc));
+      const inBar = n.startBeat - bar * plan.beatsPerBar;
+      const chordRagaPcs = chordAt(plan.bars[bar]!, inBar, plan.beatsPerBar).pcs.filter((pc) =>
+        ragaPcs.has(pc),
+      );
       const degree = stateNote(n.degree, chordRagaPcs, n.strong, prev);
       notes.push(degree === n.degree ? n : { ...n, degree });
       remember(degree);
@@ -205,8 +208,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
   }
 
   for (let bar = startBar; bar < plan.bars.length; bar++) {
-    const chord = plan.bars[bar]!.chord;
-    const chordRagaPcs = chord.pcs.filter((pc) => ragaPcs.has(pc)); // raga ∩ chord (set hoisted)
+    const barPlan = plan.bars[bar]!;
     // Phrases run four bars (the span the contour arcs over), and the cadence bars close
     // one too. Ending a phrase lands, holds, then breathes — so a cadence's resolution
     // rings out into silence instead of being trampled by the next note.
@@ -216,6 +218,9 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
     for (let i = 0; i < onsets.length; i++) {
       const onset = onsets[i]!;
       const isLast = i === onsets.length - 1;
+      // The harmony can change inside a bar, so each note reads the chord under IT.
+      const chord = chordAt(barPlan, onset.startBeat, plan.beatsPerBar);
+      const chordRagaPcs = chord.pcs.filter((pc) => ragaPcs.has(pc)); // raga ∩ chord
       const phraseT = ((bar % 4) + onset.startBeat / plan.beatsPerBar) / 4; // 0..1 across a 4-bar phrase
       // Soft-bias each note toward the phrase's contour; pickNote still enforces key + leap cap.
       const target = clamp(
