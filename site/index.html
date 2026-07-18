@@ -1676,9 +1676,18 @@
           raf = requestAnimationFrame(draw);
           // Live form-strip highlight: which section is playing now (by elapsed audio time).
           if (state.playing && audio && state.form.length) {
-            const secPerLoop = (state.bars * state.beatsPerBar * 60) / state.bpm;
+            // Sections carry their own length AND tempo — a kriti's charanam runs half
+            // again as long — so walk their real durations instead of one fixed stride.
+            const spans = state.form.map(
+              (s) => ((s.bars ?? state.bars) * state.beatsPerBar * 60) / (s.bpm || state.bpm),
+            );
+            const formSeconds = spans.reduce((a, b) => a + b, 0);
             const elapsed = audio.raw.currentTime - formAnchor;
-            const idx = elapsed >= 0 ? Math.floor(elapsed / secPerLoop) % state.form.length : 0;
+            let idx = 0;
+            if (elapsed >= 0 && formSeconds > 0) {
+              let into = elapsed % formSeconds;
+              while (idx < spans.length - 1 && into >= spans[idx]) into -= spans[idx++];
+            }
             if (idx !== lastFormIdx) {
               lastFormIdx = idx;
               renderFormStrip(idx);

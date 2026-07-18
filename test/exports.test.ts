@@ -56,6 +56,8 @@ describe("public exports", () => {
       arpRole: "arp",
       development: { transform: "statement", step: 0 },
       part: "A",
+      bars: 8,
+      bpm: 100,
     };
     expect(view.label).toBe("A");
   });

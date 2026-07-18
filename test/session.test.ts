@@ -63,6 +63,8 @@ describe("createSession", () => {
       arpRole: "arp",
       development: { transform: "statement", step: 0 },
       part: "A",
+      bars: 8,
+      bpm: s.bpm,
     });
     for (const sec of s.sections) {
       const role = sec.label === "A" ? "arp" : sec.label === "B" ? "harmony" : "double";
