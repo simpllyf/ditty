@@ -35,6 +35,8 @@ export interface SectionProfile {
   readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
   readonly padPattern: PadPattern; // how the pad voices chords (sustain / broken / stabs)
   readonly development: MotifDevelopment; // how this part treats the theme (state it / develop it)
+  readonly range: readonly [number, number]; // the lead's register for this part
+  readonly part: string; // what this part is called ("B" / "anupallavi")
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
 }
 
@@ -43,6 +45,7 @@ type SectionRecipe = Omit<SectionProfile, "fill">;
 
 /** A whole piece: sections in play order, plus the recurring theme they share. */
 export interface Form {
+  readonly kind: FormKind;
   readonly sections: readonly SectionProfile[];
   readonly motif: readonly MelodyNote[]; // the piece's theme, developed at each section's head
   readonly motifBars: number;
@@ -59,21 +62,58 @@ export interface FormOptions {
   readonly density: number; // base melodic density (section A's level)
   readonly groove: DrumGrooveName; // home groove (section A); B/C contrast it
   readonly borrow: boolean; // allow occasional borrowed (non-diatonic) chords
+  readonly form?: FormKind; // pin the layout; otherwise the seed picks one
 }
 
 /** Bars the recurring theme spans (stated at the head of every section). */
 const MOTIF_BARS = 2;
 
-/** Song shapes, by section label. A = home, B = contrast/bridge, C = climax. */
-const FORM_TEMPLATES: readonly (readonly string[])[] = [
-  ["A", "A", "B", "A"], // AABA — classic 32-bar song form
-  ["A", "B", "A", "B"], // verse/chorus
-  ["A", "B", "A", "C"], // verse/bridge/verse/climax
-  ["A", "B", "A", "B", "A", "C"], // longer arc to a climax
-  ["A", "A", "B", "A", "B", "A"], // extended AABA
-  ["A", "B", "A", "C", "A"], // rondo-ish, returns home
-  ["A", "B", "C", "A"], // build through bridge to climax, then home
+/**
+ * How a piece is laid out. A `song` moves through home / bridge / climax, modulating
+ * and re-texturing as it goes. A `kriti` is the Carnatic form: pallavi, anupallavi,
+ * charanam — the refrain returning between each, the whole piece in ONE raga and one
+ * tonic, distinguished by where in the register each part sings rather than by key.
+ */
+export type FormKind = "song" | "kriti";
+
+/** A layout: the parts in play order, by section label (A = home/pallavi, B, C). */
+interface FormTemplate {
+  readonly kind: FormKind;
+  readonly parts: readonly string[];
+}
+
+const FORM_TEMPLATES: readonly FormTemplate[] = [
+  { kind: "song", parts: ["A", "A", "B", "A"] }, // AABA — classic 32-bar song form
+  { kind: "song", parts: ["A", "B", "A", "B"] }, // verse/chorus
+  { kind: "song", parts: ["A", "B", "A", "C"] }, // verse/bridge/verse/climax
+  { kind: "song", parts: ["A", "B", "A", "B", "A", "C"] }, // longer arc to a climax
+  { kind: "song", parts: ["A", "A", "B", "A", "B", "A"] }, // extended AABA
+  { kind: "song", parts: ["A", "B", "A", "C", "A"] }, // rondo-ish, returns home
+  { kind: "song", parts: ["A", "B", "C", "A"] }, // build through bridge to climax, then home
+  // The kriti cycle: pallavi · anupallavi · pallavi · charanam · pallavi.
+  { kind: "kriti", parts: ["A", "B", "A", "C", "A"] },
 ];
+
+/** What each part is called, so a listener hears the form named the way it's built. */
+const PART_NAMES: Record<FormKind, Record<string, string>> = {
+  song: { A: "A", B: "B", C: "C" },
+  kriti: { A: "pallavi", B: "anupallavi", C: "charanam" },
+};
+
+/**
+ * The lead's register per kriti part: the pallavi's reference octave, the anupallavi
+ * climbing into the one above, and the charanam starting below it. A kriti sings the
+ * same raga throughout, so WHERE it sings is what tells the parts apart. Each range
+ * contains 0..7, so the theme transposes into every part without being clamped.
+ */
+const KRITI_RANGE: Record<string, readonly [number, number]> = {
+  A: [0, 7],
+  B: [0, 12],
+  C: [-5, 7],
+};
+
+/** Default lead register — the octave above the tonic. */
+const DEFAULT_RANGE: readonly [number, number] = [0, 7];
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
 
@@ -116,16 +156,97 @@ const CLIMAX_DEVELOPMENT: readonly MotifDevelopment[] = [
   { transform: "sequence", step: 1 },
 ];
 
-/** This section's tonic: home for A; a related key for the bridge; a lift for the climax. */
-function sectionRoot(label: string, o: FormOptions): number {
+/**
+ * This section's tonic: home for A; a related key for the bridge; a lift for the climax.
+ * A kriti never leaves home — the raga IS the piece, and modulating out of it would be
+ * a different raga.
+ */
+function sectionRoot(label: string, o: FormOptions, kind: FormKind): number {
+  if (kind === "kriti") return o.rootMidi;
   if (label === "B") return modulate(o.rootMidi, o.rng.pick([0, 5, 7, -5])); // bridge → a related key
   if (label === "C") return modulate(o.rootMidi, o.rng.pick([0, 2, 5])); // climax → a step/4th lift
   return o.rootMidi; // A — home key
 }
 
+// How a kriti develops its theme. The anupallavi answers the pallavi from higher up;
+// the charanam broadens it.
+const ANUPALLAVI_DEVELOPMENT: readonly MotifDevelopment[] = [
+  { transform: "sequence", step: 2 },
+  { transform: "sequence", step: 1 },
+  { transform: "inversion", step: 0 },
+];
+const CHARANAM_DEVELOPMENT: readonly MotifDevelopment[] = [
+  { transform: "augmentation", step: 0 },
+  { transform: "fragmentation", step: 1 },
+  { transform: "sequence", step: -1 },
+];
+
+/**
+ * One part of a kriti. The parts are told apart by REGISTER and by what they do with
+ * the theme, not by key or meter: the raga and the tala hold for the whole piece, so
+ * there is no modulation here and no groove swap, and the ensemble never drops out
+ * the way a song's bridge does.
+ */
+function kritiSection(
+  label: string,
+  o: FormOptions,
+  rootMidi: number,
+  plan: HarmonicPlan,
+): SectionRecipe {
+  const shared = {
+    label,
+    rootMidi,
+    plan,
+    bpmScale: 1, // the tala doesn't shift mid-piece
+    groove: o.groove,
+    voices: {}, // the ensemble plays throughout
+    padPattern: "sustain" as PadPattern, // a held bed, standing in for the drone
+    range: KRITI_RANGE[label] ?? DEFAULT_RANGE,
+    part: PART_NAMES.kriti[label] ?? label,
+  };
+  if (label === "B") {
+    // Anupallavi: the answer, sung an octave up — the part that climbs.
+    return {
+      ...shared,
+      texture: "build",
+      bassPattern: o.rng.pick(["rootFifth", "walking"]),
+      density: clampDensity(o.density * 1.1),
+      contour: o.rng.pick(["rising", "arch"]),
+      dynamics: 1.06,
+      arpRole: o.rng.pick(["harmony", "arp"]),
+      development: o.rng.pick(ANUPALLAVI_DEVELOPMENT),
+    };
+  }
+  if (label === "C") {
+    // Charanam: the final part, sung from below — the piece's low register. It opens
+    // on the theme, at the pitch the pallavi states it, then works underneath it.
+    return {
+      ...shared,
+      texture: "full",
+      bassPattern: "rootFifth",
+      density: clampDensity(o.density),
+      contour: "rising",
+      dynamics: 1.04,
+      arpRole: o.rng.pick(["arp", "harmony"]),
+      development: o.rng.pick(CHARANAM_DEVELOPMENT),
+    };
+  }
+  // Pallavi: the refrain, in its own register, stated plainly every time it returns.
+  return {
+    ...shared,
+    texture: "full",
+    bassPattern: o.rng.pick(["rootFifth", "sustained"]),
+    density: clampDensity(o.density),
+    contour: o.rng.pick(["arch", "flat"]),
+    dynamics: 1,
+    arpRole: "arp",
+    development: PLAIN_STATEMENT,
+  };
+}
+
 /** Build one section's recipe with deliberate contrast from the home section. */
-function buildSection(label: string, o: FormOptions): SectionRecipe {
-  const rootMidi = sectionRoot(label, o); // may modulate to a new key
+function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRecipe {
+  const rootMidi = sectionRoot(label, o, kind); // may modulate to a new key
   const plan = generateHarmony({
     rng: o.rng.fork(),
     scale: o.scale,
@@ -134,6 +255,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     beatsPerBar: o.beatsPerBar,
     borrow: o.borrow,
   });
+  if (kind === "kriti") return kritiSection(label, o, rootMidi, plan);
   if (label === "B") {
     // Bridge/breakdown: thinner, gentler, and quieter than home (often a new key).
     return {
@@ -151,6 +273,8 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       arpRole: o.rng.pick(["harmony", "counter"]), // two-part bridge: parallel harmony or an antiphonal counter
       padPattern: "broken", // pad drifts through the chord — gentle bridge movement
       development: o.rng.pick(BRIDGE_DEVELOPMENT),
+      range: DEFAULT_RANGE,
+      part: label,
     };
   }
   if (label === "C") {
@@ -170,6 +294,8 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
       padPattern: "stabs", // pad punches on each beat — drives the climax
       development: o.rng.pick(CLIMAX_DEVELOPMENT),
+      range: DEFAULT_RANGE,
+      part: label,
     };
   }
   // A — home: full texture, steady bass, base density, reference level, home key.
@@ -188,6 +314,8 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     arpRole: "arp", // the arp keeps the running figure — the bed
     padPattern: "sustain", // pad holds the chord — the steady bed
     development: PLAIN_STATEMENT, // the refrain returns as itself
+    range: DEFAULT_RANGE,
+    part: label,
   };
 }
 
@@ -197,14 +325,19 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
  * NEXT section is a different part (so a drum fill announces each part change).
  */
 export function buildForm(o: FormOptions): Form {
-  const template = o.rng.pick(FORM_TEMPLATES);
+  // A pinned layout still draws from the pool, so the seed→form mapping stays stable
+  // for every other kind.
+  const drawn = o.rng.pick(FORM_TEMPLATES);
+  const template =
+    o.form === undefined ? drawn : (FORM_TEMPLATES.find((t) => t.kind === o.form) ?? drawn);
+  const { kind, parts } = template;
   const recipes = new Map<string, SectionRecipe>();
-  for (const label of template) {
-    if (!recipes.has(label)) recipes.set(label, buildSection(label, o));
+  for (const label of parts) {
+    if (!recipes.has(label)) recipes.set(label, buildSection(label, o, kind));
   }
-  const sections = template.map((label, i) => ({
+  const sections = parts.map((label, i) => ({
     ...recipes.get(label)!,
-    fill: template[(i + 1) % template.length] !== label, // fill into a part change (incl. the loop wrap)
+    fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
   }));
 
   // The theme: a short phrase over the home section's opening bars, stated at the head
@@ -222,5 +355,5 @@ export function buildForm(o: FormOptions): Form {
     density: o.density,
     ...(o.paths !== undefined ? { paths: o.paths } : {}),
   });
-  return { sections, motif, motifBars: MOTIF_BARS };
+  return { kind, sections, motif, motifBars: MOTIF_BARS };
 }

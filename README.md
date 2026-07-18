@@ -13,7 +13,9 @@ hand-composed signature hook, but it never runs out.
 - **Coherent, composed.** Functional harmony, in-key ragas, chord tones on strong
   beats, and cadences arrange into a real song form (verse / bridge / climax) with
   key changes and a theme that develops as it recurs — sequenced, mirrored, or
-  broadened where the music turns. Never exactly repeating, always looping seamlessly.
+  broadened where the music turns. Some pieces come out as a Carnatic **kriti**
+  instead — pallavi, anupallavi, charanam, one raga throughout, the parts told apart
+  by register. Never exactly repeating, always looping seamlessly.
 - **Rich, in stereo.** ~20 synthesized instruments + drum kits, a formant choir,
   and humanized timing across a stereo field. Seven styles, ~20 scales/ragas —
   a few of which climb and descend by different notes (arohana/avarohana), so the
@@ -97,6 +99,7 @@ element, which a synthesis engine isn't.)
 | `voices`                         | all on           | Toggle parts, e.g. `{ pad: false, drums: false }`                                        |
 | `parent` / `raga`                | from style       | A `Scale` from `SCALES` (e.g. `SCALES.major`, `SCALES.mohanam`); pair so `raga ⊆ parent` |
 | `paths`                          | from style       | Arohana/avarohana: `RAGA_PATHS.bilahari` — which notes the lead may use up vs. down      |
+| `form`                           | from seed        | `"song"` (A/B/C) or `"kriti"` (pallavi/anupallavi/charanam — one raga, register-led)     |
 | `groove` / `kit`                 | from style       | Drum groove name and drum kit                                                            |
 | `rootMidi` / `density` / `swing` | from style       | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
 | `audioContext`                   | created lazily   | Bring your own `AudioContext` (or a compatible one)                                      |

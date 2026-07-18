@@ -1112,6 +1112,7 @@
         groove: "", // "" = auto (the style picks); else forces a groove (and its meter)
         contour: "", // "" = auto (form varies per section); else forces one melody shape
         arpRole: "", // "" = auto (form orchestrates); else forces the arp's role
+        form: "", // "" = auto (the seed picks); else pins song or kriti
         evolve: true,
         humanize: true,
         chromatic: true,
@@ -1184,6 +1185,7 @@
         if (state.groove) o.groove = state.groove; // else the style picks (and sets the meter)
         if (state.contour) o.contour = state.contour; // else the form varies it per section
         if (state.arpRole) o.arpRole = state.arpRole; // else the form orchestrates per section
+        if (state.form) o.form = state.form; // else the seed picks song or kriti
         const off = {};
         for (const v of VOICE_LIST) if (!state.voices[v]) off[v] = false;
         if (Object.keys(off).length) o.voices = off;
@@ -1231,6 +1233,7 @@
       function derive(seed, style) {
         const chosen = pickStyle(makeRng(seed).fork(), style); // styleRng = master's first fork
         const sessOpts = { seed, style, bars: state.bars };
+        if (state.form) sessOpts.form = state.form;
         if (state.groove) sessOpts.groove = state.groove; // forced groove → its meter
         const sess = createSession(sessOpts);
         return {
@@ -1248,6 +1251,7 @@
             arp: sess.instruments.arp.name,
           },
           sections: sess.sections,
+          formKind: sess.formKind,
           bars: sess.bars,
           beatsPerBar: sess.beatsPerBar,
         };
@@ -1298,7 +1302,15 @@
         let now = "";
         const s = curIdx >= 0 ? f[curIdx] : null;
         if (s) {
-          const part = s.label === "A" ? "home" : s.label === "B" ? "bridge" : "climax";
+          // A kriti names its own parts; a song's are home / bridge / climax.
+          const part =
+            s.part !== s.label
+              ? s.part
+              : s.label === "A"
+                ? "home"
+                : s.label === "B"
+                  ? "bridge"
+                  : "climax";
           const key =
             s.keyShift === 0
               ? "home key"
@@ -1338,6 +1350,7 @@
           ["key", d.key],
           ["raga", d.raga],
           ["meter", meter],
+          ["form", d.formKind === "kriti" ? "kriti" : "song"],
           ["groove", on("drums") ? d.groove : "drumless"],
         ];
         // Ragas that climb and descend by different notes — the arohana/avarohana.
@@ -1415,6 +1428,17 @@
             ),
           )
           .join("");
+        const formOpts = ['<option value="">auto (seed picks)</option>']
+          .concat(
+            [
+              ["song", "song · A / B / C"],
+              ["kriti", "kriti · pallavi / anupallavi / charanam"],
+            ].map(
+              ([v, t]) =>
+                `<option value="${v}"${state.form === v ? " selected" : ""}>${t}</option>`,
+            ),
+          )
+          .join("");
         const arpRoleOpts = ['<option value="">auto (per section)</option>']
           .concat(
             ["arp", "double", "harmony", "counter"].map(
@@ -1432,6 +1456,7 @@
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("bars")}<select id="advBars" style="${sel}">${barsOpts}</select></label>` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("contour")}<select id="advContour" style="${sel}">${contourOpts}</select></label>` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("arp role")}<select id="advArpRole" style="${sel}">${arpRoleOpts}</select></label>` +
+          `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("form")}<select id="advForm" style="${sel}">${formOpts}</select></label>` +
           `</div>` +
           `<div style="display:flex;gap:20px;flex-wrap:wrap">${ADV_TOGGLES.map((k) => check("adv-" + k, k, state[k])).join("")}</div>` +
           `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">${lbl("voices")}${VOICE_LIST.map((v) => check("voice-" + v, v, state.voices[v])).join("")}</div>`;
@@ -1449,6 +1474,10 @@
         };
         $("advArpRole").onchange = (e) => {
           state.arpRole = e.target.value;
+          reflectAdvanced();
+        };
+        $("advForm").onchange = (e) => {
+          state.form = e.target.value;
           reflectAdvanced();
         };
         for (const k of ADV_TOGGLES)

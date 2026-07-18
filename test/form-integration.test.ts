@@ -67,6 +67,33 @@ describe("form integration — the full stacked arrangement", () => {
     expect(new Set(fingerprints).size).toBeGreaterThan(1);
   });
 
+  it("a kriti sings its parts in different registers, in one raga throughout", () => {
+    // The pallavi is the reference; the anupallavi answers from above and the charanam
+    // from below. Register is what tells a kriti's parts apart — it never changes key.
+    const semis = (freq: number) => 12 * Math.log2(freq / 261.6256);
+    const heights = new Map<string, number[]>();
+    for (const style of STYLE_NAMES) {
+      for (const seed of [2, 9, 21]) {
+        const session = createSession({ seed, style, form: "kriti", humanize: false });
+        expect(session.formKind).toBe("kriti");
+        for (const section of session.sections) {
+          const score = session.nextScore();
+          expect(section.keyShift).toBe(0); // one tonic, start to finish
+          const lead = score.parts.find((p) => p.voice === "lead")?.notes ?? [];
+          if (lead.length === 0) continue;
+          const mean = lead.reduce((sum, n) => sum + semis(n.freq), 0) / lead.length;
+          heights.set(section.part, [...(heights.get(section.part) ?? []), mean]);
+        }
+      }
+    }
+    const avg = (part: string) => {
+      const xs = heights.get(part)!;
+      return xs.reduce((a, b) => a + b, 0) / xs.length;
+    };
+    expect(avg("anupallavi")).toBeGreaterThan(avg("pallavi") + 1); // audibly higher
+    expect(avg("charanam")).toBeLessThan(avg("pallavi") - 1); // audibly lower
+  });
+
   it("the theme is transformed where it recurs, not merely repeated", () => {
     // The tell of a machine is a theme that returns note-for-note every time. Compare
     // the shape (intervals in semitones) of each section's opening statement: a
