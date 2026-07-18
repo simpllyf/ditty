@@ -25,11 +25,41 @@ describe("createSession", () => {
     expect(stream(createSession({ seed: 1, evolve: false }))).toEqual(
       stream(createSession({ seed: 1, evolve: false })),
     );
-    // …and it is periodic — the whole form repeats (a later score equals the first)
-    const stable = stream(createSession({ seed: 1, evolve: false }));
-    expect(stable.slice(1).includes(stable[0]!)).toBe(true);
+    // …and it is periodic from the loop point — an intro is played once, so it is the
+    // CYCLE that repeats, not the stream from its very first score.
+    const session = createSession({ seed: 1, evolve: false });
+    const stable = stream(session);
+    const first = stable[session.loopFrom]!;
+    expect(stable.slice(session.loopFrom + 1).includes(first)).toBe(true);
     // evolving: same form, but melodies re-draw each pass → many distinct scores
     expect(new Set(stream(createSession({ seed: 1, evolve: true }))).size).toBeGreaterThan(8);
+  });
+
+  it("opens with a one-time introduction that the cycle never repeats", () => {
+    const s = createSession({ seed: 4, style: "calm", evolve: false });
+    expect(s.loopFrom).toBe(1);
+    const intro = s.sections[0]!;
+    expect(intro.part).toBe("intro");
+    expect(intro.bars).toBeLessThan(s.bars); // shorter than a section of the form
+
+    const opening = s.nextScore();
+    const voices = opening.parts.map((p) => p.voice).sort();
+    // It settles the key without stating the theme — holding that back is what makes
+    // the theme's first statement sound like one.
+    expect(voices).toEqual(["bass", "pad"]);
+    expect(opening.drums).toEqual([]);
+    expect(opening.bars).toBe(intro.bars);
+
+    // Play well past the end of the form: the opening never comes round again.
+    const later = Array.from({ length: 12 }, () => JSON.stringify(s.nextScore()));
+    expect(later).not.toContain(JSON.stringify(opening));
+  });
+
+  it("can skip the introduction and start straight on the form", () => {
+    const s = createSession({ seed: 4, style: "calm", intro: false });
+    expect(s.loopFrom).toBe(0);
+    expect(s.sections[0]!.part).not.toBe("intro");
+    expect(s.nextScore().parts.some((p) => p.voice === "lead")).toBe(true);
   });
 
   it("validates bpm, beatsPerBar, and bars eagerly", () => {
@@ -56,8 +86,12 @@ describe("createSession", () => {
   it("exposes the form as sections (labels, key shifts, arp roles)", () => {
     const s = createSession({ seed: 13, style: "peppy" });
     expect(s.sections.length).toBeGreaterThanOrEqual(4); // a real multi-section form
-    // Opens home: the theme stated plainly, in the home key.
-    expect(s.sections[0]).toEqual({
+    // A one-time opening leads the play order and sits outside the repeat.
+    expect(s.loopFrom).toBe(1);
+    expect(s.sections[0]!.part).toBe("intro");
+    const cycle = s.sections.slice(s.loopFrom);
+    // The cycle opens home: the theme stated plainly, in the home key.
+    expect(cycle[0]).toEqual({
       label: "A",
       keyShift: 0,
       arpRole: "arp",
@@ -66,13 +100,13 @@ describe("createSession", () => {
       bars: 8,
       bpm: s.bpm,
     });
-    for (const sec of s.sections) {
+    for (const sec of cycle) {
       const role = sec.label === "A" ? "arp" : sec.label === "B" ? "harmony" : "double";
       expect(sec.arpRole).toBe(role); // arp orchestration tracks the section label
       const states = sec.development.transform === "statement";
       expect(states).toBe(sec.label === "A"); // only home restates the theme unchanged
     }
-    for (const home of s.sections.filter((x) => x.label === "A")) {
+    for (const home of cycle.filter((x) => x.label === "A")) {
       expect(home.keyShift).toBe(0); // home sections never modulate
     }
   });

@@ -149,7 +149,9 @@ function check(options: SessionOptions, label: string, bad: string[]) {
   // A kriti never leaves its raga.
   if (session.formKind === "kriti") {
     if (session.sections.some((s) => s.keyShift !== 0)) fail("kriti modulates");
-    if (session.sections[0]?.part !== "pallavi") fail("kriti does not open on the pallavi");
+    // The cycle starts at loopFrom — an intro leads the play order but sits outside it.
+    if (session.sections[session.loopFrom]?.part !== "pallavi")
+      fail("kriti's cycle does not open on the pallavi");
   }
 }
 

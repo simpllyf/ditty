@@ -88,7 +88,15 @@ describe("renderOffline", () => {
     const cap: Cap = {};
     // A kriti keeps its whole ensemble from the first bar; a song's arc holds the arp
     // back until its second section, which a four-second render never reaches.
-    await renderOffline({ seed: 7, seconds: 4, form: "kriti", createContext: factory(cap) });
+    // Four seconds only ever covers the opening, so skip the intro (pad and bass only)
+    // and the song arc's arp-less first section.
+    await renderOffline({
+      seed: 7,
+      seconds: 4,
+      form: "kriti",
+      intro: false,
+      createContext: factory(cap),
+    });
     const pans = cap.ctx!.panners.map((p) => p.pan.value);
     expect(pans).toContain(-0.3); // pad placed left
     expect(pans).toContain(0.3); // arp placed right
@@ -125,7 +133,8 @@ describe("renderOffline", () => {
     };
     const evolving = await distinctLoops(true);
     const repeating = await distinctLoops(false);
-    expect(repeating).toBeLessThanOrEqual(6); // only the form's sections recur
+    // Only the form's sections recur — at most six, plus the one-time opening.
+    expect(repeating).toBeLessThanOrEqual(7);
     expect(evolving).toBeGreaterThan(repeating); // re-arranged each pass
   });
 

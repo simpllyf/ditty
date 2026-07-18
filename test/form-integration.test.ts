@@ -21,7 +21,11 @@ describe("form integration — the full stacked arrangement", () => {
       for (let seed = 1; seed <= 25; seed++) {
         const session = createSession({ seed, style });
         check(session.sections.length >= 4, `${style}/${seed}: form too short`);
-        check(session.sections[0]?.label === "A", `${style}/${seed}: form should open on A`);
+        // The cycle opens on A; anything before loopFrom is the one-time introduction.
+        check(
+          session.sections[session.loopFrom]?.label === "A",
+          `${style}/${seed}: cycle should open on A`,
+        );
         for (let i = 0; i < session.sections.length; i++) {
           const score = session.nextScore();
           const len = score.lengthBeats;

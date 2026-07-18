@@ -4,18 +4,8 @@ exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golde
 {
   "sixEight": {
     "beatsPerBar": 6,
-    "drums": [
-      "kick@0",
-      "kick@3",
-      "snare@3",
-      "hat@0",
-      "hat@1",
-      "hat@2",
-    ],
+    "drums": [],
     "firstFreqs": [
-      523,
-      523,
-      622,
       131,
       156,
       196,
@@ -26,18 +16,8 @@ exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golde
   },
   "waltz": {
     "beatsPerBar": 3,
-    "drums": [
-      "kick@0",
-      "snare@1",
-      "snare@2",
-      "hat@0",
-      "hat@1",
-      "hat@2",
-    ],
+    "drums": [],
     "firstFreqs": [
-      523,
-      523,
-      622,
       131,
       156,
       196,
@@ -55,10 +35,6 @@ exports[`createSession > locks the seed→session mapping (golden — pins the s
   "beatsPerBar": 4,
   "bpm": 107,
   "firstFreqs": [
-    659,
-    523,
-    587,
-    523,
     131,
     196,
     196,
