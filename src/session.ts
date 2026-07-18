@@ -58,6 +58,8 @@ export interface SessionOptions {
   paths?: ArrangeOptions["paths"];
   /** Pin the layout: a `song` (home/bridge/climax) or a `kriti` (pallavi/anupallavi/charanam). */
   form?: FormKind;
+  /** Open with a one-time introduction before the form begins. Default `true`. */
+  intro?: boolean;
   /** Tonic MIDI note (integer 36–84). Default: from the style. */
   rootMidi?: number;
   /** Drum groove name. Default: from the style. */
@@ -110,7 +112,13 @@ export interface Session {
   readonly drumKit: Record<DrumName, DrumVoice>;
   /** How the piece is laid out: a song, or a Carnatic kriti. */
   readonly formKind: FormKind;
-  /** The piece's form: the sections in play order (nextScore() walks and loops these). */
+  /**
+   * Where {@link Session.nextScore} returns to after the last section. Everything
+   * before it is played once — an intro is not repeated — so the repeating cycle is
+   * `sections.slice(loopFrom)`. Zero when the piece loops from the very top.
+   */
+  readonly loopFrom: number;
+  /** The piece's form, in the order nextScore() yields it. It repeats from {@link loopFrom}. */
   readonly sections: readonly SectionView[];
   /** Next section of the form (advances through it and loops); cached when `evolve` is off. */
   nextScore(): Score;
@@ -214,6 +222,7 @@ export function createSession(options: SessionOptions): Session {
     groove,
     borrow: options.chromatic ?? true,
     ...(options.form !== undefined ? { form: options.form } : {}),
+    ...(options.intro !== undefined ? { intro: options.intro } : {}),
   });
 
   // Nudge timing/dynamics off the grid via its own rng fork, so toggling humanize
@@ -251,18 +260,26 @@ export function createSession(options: SessionOptions): Session {
     return humanizeOn ? humanize(score, humanizeRng) : score;
   };
 
-  const sections: readonly SectionView[] = form.sections.map((s) => ({
+  const view = (s: SectionProfile): SectionView => ({
     label: s.label,
-    keyShift: s.rootMidi - rootMidi, // relative to the home key
+    keyShift: s.rootMidi - rootMidi,
     arpRole: s.arpRole,
     development: s.development,
     part: s.part,
     bars: s.bars,
     bpm: Math.round(bpm * s.bpmScale),
-  }));
+  });
 
+  const sections: readonly SectionView[] = (
+    form.intro ? [form.intro, ...form.sections] : form.sections
+  ).map(view);
+
+  // The intro leads the play order but sits outside the repeat, so a consumer can pair
+  // sections with scores one-for-one and still know where the music comes back to.
+  const played = form.intro ? [form.intro, ...form.sections] : [...form.sections];
+  const loopFrom = form.intro ? 1 : 0;
   let cursor = 0;
-  const cache: (Score | null)[] = form.sections.map(() => null);
+  const cache: (Score | null)[] = played.map(() => null);
   return {
     noiseTable,
     bpm,
@@ -271,14 +288,18 @@ export function createSession(options: SessionOptions): Session {
     instruments,
     drumKit,
     formKind: form.kind,
+    loopFrom,
     sections,
     nextScore(): Score {
-      const i = cursor % form.sections.length;
+      const i =
+        cursor < played.length
+          ? cursor
+          : loopFrom + ((cursor - loopFrom) % (played.length - loopFrom));
       cursor += 1;
-      if (evolve) return arrangeSection(form.sections[i]!);
+      if (evolve) return arrangeSection(played[i]!);
       const cached = cache[i];
       if (cached) return cached;
-      const score = arrangeSection(form.sections[i]!);
+      const score = arrangeSection(played[i]!);
       cache[i] = score;
       return score;
     },

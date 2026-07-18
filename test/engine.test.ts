@@ -103,7 +103,8 @@ describe("createEngine", () => {
     };
     const repeating = await distinctLoops(false);
     const evolving = await distinctLoops(true);
-    expect(repeating).toBeLessThanOrEqual(6); // only the form's sections recur
+    // Only the form's sections recur — at most six, plus the one-time opening.
+    expect(repeating).toBeLessThanOrEqual(7);
     expect(evolving).toBeGreaterThan(repeating); // melodies re-draw on each pass
   });
 
@@ -248,12 +249,15 @@ describe("createEngine", () => {
 
   it("honors an explicit swing:0 over the style (?? not ||, so 0 wins)", async () => {
     // playful's swing range is [0.1, 0.4] → chosen swing > 0; forcing 0 must change timing.
+    // No intro: this compares a fixed number of loops, and a half-length opening would
+    // shift which sections those loops cover.
     const starts = async (extra: Record<string, unknown>) => {
       const ctx = new FakeAudioContext();
       const clock = new TickClock();
       const engine = createEngine({
         seed: 5,
         style: "playful",
+        intro: false,
         audioContext: ctx,
         clock,
         ...extra,
@@ -267,12 +271,14 @@ describe("createEngine", () => {
 
   it("honors an explicit density:0 over the style (0 wins → sparser)", async () => {
     // playful's density range is [0.6, 0.9] → forcing 0 yields a sparser lead → fewer notes.
+    // No intro: it carries no lead at all, which would blunt the comparison.
     const count = async (extra: Record<string, unknown>) => {
       const ctx = new FakeAudioContext();
       const clock = new TickClock();
       const engine = createEngine({
         seed: 5,
         style: "playful",
+        intro: false,
         audioContext: ctx,
         clock,
         ...extra,

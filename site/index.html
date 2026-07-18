@@ -1106,6 +1106,7 @@
         volume: 32,
         rendering: false,
         form: [], // the piece's sections (for the live form strip)
+        intro: null, // the one-time opening, played before the form's first pass
         bars: 8,
         beatsPerBar: 4,
         // advanced (collapsed by default)
@@ -1251,6 +1252,7 @@
             arp: sess.instruments.arp.name,
           },
           sections: sess.sections,
+          intro: sess.intro,
           formKind: sess.formKind,
           bars: sess.bars,
           beatsPerBar: sess.beatsPerBar,
@@ -1262,6 +1264,7 @@
         state.density = d.density;
         state.swing = d.swing;
         state.form = d.sections;
+        state.intro = d.intro;
         state.bars = d.bars;
         state.beatsPerBar = d.beatsPerBar;
         lastFormIdx = -1;
@@ -1275,6 +1278,7 @@
         const d = derive(state.seed, state.style);
         state.beatsPerBar = d.beatsPerBar;
         state.form = d.sections;
+        state.intro = d.intro;
         lastFormIdx = -1;
         renderRecipe(d);
         renderFormStrip(state.playing ? lastFormIdx : -1);
@@ -1289,28 +1293,40 @@
           el.innerHTML = "";
           return;
         }
-        const tint = (l) => (l === "A" ? "var(--ink2)" : l === "B" ? "#b8860b" : "#1a8f5a");
-        const chips = f
+        const tint = (l) =>
+          l === "intro"
+            ? "var(--ink3)"
+            : l === "A"
+              ? "var(--ink2)"
+              : l === "B"
+                ? "#b8860b"
+                : "#1a8f5a";
+        const chips = (state.intro ? [state.intro] : [])
+          .concat(f)
           .map((s, i) => {
             const on = i === curIdx;
             const style = on
               ? "background:var(--accent);color:#fff"
               : `background:var(--bg2);border:1px solid var(--line);color:${tint(s.label)}`;
-            return `<span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;font-weight:700;${style}">${s.label}</span>`;
+            const glyph = s.part === "intro" ? "·" : s.label;
+            return `<span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;font-weight:700;${style}">${glyph}</span>`;
           })
           .join("");
         let now = "";
-        const s = curIdx >= 0 ? f[curIdx] : null;
+        const all = (state.intro ? [state.intro] : []).concat(f);
+        const s = curIdx >= 0 ? all[curIdx] : null;
         if (s) {
           // A kriti names its own parts; a song's are home / bridge / climax.
           const part =
-            s.part !== s.label
-              ? s.part
-              : s.label === "A"
-                ? "home"
-                : s.label === "B"
-                  ? "bridge"
-                  : "climax";
+            s.part === "intro"
+              ? "intro"
+              : s.part !== s.label
+                ? s.part
+                : s.label === "A"
+                  ? "home"
+                  : s.label === "B"
+                    ? "bridge"
+                    : "climax";
           const key =
             s.keyShift === 0
               ? "home key"
@@ -1678,15 +1694,23 @@
           if (state.playing && audio && state.form.length) {
             // Sections carry their own length AND tempo — a kriti's charanam runs half
             // again as long — so walk their real durations instead of one fixed stride.
-            const spans = state.form.map(
-              (s) => ((s.bars ?? state.bars) * state.beatsPerBar * 60) / (s.bpm || state.bpm),
-            );
+            const spanOf = (s) =>
+              ((s.bars ?? state.bars) * state.beatsPerBar * 60) / (s.bpm || state.bpm);
+            const spans = state.form.map(spanOf);
             const formSeconds = spans.reduce((a, b) => a + b, 0);
+            // The intro is played once, before the cycle — so it shifts the whole
+            // timeline rather than repeating with it.
+            const introSpan = state.intro ? spanOf(state.intro) : 0;
+            const offset = state.intro ? 1 : 0;
             const elapsed = audio.raw.currentTime - formAnchor;
             let idx = 0;
-            if (elapsed >= 0 && formSeconds > 0) {
-              let into = elapsed % formSeconds;
-              while (idx < spans.length - 1 && into >= spans[idx]) into -= spans[idx++];
+            if (elapsed < introSpan) {
+              idx = 0; // still in the opening
+            } else if (formSeconds > 0) {
+              let cycle = 0;
+              let into = (elapsed - introSpan) % formSeconds;
+              while (cycle < spans.length - 1 && into >= spans[cycle]) into -= spans[cycle++];
+              idx = offset + cycle;
             }
             if (idx !== lastFormIdx) {
               lastFormIdx = idx;

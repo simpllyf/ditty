@@ -47,6 +47,12 @@ type SectionRecipe = Omit<SectionProfile, "fill">;
 /** A whole piece: sections in play order, plus the recurring theme they share. */
 export interface Form {
   readonly kind: FormKind;
+  /**
+   * A one-time opening, played before the cycle and never again. Endless music has no
+   * end, but it can still have a beginning: without one a listener is dropped into the
+   * middle of a full arrangement. Null when the caller opts out.
+   */
+  readonly intro: SectionProfile | null;
   readonly sections: readonly SectionProfile[];
   readonly motif: readonly MelodyNote[]; // the piece's theme, developed at each section's head
   readonly motifBars: number;
@@ -64,6 +70,7 @@ export interface FormOptions {
   readonly groove: DrumGrooveName; // home groove (section A); B/C contrast it
   readonly borrow: boolean; // allow occasional borrowed (non-diatonic) chords
   readonly form?: FormKind; // pin the layout; otherwise the seed picks one
+  readonly intro?: boolean; // open with a one-time introduction (default true)
 }
 
 /**
@@ -84,6 +91,31 @@ function orchestration(index: number, total: number, kind: FormKind): VoiceToggl
   if (index === 0) return { arp: false }; // the colour enters after the theme is stated
   if (index === total - 1 && total >= 4) return { drums: false }; // ease out into the wrap
   return {};
+}
+
+/**
+ * The opening: a few bars of pad and bass over the home harmony, with no theme, no
+ * drums and no colour. It settles the key and the tempo so the arrangement's entry
+ * lands as an arrival — and holding the theme back is what makes its first statement
+ * sound like one.
+ */
+function buildIntro(o: FormOptions, home: SectionRecipe): SectionProfile {
+  const bars = Math.max(4, Math.round(o.bars / 2));
+  return {
+    ...home,
+    part: "intro",
+    label: "intro",
+    bars,
+    // The home progression's own opening bars, so the intro previews the harmony the
+    // piece is about to state rather than announcing something it never returns to.
+    plan: { ...home.plan, bars: home.plan.bars.slice(0, bars), cadences: { half: -1, final: -1 } },
+    texture: "full",
+    density: clampDensity(o.density * 0.5),
+    dynamics: 0.85,
+    development: PLAIN_STATEMENT,
+    voices: { lead: false, arp: false, drums: false },
+    fill: false,
+  };
 }
 
 /** Bars the recurring theme spans (stated at the head of every section). */
@@ -402,5 +434,6 @@ export function buildForm(o: FormOptions): Form {
     density: o.density,
     ...(o.paths !== undefined ? { paths: o.paths } : {}),
   });
-  return { kind, sections, motif, motifBars: MOTIF_BARS };
+  const intro = o.intro === false ? null : buildIntro(o, home);
+  return { kind, intro, sections, motif, motifBars: MOTIF_BARS };
 }
