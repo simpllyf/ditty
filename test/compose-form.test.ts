@@ -202,7 +202,8 @@ describe("buildForm", () => {
     }
   });
 
-  it("tells a kriti's parts apart by register: charanam below, anupallavi above", () => {
+  it("tells a kriti's parts apart by register, and never sings below the tonic", () => {
+    const octave = base.raga.length;
     for (let s = 1; s < 30; s++) {
       const byPart = new Map<string, readonly [number, number]>();
       for (const sec of buildForm({ rng: makeRng(s), ...base, form: "kriti" }).sections) {
@@ -210,13 +211,18 @@ describe("buildForm", () => {
       }
       const centre = (r: readonly [number, number]) => (r[0] + r[1]) / 2;
       const pallavi = centre(byPart.get("pallavi")!);
-      expect(centre(byPart.get("anupallavi")!)).toBeGreaterThan(pallavi); // climbs
-      expect(centre(byPart.get("charanam")!)).toBeLessThan(pallavi); // sings from below
-      // Every part still holds the theme's own degrees, so stating it never clamps.
+      const anupallavi = centre(byPart.get("anupallavi")!);
+      expect(anupallavi).toBeGreaterThan(pallavi); // answers from above…
+      expect(centre(byPart.get("charanam")!)).toBeGreaterThan(pallavi); // …and the charanam climbs
+      expect(anupallavi).toBeGreaterThan(centre(byPart.get("charanam")!)); // three distinct levels
       for (const range of byPart.values()) {
-        expect(range[0]).toBeLessThanOrEqual(0);
-        expect(range[1]).toBeGreaterThanOrEqual(7);
+        // The lower octave belongs to the bass; a lead singing under it inverts the voices.
+        expect(range[0]).toBeGreaterThanOrEqual(0);
       }
+      // The anupallavi holds the theme lifted a whole octave, so stating it never clamps.
+      const [lo, hi] = byPart.get("anupallavi")!;
+      expect(lo).toBe(octave);
+      expect(hi).toBeGreaterThanOrEqual(octave + 7);
     }
   });
 

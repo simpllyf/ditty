@@ -101,16 +101,24 @@ const PART_NAMES: Record<FormKind, Record<string, string>> = {
 };
 
 /**
- * The lead's register per kriti part: the pallavi's reference octave, the anupallavi
- * climbing into the one above, and the charanam starting below it. A kriti sings the
- * same raga throughout, so WHERE it sings is what tells the parts apart. Each range
- * contains 0..7, so the theme transposes into every part without being clamped.
+ * The lead's register per kriti part. A kriti sings the same raga throughout, so WHERE
+ * it sings is what tells the parts apart: the pallavi holds the reference octave, the
+ * anupallavi answers an octave above it — theme included, since its range admits only
+ * the lifted copy — and the charanam starts where the pallavi sits and climbs.
+ *
+ * No part reaches below the tonic. The authentic charanam drops into the lower octave,
+ * but that register belongs to the bass here, and a lead that sings under its own bass
+ * muddies the arrangement and inverts the voices.
  */
-const KRITI_RANGE: Record<string, readonly [number, number]> = {
-  A: [0, 7],
-  B: [0, 12],
-  C: [-5, 7],
-};
+function kritiRange(label: string, octave: number): readonly [number, number] {
+  const span = DEFAULT_RANGE[1]; // the degrees the theme itself covers
+  // An octave is `octave` DEGREES, and that differs by raga — a pentatonic's degree 14
+  // is more than two octaves up, not one. Ranges have to be measured in the raga's own
+  // steps or a five-note raga sends the anupallavi shrieking.
+  if (label === "B") return [octave, octave + span]; // holds the theme, lifted one octave
+  if (label === "C") return [0, span + Math.ceil(octave / 2)]; // starts home, climbs above it
+  return [0, span];
+}
 
 /** Default lead register — the octave above the tonic. */
 const DEFAULT_RANGE: readonly [number, number] = [0, 7];
@@ -201,11 +209,11 @@ function kritiSection(
     groove: o.groove,
     voices: {}, // the ensemble plays throughout
     padPattern: "sustain" as PadPattern, // a held bed, standing in for the drone
-    range: KRITI_RANGE[label] ?? DEFAULT_RANGE,
+    range: kritiRange(label, o.raga.length),
     part: PART_NAMES.kriti[label] ?? label,
   };
   if (label === "B") {
-    // Anupallavi: the answer, sung an octave up — the part that climbs.
+    // Anupallavi: the answer, sung an octave above the pallavi — theme and all.
     return {
       ...shared,
       texture: "build",
@@ -218,8 +226,8 @@ function kritiSection(
     };
   }
   if (label === "C") {
-    // Charanam: the final part, sung from below — the piece's low register. It opens
-    // on the theme, at the pitch the pallavi states it, then works underneath it.
+    // Charanam: the final part. It opens on the theme where the pallavi states it and
+    // climbs from there, so it arrives rather than simply returning.
     return {
       ...shared,
       texture: "full",
