@@ -154,6 +154,25 @@ describe("buildForm", () => {
     }
   });
 
+  it("develops the theme per part: home states it, the bridge and climax transform it", () => {
+    const byLabel = new Map<string, Set<string>>();
+    for (let s = 1; s < 40; s++) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base }).sections) {
+        const seen = byLabel.get(sec.label) ?? new Set<string>();
+        seen.add(sec.development.transform);
+        byLabel.set(sec.label, seen);
+      }
+    }
+    // The refrain always returns as itself — that is what makes it a refrain, and
+    // what lets the ear hear the other parts AS developments of it.
+    expect([...byLabel.get("A")!]).toEqual(["statement"]);
+    for (const label of ["B", "C"]) {
+      const transforms = byLabel.get(label)!;
+      expect(transforms.size).toBeGreaterThan(1); // more than one device in play
+      expect(transforms.has("statement")).toBe(false); // ...and never a plain repeat
+    }
+  });
+
   it("keeps section density strictly within (0,1) even at extreme base density", () => {
     for (const density of [0, 1]) {
       const form = buildForm({ rng: makeRng(3), ...base, density });

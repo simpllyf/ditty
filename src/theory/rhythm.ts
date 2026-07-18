@@ -37,7 +37,7 @@ export function metricStrength(startBeat: number, beatsPerBar: number): number {
 }
 
 /** A position is "strong" (gets a chord tone) at the downbeat or an even-meter midpoint. */
-const STRONG_THRESHOLD = 0.8;
+export const STRONG_THRESHOLD = 0.8;
 
 // Subdivision patterns for one beat, in grid steps (each sums to STEPS_PER_BEAT).
 const PATTERNS: ReadonlyArray<readonly number[]> = [

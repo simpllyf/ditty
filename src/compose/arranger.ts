@@ -15,7 +15,8 @@ import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../the
 import { SCALES, type Scale, degreeToFrequency, degreeToSemitone } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
-import { type MelodyNote, generateMelody } from "./melody";
+import { DEFAULT_MAX_LEAP, type MelodyNote, generateMelody } from "./melody";
+import { type MotifDevelopment, PLAIN_STATEMENT, developMotif } from "./motif";
 
 export type { DrumName, ScoreVoice } from "../voices";
 
@@ -76,6 +77,8 @@ export interface ArrangeOptions {
   motif?: readonly MelodyNote[];
   /** Bars the {@link motif} spans. Default 0. */
   motifBars?: number;
+  /** How this section develops the theme. Default: state it plainly. */
+  development?: MotifDevelopment;
   /** The arp instrument's role: arpeggio / double the theme / harmonise it. Default "arp". */
   arpRole?: ArpRole;
   /** How the pad voices chords: held block / staggered / rhythmic stabs. Default "sustain". */
@@ -432,6 +435,16 @@ export const PART_ARRANGERS: readonly PartArranger[] = [
   { voice: "arp", arrange: arrangeArp },
 ];
 
+/**
+ * Bars a theme occupies, for a caller that hands one in without declaring its span.
+ * Measuring it beats assuming none: a zero span would let the generated continuation
+ * start on top of the theme instead of after it.
+ */
+function themeSpanBars(motif: readonly MelodyNote[], beatsPerBar: number): number {
+  const end = Math.max(...motif.map((n) => n.startBeat + n.durationBeats));
+  return Math.max(1, Math.ceil(end / beatsPerBar));
+}
+
 /** Compose a {@link Score} from a harmony plan, melody, and groove. Pure & deterministic. */
 export function arrange(options: ArrangeOptions): Score {
   const { rng } = options;
@@ -486,6 +499,19 @@ export function arrange(options: ArrangeOptions): Score {
         : {}),
     });
 
+  // Develop the theme for this section before it is stated — same tune, transformed.
+  const theme =
+    options.motif && options.motif.length > 0
+      ? developMotif(options.motif, options.development ?? PLAIN_STATEMENT, {
+          beatsPerBar,
+          motifBars: options.motifBars ?? themeSpanBars(options.motif, beatsPerBar),
+          sectionBars: bars,
+          range: leadRange,
+          degreesPerOctave: raga.length,
+          maxLeap: DEFAULT_MAX_LEAP,
+        })
+      : null;
+
   // Draw the lead line up front: the lead part renders it and the arp may double or
   // harmonise it, so it can't live inside a single part's arranger.
   const leadMelody: readonly MelodyNote[] = enabled("lead")
@@ -496,8 +522,7 @@ export function arrange(options: ArrangeOptions): Score {
         range: leadRange,
         density,
         ...(options.contour !== undefined ? { contour: options.contour } : {}),
-        ...(options.motif !== undefined ? { motif: options.motif } : {}),
-        ...(options.motifBars !== undefined ? { motifBars: options.motifBars } : {}),
+        ...(theme ? { motif: theme.notes, motifBars: theme.bars } : {}),
       })
     : [];
 

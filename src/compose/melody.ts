@@ -46,9 +46,10 @@ export interface MelodyOptions {
   /** Base lead velocity 0..1. Default 0.7. */
   velocity?: number;
   /**
-   * The piece's theme: a fixed opening phrase stated VERBATIM at the head, before
-   * generated continuation takes over. Degrees are raga-relative, so the same motif
-   * auto-transposes when a section modulates — a recurring, recognisable tune.
+   * The piece's theme: a fixed opening phrase stated at the head, before generated
+   * continuation takes over. Degrees are raga-relative, so the same motif auto-transposes
+   * when a section modulates — a recurring, recognisable tune. Callers hand in the theme
+   * already developed for this section (see {@link developMotif}).
    */
   motif?: readonly MelodyNote[];
   /** Bars the {@link motif} spans; continuation generates from here on. Default 0. */
@@ -57,12 +58,15 @@ export interface MelodyOptions {
 
 const DEFAULT_RANGE: readonly [number, number] = [0, 7];
 
+/** Default max jump between consecutive notes, in degrees. */
+export const DEFAULT_MAX_LEAP = 4;
+
 /** Generate the lead line for a whole {@link HarmonicPlan}. Absolute start beats. */
 export function generateMelody(options: MelodyOptions): MelodyNote[] {
   const { rng, plan } = options;
   const scale = options.scale ?? plan.scale;
   const [lo, hi] = options.range ?? DEFAULT_RANGE;
-  const maxLeap = options.maxLeap ?? 4;
+  const maxLeap = options.maxLeap ?? DEFAULT_MAX_LEAP;
   const maxNoteRepeat = options.maxNoteRepeat ?? 2;
   const amplitude = options.contourAmplitude ?? 4;
   const contour = options.contour ?? "arch";

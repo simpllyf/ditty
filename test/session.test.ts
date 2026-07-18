@@ -56,10 +56,18 @@ describe("createSession", () => {
   it("exposes the form as sections (labels, key shifts, arp roles)", () => {
     const s = createSession({ seed: 13, style: "peppy" });
     expect(s.sections.length).toBeGreaterThanOrEqual(4); // a real multi-section form
-    expect(s.sections[0]).toEqual({ label: "A", keyShift: 0, arpRole: "arp" }); // opens home
+    // Opens home: the theme stated plainly, in the home key.
+    expect(s.sections[0]).toEqual({
+      label: "A",
+      keyShift: 0,
+      arpRole: "arp",
+      development: { transform: "statement", step: 0 },
+    });
     for (const sec of s.sections) {
       const role = sec.label === "A" ? "arp" : sec.label === "B" ? "harmony" : "double";
       expect(sec.arpRole).toBe(role); // arp orchestration tracks the section label
+      const states = sec.development.transform === "statement";
+      expect(states).toBe(sec.label === "A"); // only home restates the theme unchanged
     }
     for (const home of s.sections.filter((x) => x.label === "A")) {
       expect(home.keyShift).toBe(0); // home sections never modulate

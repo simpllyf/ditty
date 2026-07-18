@@ -17,6 +17,7 @@ import type { Scale } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
+import { type MotifDevelopment, PLAIN_STATEMENT } from "./motif";
 
 /** One section's arrangement recipe: its harmony plus how it's played. */
 export interface SectionProfile {
@@ -33,6 +34,7 @@ export interface SectionProfile {
   readonly voices: VoiceToggles; // which voices play this section (instruments enter/leave)
   readonly arpRole: ArpRole; // how the arp is orchestrated (arpeggio / harmony / tutti double)
   readonly padPattern: PadPattern; // how the pad voices chords (sustain / broken / stabs)
+  readonly development: MotifDevelopment; // how this part treats the theme (state it / develop it)
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
 }
 
@@ -42,7 +44,7 @@ type SectionRecipe = Omit<SectionProfile, "fill">;
 /** A whole piece: sections in play order, plus the recurring theme they share. */
 export interface Form {
   readonly sections: readonly SectionProfile[];
-  readonly motif: readonly MelodyNote[]; // the piece's theme, stated at each section's head
+  readonly motif: readonly MelodyNote[]; // the piece's theme, developed at each section's head
   readonly motifBars: number;
 }
 
@@ -96,6 +98,23 @@ const busier = (g: DrumGrooveName): DrumGrooveName =>
       ? "fourOnFloor"
       : "busy";
 
+// How each part treats the theme. The bridge is where a theme gets taken apart —
+// mirrored, or broken to its head and insisted on a step at a time; the climax
+// intensifies it — broadened into long notes, or lifted to a higher degree. Home
+// always restates it plainly: a refrain that returns as itself is what makes the
+// development elsewhere legible as development.
+const BRIDGE_DEVELOPMENT: readonly MotifDevelopment[] = [
+  { transform: "inversion", step: 0 },
+  { transform: "fragmentation", step: 1 },
+  { transform: "fragmentation", step: -1 },
+  { transform: "sequence", step: -2 },
+];
+const CLIMAX_DEVELOPMENT: readonly MotifDevelopment[] = [
+  { transform: "augmentation", step: 0 },
+  { transform: "sequence", step: 2 },
+  { transform: "sequence", step: 1 },
+];
+
 /** This section's tonic: home for A; a related key for the bridge; a lift for the climax. */
 function sectionRoot(label: string, o: FormOptions): number {
   if (label === "B") return modulate(o.rootMidi, o.rng.pick([0, 5, 7, -5])); // bridge → a related key
@@ -130,6 +149,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       voices: { drums: false }, // drums drop out — an intimate, drumless bridge
       arpRole: o.rng.pick(["harmony", "counter"]), // two-part bridge: parallel harmony or an antiphonal counter
       padPattern: "broken", // pad drifts through the chord — gentle bridge movement
+      development: o.rng.pick(BRIDGE_DEVELOPMENT),
     };
   }
   if (label === "C") {
@@ -148,6 +168,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
       voices: {}, // full ensemble
       arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
       padPattern: "stabs", // pad punches on each beat — drives the climax
+      development: o.rng.pick(CLIMAX_DEVELOPMENT),
     };
   }
   // A — home: full texture, steady bass, base density, reference level, home key.
@@ -165,6 +186,7 @@ function buildSection(label: string, o: FormOptions): SectionRecipe {
     voices: {}, // full ensemble
     arpRole: "arp", // the arp keeps the running figure — the bed
     padPattern: "sustain", // pad holds the chord — the steady bed
+    development: PLAIN_STATEMENT, // the refrain returns as itself
   };
 }
 
@@ -184,8 +206,9 @@ export function buildForm(o: FormOptions): Form {
     fill: template[(i + 1) % template.length] !== label, // fill into a part change (incl. the loop wrap)
   }));
 
-  // The theme: a short phrase over the home section's opening bars, stated verbatim
-  // at the head of every section (auto-transposing with each section's key).
+  // The theme: a short phrase over the home section's opening bars, stated at the head
+  // of every section (auto-transposing with each section's key) and developed there
+  // according to that part's recipe.
   const home = recipes.get("A")!;
   const motif = generateMelody({
     rng: o.rng.fork(),

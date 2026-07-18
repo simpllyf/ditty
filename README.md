@@ -12,11 +12,11 @@ hand-composed signature hook, but it never runs out.
 
 - **Coherent, composed.** Functional harmony, in-key ragas, chord tones on strong
   beats, and cadences arrange into a real song form (verse / bridge / climax) with
-  key changes and a recurring theme — never exactly repeating, always looping
-  seamlessly.
+  key changes and a theme that develops as it recurs — sequenced, mirrored, or
+  broadened where the music turns. Never exactly repeating, always looping seamlessly.
 - **Rich, in stereo.** ~20 synthesized instruments + drum kits, a formant choir,
   and humanized timing across a stereo field. Seven styles, ~20 scales/ragas.
-- **Zero dependencies, deterministic, tiny** (~12.5 KB min+gzip). Same seed →
+- **Zero dependencies, deterministic, tiny** (~14.5 KB min+gzip). Same seed →
   identical music; the whole pure brain also runs in Node with no `AudioContext`.
 - **Framework-agnostic.** Web Audio only — no DOM access, no framework imports.
 

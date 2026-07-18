@@ -15,6 +15,7 @@ import {
 } from "./compose/arranger";
 import { type SectionProfile, buildForm } from "./compose/form";
 import { humanize } from "./compose/humanize";
+import type { MotifDevelopment } from "./compose/motif";
 import {
   DRUM_KITS,
   type DrumKitName,
@@ -85,6 +86,8 @@ export interface SectionView {
   readonly keyShift: number;
   /** How the arp is orchestrated this section: arpeggio / harmony / tutti double. */
   readonly arpRole: ArpRole;
+  /** How this section develops the theme: states it, mirrors it, broadens it… */
+  readonly development: MotifDevelopment;
 }
 
 export interface Session {
@@ -222,6 +225,7 @@ export function createSession(options: SessionOptions): Session {
       padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)
       motif: form.motif, // the recurring theme, stated at the head of every section
       motifBars: form.motifBars,
+      development: section.development, // A states the theme, B develops it, C intensifies it
       voices: mergeVoices(section.voices, options.voices), // section enter/leave ∧ caller toggles
     });
     return humanizeOn ? humanize(score, humanizeRng) : score;
@@ -231,6 +235,7 @@ export function createSession(options: SessionOptions): Session {
     label: s.label,
     keyShift: s.rootMidi - rootMidi, // relative to the home key
     arpRole: s.arpRole,
+    development: s.development,
   }));
 
   let cursor = 0;

@@ -66,4 +66,40 @@ describe("form integration — the full stacked arrangement", () => {
     const fingerprints = session.sections.map(() => JSON.stringify(session.nextScore()));
     expect(new Set(fingerprints).size).toBeGreaterThan(1);
   });
+
+  it("the theme is transformed where it recurs, not merely repeated", () => {
+    // The tell of a machine is a theme that returns note-for-note every time. Compare
+    // the shape (intervals in semitones) of each section's opening statement: a
+    // developing piece says it differently in the parts that develop it.
+    const shapesOf = (style: StyleName, seed: number) => {
+      const session = createSession({ seed, style, humanize: false, evolve: false });
+      return session.sections.map((section) => {
+        const score = session.nextScore();
+        const lead = [...(score.parts.find((p) => p.voice === "lead")?.notes ?? [])].sort(
+          (a, b) => a.startBeat - b.startBeat,
+        );
+        const head = lead.filter((n) => n.startBeat < 2 * score.beatsPerBar);
+        const semis = head.map((n) => Math.round(12 * Math.log2(n.freq / 261.6256)));
+        return {
+          label: section.label,
+          shape: semis
+            .slice(1)
+            .map((s, k) => s - semis[k]!)
+            .join(),
+        };
+      });
+    };
+
+    for (const style of STYLE_NAMES) {
+      for (const seed of [5, 13, 42]) {
+        const heads = shapesOf(style, seed);
+        const developed = heads.filter((h) => h.label !== "A");
+        if (developed.length === 0) continue; // an all-A form has nothing to develop
+        const homeShape = heads.find((h) => h.label === "A")!.shape;
+        for (const part of developed) {
+          expect(part.shape).not.toBe(homeShape); // B/C restate the theme transformed
+        }
+      }
+    }
+  });
 });

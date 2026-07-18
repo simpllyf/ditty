@@ -485,6 +485,34 @@ describe("arrange — golden & validation", () => {
     }
   });
 
+  it("develops a supplied theme, and states one whose span the caller left unsaid", () => {
+    // A two-bar theme handed in bare: the arranger has to measure the span itself,
+    // or the generated continuation starts on top of the theme instead of after it.
+    const motif = [
+      { startBeat: 0, durationBeats: 1, degree: 0, velocity: 0.7, strong: true },
+      { startBeat: 1, durationBeats: 1, degree: 2, velocity: 0.7, strong: false },
+      { startBeat: 4, durationBeats: 2, degree: 1, velocity: 0.7, strong: true },
+    ];
+    const lead = (o: Record<string, unknown>) =>
+      part(arr({ voices: { lead: true }, ...o }), "lead")!;
+
+    const bare = lead({ motif });
+    const heads = bare.notes.filter((n) => n.startBeat < 8).map((n) => n.startBeat);
+    expect(new Set(heads).size).toBe(heads.length); // no two notes share a start — nothing doubled up
+
+    // The same theme, mirrored, is a different line — but still a line, not a dropped one.
+    const mirrored = lead({
+      motif,
+      motifBars: 2,
+      development: { transform: "inversion", step: 0 },
+    });
+    const plain = lead({ motif, motifBars: 2, development: { transform: "statement", step: 0 } });
+    expect(mirrored.notes.length).toBeGreaterThan(0);
+    expect(mirrored.notes.slice(0, 3).map((n) => n.freq)).not.toEqual(
+      plain.notes.slice(0, 3).map((n) => n.freq),
+    );
+  });
+
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {
     const rng = makeRng(1);
     // hindolam has b6 (pc 8), which major lacks → out of key.
