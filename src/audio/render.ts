@@ -59,9 +59,17 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
   }
 
   const session: Session = createSession(options); // validates bpm/bars/beatsPerBar
-  // Sections can carry their OWN tempo, so each loop has its own duration — we lay
-  // them end to end at cumulative offsets rather than a single constant stride.
-  const nominalLoopSeconds = session.bars * session.beatsPerBar * (60 / session.bpm);
+  // Sections carry their own tempo AND their own length, so each loop has its own
+  // duration — we lay them end to end at cumulative offsets rather than a single
+  // constant stride. The up-front bound has to assume the LONGEST section, or a form
+  // whose charanam runs half again as long slips past it.
+  const longestSectionBars = session.sections.reduce((most, s) => Math.max(most, s.bars), 0);
+  const slowestSectionBpm = session.sections.reduce(
+    (least, s) => Math.min(least, s.bpm),
+    session.bpm,
+  );
+  const nominalLoopSeconds =
+    Math.max(longestSectionBars, session.bars) * session.beatsPerBar * (60 / slowestSectionBpm);
   if (!(nominalLoopSeconds > 0)) {
     throw new RangeError("renderOffline: loop length must be positive (bars/beatsPerBar > 0)");
   }
@@ -79,8 +87,9 @@ export async function renderOffline(options: RenderOptions): Promise<RenderResul
       throw new RangeError(`renderOffline loops must be a positive integer, got ${loops}`);
     }
     // Bound the count BEFORE the loop (each iteration composes a whole Score), so an
-    // absurd `loops` can't spin/OOM before the post-hoc seconds guard. Per-section
-    // tempo only nudges durations ±~6%, so nominal length is a safe up-front estimate.
+    // absurd `loops` can't spin/OOM before the post-hoc seconds guard. The estimate is
+    // the longest, slowest section, so it can only over-count — never wave through a
+    // render that turns out too long.
     if (loops * nominalLoopSeconds > MAX_RENDER_SECONDS) {
       throw new RangeError(
         `renderOffline: ${loops} loops (~${Math.round(loops * nominalLoopSeconds)}s) exceeds the ${MAX_RENDER_SECONDS}s limit (render in chunks for longer)`,

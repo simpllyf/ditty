@@ -42,6 +42,13 @@ function check(options: SessionOptions, label: string, bad: string[]) {
     const section = session.sections[i]!;
     const where = `§${i}(${section.part})`;
     const len = score.lengthBeats;
+    // Sections declare their own length and tempo; a consumer laying out a timeline
+    // from those numbers must get the loop it was promised.
+    if (score.bars !== section.bars)
+      fail(`${where} runs ${score.bars} bars, declared ${section.bars}`);
+    if (score.bpm !== section.bpm) fail(`${where} plays at ${score.bpm}, declared ${section.bpm}`);
+    if (len !== section.bars * score.beatsPerBar)
+      fail(`${where} loop is ${len} beats, expected ${section.bars * score.beatsPerBar}`);
 
     for (const part of score.parts) {
       for (const n of part.notes) {

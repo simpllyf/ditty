@@ -94,12 +94,17 @@ export interface SectionView {
   readonly development: MotifDevelopment;
   /** What this part is called — "B" in a song, "anupallavi" in a kriti. */
   readonly part: string;
+  /** Bars this section runs for. Sections differ: a kriti's charanam is the long part. */
+  readonly bars: number;
+  /** This section's own tempo — sections push and pull around the piece's base bpm. */
+  readonly bpm: number;
 }
 
 export interface Session {
   readonly noiseTable: Float32Array;
   readonly bpm: number;
   readonly beatsPerBar: number;
+  /** The BASE section length; a section may run longer (see {@link SectionView.bars}). */
   readonly bars: number;
   readonly instruments: Record<ScoreVoice, Instrument>;
   readonly drumKit: Record<DrumName, DrumVoice>;
@@ -221,7 +226,7 @@ export function createSession(options: SessionOptions): Session {
       rng: arrangeRng,
       bpm: Math.round(bpm * section.bpmScale), // per-section tempo (B pulls back, C pushes)
       beatsPerBar,
-      bars,
+      bars: section.bars, // sections run to their own length
       parent,
       raga,
       ...(paths !== undefined ? { paths } : {}),
@@ -252,6 +257,8 @@ export function createSession(options: SessionOptions): Session {
     arpRole: s.arpRole,
     development: s.development,
     part: s.part,
+    bars: s.bars,
+    bpm: Math.round(bpm * s.bpmScale),
   }));
 
   let cursor = 0;

@@ -37,6 +37,7 @@ export interface SectionProfile {
   readonly development: MotifDevelopment; // how this part treats the theme (state it / develop it)
   readonly range: readonly [number, number]; // the lead's register for this part
   readonly part: string; // what this part is called ("B" / "anupallavi")
+  readonly bars: number; // this part's own length — a charanam says more than a refrain
   readonly fill: boolean; // end this section with a drum fill (leads into a part change)
 }
 
@@ -169,6 +170,12 @@ const CLIMAX_DEVELOPMENT: readonly MotifDevelopment[] = [
  * A kriti never leaves home — the raga IS the piece, and modulating out of it would be
  * a different raga.
  */
+function sectionBars(label: string, o: FormOptions, kind: FormKind): number {
+  // A kriti's charanam is its long part: it carries the most text and the widest
+  // melodic ground, so a charanam the length of the refrain isn't really a charanam.
+  return kind === "kriti" && label === "C" ? Math.round(o.bars * 1.5) : o.bars;
+}
+
 function sectionRoot(label: string, o: FormOptions, kind: FormKind): number {
   if (kind === "kriti") return o.rootMidi;
   if (label === "B") return modulate(o.rootMidi, o.rng.pick([0, 5, 7, -5])); // bridge → a related key
@@ -200,11 +207,13 @@ function kritiSection(
   o: FormOptions,
   rootMidi: number,
   plan: HarmonicPlan,
+  bars: number,
 ): SectionRecipe {
   const shared = {
     label,
     rootMidi,
     plan,
+    bars,
     bpmScale: 1, // the tala doesn't shift mid-piece
     groove: o.groove,
     voices: {}, // the ensemble plays throughout
@@ -255,15 +264,16 @@ function kritiSection(
 /** Build one section's recipe with deliberate contrast from the home section. */
 function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRecipe {
   const rootMidi = sectionRoot(label, o, kind); // may modulate to a new key
+  const bars = sectionBars(label, o, kind);
   const plan = generateHarmony({
     rng: o.rng.fork(),
     scale: o.scale,
     rootMidi,
-    bars: o.bars,
+    bars,
     beatsPerBar: o.beatsPerBar,
     borrow: o.borrow,
   });
-  if (kind === "kriti") return kritiSection(label, o, rootMidi, plan);
+  if (kind === "kriti") return kritiSection(label, o, rootMidi, plan, bars);
   if (label === "B") {
     // Bridge/breakdown: thinner, gentler, and quieter than home (often a new key).
     return {
@@ -283,6 +293,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
       development: o.rng.pick(BRIDGE_DEVELOPMENT),
       range: DEFAULT_RANGE,
       part: label,
+      bars,
     };
   }
   if (label === "C") {
@@ -304,6 +315,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
       development: o.rng.pick(CLIMAX_DEVELOPMENT),
       range: DEFAULT_RANGE,
       part: label,
+      bars,
     };
   }
   // A — home: full texture, steady bass, base density, reference level, home key.
@@ -324,6 +336,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
     development: PLAIN_STATEMENT, // the refrain returns as itself
     range: DEFAULT_RANGE,
     part: label,
+    bars,
   };
 }
 

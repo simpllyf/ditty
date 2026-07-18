@@ -233,6 +233,26 @@ describe("buildForm", () => {
     expect(song.sections.map((s) => s.part)).toEqual(song.sections.map((s) => s.label));
   });
 
+  it("gives a kriti's charanam its own length — the long part of the piece", () => {
+    for (const bars of [4, 8, 12]) {
+      const form = buildForm({ rng: makeRng(2), ...base, bars, form: "kriti" });
+      const lengthOf = (part: string) => form.sections.find((s) => s.part === part)!.bars;
+      expect(lengthOf("pallavi")).toBe(bars); // the refrain sets the measure
+      expect(lengthOf("anupallavi")).toBe(bars);
+      expect(lengthOf("charanam")).toBeGreaterThan(bars);
+      // Its harmony has to be planned at its own length, not the base one.
+      const charanam = form.sections.find((s) => s.part === "charanam")!;
+      expect(charanam.plan.bars.length).toBe(charanam.bars);
+      // A section is never shorter than a progression can be written for.
+      for (const s of form.sections) expect(s.bars).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it("keeps every song section at the base length", () => {
+    const form = buildForm({ rng: makeRng(2), ...base, bars: 8, form: "song" });
+    for (const s of form.sections) expect(s.bars).toBe(8);
+  });
+
   it("keeps section density strictly within (0,1) even at extreme base density", () => {
     for (const density of [0, 1]) {
       const form = buildForm({ rng: makeRng(3), ...base, density });
