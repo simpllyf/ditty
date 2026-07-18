@@ -159,7 +159,11 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
   for (let bar = startBar; bar < plan.bars.length; bar++) {
     const chord = plan.bars[bar]!.chord;
     const chordRagaPcs = chord.pcs.filter((pc) => ragaPcs.has(pc)); // raga ∩ chord (set hoisted)
-    const onsets = melodyRhythm(rng, plan.beatsPerBar, { density });
+    // Phrases run four bars (the span the contour arcs over), and the cadence bars close
+    // one too. Ending a phrase lands, holds, then breathes — so a cadence's resolution
+    // rings out into silence instead of being trampled by the next note.
+    const phraseEnd = bar % 4 === 3 || bar === plan.cadences.half || bar === plan.cadences.final;
+    const onsets = melodyRhythm(rng, plan.beatsPerBar, { density, phraseEnd });
 
     for (let i = 0; i < onsets.length; i++) {
       const onset = onsets[i]!;
