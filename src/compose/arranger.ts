@@ -303,29 +303,74 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
   return notes;
 }
 
+/**
+ * Voice a chord next to the one before it: each tone takes the pitch nearest the
+ * previous voicing, so a tone the two chords share simply stays where it is and
+ * everything else moves by the shortest step available. Ties go to the voicing
+ * closest to the middle of the band, which keeps the pad from drifting to an edge.
+ *
+ * Re-stacking every chord from its root instead — the obvious way — makes the pad
+ * lurch, and moves its outer voices in parallel fifths on every change, because
+ * root position always spaces them the same way.
+ */
+function voiceLead(
+  pcs: readonly number[],
+  prev: readonly number[],
+  rootMidi: number,
+  hi: number,
+): number[] {
+  const centre = (rootMidi + hi) / 2;
+  return pcs.map((pc) => {
+    // Chord tones are pitch classes RELATIVE TO THE TONIC, so every placement of this
+    // tone is rootMidi + pc, an octave at a time.
+    const base = rootMidi + (((pc % OCTAVE) + OCTAVE) % OCTAVE);
+    let best = base;
+    let bestNear = Infinity;
+    let bestCentre = Infinity;
+    for (let midi = base; midi <= hi; midi += OCTAVE) {
+      const near = prev.length === 0 ? 0 : Math.min(...prev.map((p) => Math.abs(p - midi)));
+      const fromCentre = Math.abs(midi - centre);
+      if (near < bestNear || (near === bestNear && fromCentre < bestCentre)) {
+        best = midi;
+        bestNear = near;
+        bestCentre = fromCentre;
+      }
+    }
+    return best;
+  });
+}
+
 function arrangePad(ctx: PartContext): ScoreNote[] {
   const { plan, beatsPerBar, bars, rootMidi, fit } = ctx;
   const padPattern = ctx.options.padPattern ?? "sustain";
   const notes: ScoreNote[] = [];
-  // Voice the pad in root position: the chord root is the lowest tone, the other
-  // tones stacked within the octave above it (so the root never lands on top).
-  const padVoice = (pc: number, root: number) =>
-    midiToFrequency(rootMidi + root + ((pc - root + OCTAVE) % OCTAVE));
+  // The pad's register: above the bass (which never rises past rootMidi - 1) and
+  // within two octaves of the tonic.
+  const padHi = rootMidi + 2 * OCTAVE;
+  // Open in root position — that states the harmony plainly — then lead the voices
+  // from bar to bar.
+  const opening = plan.bars[0]!.chord;
+  let voicing = opening.pcs.map(
+    (pc) => rootMidi + opening.root + ((pc - opening.root + OCTAVE) % OCTAVE),
+  );
   for (let bar = 0; bar < bars; bar++) {
     const chord = plan.bars[bar]!.chord;
     const barStart = bar * beatsPerBar;
+    if (bar > 0) voicing = voiceLead(chord.pcs, voicing, rootMidi, padHi);
+    const padVoice = (_pc: number, _root: number, i: number) =>
+      midiToFrequency(voicing[i] as number);
     if (padPattern === "stabs") {
       // Rhythmic chord hits on each beat — a driving climax pad.
       for (let b = 0; b < beatsPerBar; b++) {
         const at = barStart + b;
-        for (const pc of chord.pcs) {
+        chord.pcs.forEach((pc, i) => {
           notes.push({
             startBeat: at,
             durationBeats: fit(at, 0.4),
-            freq: padVoice(pc, chord.root),
+            freq: padVoice(pc, chord.root, i),
             velocity: 0.32,
           });
-        }
+        });
       }
     } else if (padPattern === "broken") {
       // Chord tones enter one per beat, each held to the bar end — gentle bridge movement.
@@ -334,21 +379,21 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
         notes.push({
           startBeat: at,
           durationBeats: fit(at, beatsPerBar - (at - barStart)),
-          freq: padVoice(pc, chord.root),
+          freq: padVoice(pc, chord.root, i),
           velocity: 0.3,
         });
       });
     } else {
       // sustain: whole-bar block chord (default).
       const dur = fit(barStart, beatsPerBar);
-      for (const pc of chord.pcs) {
+      chord.pcs.forEach((pc, i) => {
         notes.push({
           startBeat: barStart,
           durationBeats: dur,
-          freq: padVoice(pc, chord.root),
+          freq: padVoice(pc, chord.root, i),
           velocity: 0.3,
         });
-      }
+      });
     }
   }
   return notes;
