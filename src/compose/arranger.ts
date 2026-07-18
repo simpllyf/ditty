@@ -402,7 +402,10 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
 function arrangeArp(ctx: PartContext): ScoreNote[] {
   const { plan, beatsPerBar, bars, rootMidi, raga, fit, swung, active, texture, arpRng } = ctx;
   const arpRole = ctx.options.arpRole ?? "arp";
-  if (arpRole === "double" || arpRole === "harmony") {
+  // Both theme-following roles need a theme. With the lead switched off there is
+  // nothing to double or harmonise, so the arp keeps its own figure rather than
+  // falling silent on a voice the caller asked to hear.
+  if ((arpRole === "double" || arpRole === "harmony") && ctx.leadMelody.length > 0) {
     // Orchestration: the arp instrument follows the THEME instead of arpeggiating —
     // doubling it an octave up (a tutti climax) or harmonising it a third below (a
     // two-part bridge). Tracks the lead, so it sits in the same phrasing.
