@@ -66,6 +66,26 @@ export interface FormOptions {
   readonly form?: FormKind; // pin the layout; otherwise the seed picks one
 }
 
+/**
+ * Which voices a section plays, as an arc ACROSS the piece rather than per part.
+ * Recipes are built once per label, so without this every A is orchestrated
+ * identically and the full ensemble simply arrives in bar one and stays.
+ *
+ * The opening holds back its colour voice and lets the arp enter with the second
+ * section; the last section before the form comes round again drops its drums, so
+ * the piece eases out and back in rather than looping at a flat blast. Lead, bass
+ * and pad are the core and are never taken away here.
+ *
+ * A kriti is exempt: its ensemble plays throughout, and thinning it would be a
+ * different tradition's idea of an arrangement.
+ */
+function orchestration(index: number, total: number, kind: FormKind): VoiceToggles {
+  if (kind === "kriti") return {};
+  if (index === 0) return { arp: false }; // the colour enters after the theme is stated
+  if (index === total - 1 && total >= 4) return { drums: false }; // ease out into the wrap
+  return {};
+}
+
 /** Bars the recurring theme spans (stated at the head of every section). */
 const MOTIF_BARS = 2;
 
@@ -356,10 +376,16 @@ export function buildForm(o: FormOptions): Form {
   for (const label of parts) {
     if (!recipes.has(label)) recipes.set(label, buildSection(label, o, kind));
   }
-  const sections = parts.map((label, i) => ({
-    ...recipes.get(label)!,
-    fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
-  }));
+  const sections = parts.map((label, i) => {
+    const recipe = recipes.get(label)!;
+    return {
+      ...recipe,
+      // The part's own scoring, then the arc across the piece — so a section that
+      // recurs is not orchestrated identically every time it comes round.
+      voices: { ...recipe.voices, ...orchestration(i, parts.length, kind) },
+      fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
+    };
+  });
 
   // The theme: a short phrase over the home section's opening bars, stated at the head
   // of every section (auto-transposing with each section's key) and developed there

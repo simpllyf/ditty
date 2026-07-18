@@ -86,7 +86,9 @@ describe("renderOffline", () => {
 
   it("places voices across the stereo field (pad left, arp right)", async () => {
     const cap: Cap = {};
-    await renderOffline({ seed: 7, seconds: 4, createContext: factory(cap) });
+    // A kriti keeps its whole ensemble from the first bar; a song's arc holds the arp
+    // back until its second section, which a four-second render never reaches.
+    await renderOffline({ seed: 7, seconds: 4, form: "kriti", createContext: factory(cap) });
     const pans = cap.ctx!.panners.map((p) => p.pan.value);
     expect(pans).toContain(-0.3); // pad placed left
     expect(pans).toContain(0.3); // arp placed right
