@@ -22,9 +22,6 @@ exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golde
       262,
       311,
       392,
-      523,
-      622,
-      784,
     ],
   },
   "waltz": {
@@ -47,9 +44,6 @@ exports[`createSession > locks a 3/4 (waltz) and a 6/8 (sixEight) session (golde
       262,
       311,
       392,
-      523,
-      622,
-      784,
     ],
   },
 }
@@ -73,10 +67,6 @@ exports[`createSession > locks the seed→session mapping (golden — pins the s
     330,
     392,
     392,
-    784,
-    659,
-    523,
-    784,
   ],
   "instruments": {
     "arp": "pluck",

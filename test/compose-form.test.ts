@@ -91,12 +91,18 @@ describe("buildForm", () => {
     }
   });
 
-  it("drops drums in the bridge; A/C keep the full ensemble", () => {
+  it("drops drums in every bridge, and never thins the core", () => {
     const form = formWithB();
-    for (const a of form.sections.filter((s) => s.label === "A")) expect(a.voices).toEqual({});
-    for (const b of form.sections.filter((s) => s.label === "B"))
-      expect(b.voices).toEqual({ drums: false });
-    for (const c of form.sections.filter((s) => s.label === "C")) expect(c.voices).toEqual({});
+    for (const b of form.sections.filter((s) => s.label === "B")) {
+      expect(b.voices.drums).toBe(false); // an intimate, drumless bridge
+    }
+    // A and C are scored by the arc across the piece rather than by their label, so
+    // what they carry depends on WHERE they fall — but never on the core voices.
+    for (const s of form.sections) {
+      for (const core of ["lead", "bass", "pad"] as const) expect(s.voices[core]).not.toBe(false);
+    }
+    // …and somewhere in the piece the whole ensemble does play.
+    expect(form.sections.some((s) => Object.keys(s.voices).length === 0)).toBe(true);
   });
 
   it("varies the groove per section: home (A), sparser bridge (B), busier climax (C)", () => {
@@ -245,6 +251,37 @@ describe("buildForm", () => {
       expect(charanam.plan.bars.length).toBe(charanam.bars);
       // A section is never shorter than a progression can be written for.
       for (const s of form.sections) expect(s.bars).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it("orchestrates an arc across the piece, not the same ensemble every section", () => {
+    // Recipes are built once per label, so without a per-POSITION arc every A is scored
+    // identically and the full ensemble simply arrives in bar one and stays.
+    for (let s = 1; s < 30; s++) {
+      const form = buildForm({ rng: makeRng(s), ...base, form: "song" });
+      const scorings = form.sections.map((sec) => JSON.stringify(sec.voices));
+      expect(new Set(scorings).size).toBeGreaterThan(1); // the ensemble actually changes
+
+      expect(form.sections[0]!.voices.arp).toBe(false); // colour enters after the theme
+      const last = form.sections[form.sections.length - 1]!;
+      // The section before the wrap eases out, so the form doesn't loop at a flat blast.
+      expect(last.voices.drums).toBe(form.sections.length >= 4 ? false : last.voices.drums);
+      // Lead, bass and pad are the core — an arc thins the colour, never the foundation.
+      for (const sec of form.sections) {
+        for (const core of ["lead", "bass", "pad"] as const) {
+          expect(sec.voices[core]).not.toBe(false);
+        }
+      }
+    }
+  });
+
+  it("leaves a kriti's ensemble playing throughout", () => {
+    // A kriti's accompaniment does not thin out; that is a different tradition's idea
+    // of an arrangement.
+    for (let s = 1; s < 20; s++) {
+      for (const sec of buildForm({ rng: makeRng(s), ...base, form: "kriti" }).sections) {
+        expect(sec.voices).toEqual({});
+      }
     }
   });
 
