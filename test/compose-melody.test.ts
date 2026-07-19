@@ -4,7 +4,13 @@ import { chordAt, chordTonesInScale, generateHarmony } from "../src/compose/harm
 import { type MelodyNote, type MelodyOptions, generateMelody } from "../src/compose/melody";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
-import { RAGA_PATHS, SCALES, type Scale, degreePitchClass } from "../src/theory/scales";
+import {
+  RAGA_PATHS,
+  SCALES,
+  type Scale,
+  degreePitchClass,
+  degreeToSemitone,
+} from "../src/theory/scales";
 
 interface SetupOpts {
   seed?: number;
@@ -308,6 +314,58 @@ describe("generateMelody — validation", () => {
     expect(() => generateMelody({ ...base, maxLeap: 0 })).toThrow(RangeError);
     expect(() => generateMelody({ ...base, maxNoteRepeat: 0 })).toThrow(RangeError);
     expect(() => generateMelody({ ...base, contourAmplitude: -1 })).toThrow(RangeError);
+  });
+});
+
+describe("generateMelody — how far it steps", () => {
+  const semitonesOf = (notes: readonly MelodyNote[], scale: Scale) => {
+    const out: number[] = [];
+    for (let i = 1; i < notes.length; i++) {
+      const d = Math.abs(
+        degreeToSemitone(scale, notes[i]!.degree) - degreeToSemitone(scale, notes[i - 1]!.degree),
+      );
+      if (d > 0) out.push(d);
+    }
+    return out;
+  };
+  const meanLeap = (raga: Scale) => {
+    const all: number[] = [];
+    for (let seed = 0; seed < 40; seed++) {
+      const { notes } = setup({ seed, raga });
+      all.push(...semitonesOf(notes, raga));
+    }
+    return all.reduce((a, b) => a + b, 0) / all.length;
+  };
+
+  it("keeps its steps small, judging closeness in semitones rather than degrees", () => {
+    // A degree is a different distance in every raga, so weighting by degree lets the
+    // line travel further than it "thinks" it is. Weighting by semitones pulls both of
+    // these down: degree-weighting yields 4.08 and 3.06, so these bounds fail if the
+    // unit ever goes back.
+    expect(meanLeap(SCALES.mohanam)).toBeLessThan(3.95);
+    expect(meanLeap(SCALES.shankarabharanam)).toBeLessThan(2.95);
+    // A pentatonic still steps further, and always will — its smallest interval is a
+    // whole tone where a heptatonic has semitones. That gap is the raga, not a defect.
+    expect(meanLeap(SCALES.mohanam)).toBeGreaterThan(meanLeap(SCALES.shankarabharanam));
+  });
+
+  it("still covers ground — smaller steps must not flatten the line", () => {
+    // A melody that only ever crept would be smooth and shapeless; the contour has to
+    // survive the smoothing.
+    let range = 0;
+    let phrases = 0;
+    for (let seed = 0; seed < 25; seed++) {
+      const { notes, plan } = setup({ seed });
+      const phrase = 4 * plan.beatsPerBar;
+      for (let start = 0; start < plan.bars.length * plan.beatsPerBar; start += phrase) {
+        const inPhrase = notes.filter((n) => n.startBeat >= start && n.startBeat < start + phrase);
+        if (inPhrase.length < 4) continue;
+        const degrees = inPhrase.map((n) => n.degree);
+        range += Math.max(...degrees) - Math.min(...degrees);
+        phrases++;
+      }
+    }
+    expect(range / phrases).toBeGreaterThan(3); // a real arc, not a crawl
   });
 });
 

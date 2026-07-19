@@ -9,7 +9,7 @@ import { clamp } from "../math";
 import type { Rng } from "../rng";
 import { pitchClass } from "../theory/pitch";
 import { melodyRhythm } from "../theory/rhythm";
-import { type RagaPaths, type Scale, degreePitchClass } from "../theory/scales";
+import { type RagaPaths, type Scale, degreePitchClass, degreeToSemitone } from "../theory/scales";
 import { type HarmonicPlan, chordAt } from "./harmony";
 
 /** One melody note. `degree` is a melody-scale degree (any integer); the arranger maps it to Hz. */
@@ -116,6 +116,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
 
   const home = Math.round((lo + hi) / 2);
   const pcOf = (degree: number) => degreePitchClass(scale, degree);
+  const semitoneOf = (degree: number) => degreeToSemitone(scale, degree);
   const ragaPcs = new Set(scale.map(pitchClass)); // loop-invariant: the raga's pitch classes
   const paths: PathSets = options.paths
     ? {
@@ -246,6 +247,7 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
           recent,
           maxNoteRepeat,
           paths,
+          semitoneOf,
         });
       }
 
@@ -271,6 +273,8 @@ interface PickArgs {
   maxLeap: number;
   target: number;
   pcOf: (degree: number) => number;
+  /** Absolute semitones from the tonic — how far apart two degrees actually SOUND. */
+  semitoneOf: (degree: number) => number;
   chordPcs: readonly number[] | null; // non-null on a strong beat → restrict to chord tones
   recent: number[];
   maxNoteRepeat: number;
@@ -301,8 +305,15 @@ function pickNote(rng: Rng, a: PickArgs): number {
   const nonRepeat = candidates.filter((d) => !exceedsRepeatLimit(a.recent, d, a.maxNoteRepeat));
   if (nonRepeat.length > 0) candidates = nonRepeat;
 
+  // Closeness is judged in SEMITONES, not scale degrees. A degree is a different
+  // distance in every raga — a step in a pentatonic is a tone or a minor third, in a
+  // heptatonic usually a semitone or a tone — so weighting by degree lets a pentatonic
+  // line leap half again as far while believing it is stepping. The contour target
+  // stays in degrees: that one is about position in the raga, not distance.
+  const prevSemitone = a.semitoneOf(a.prev);
   const weights = candidates.map(
-    (d) => (1 / (1 + Math.abs(d - a.target))) * (1 / (1 + Math.abs(d - a.prev))),
+    (d) =>
+      (1 / (1 + Math.abs(d - a.target))) * (1 / (1 + Math.abs(a.semitoneOf(d) - prevSemitone))),
   );
   return rng.weighted(candidates, weights);
 }
