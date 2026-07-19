@@ -37,6 +37,15 @@ export interface Engine {
   start(): Promise<void>;
   /** Stop scheduling and silence (keeps the context for a later start). */
   stop(): void;
+  /**
+   * End the piece: play to the next bar line, land a closing cadence, let it decay,
+   * then stop. Resolves when the music has finished — so a caller can wait before
+   * navigating away or tearing down.
+   *
+   * Use this for a deliberate ending. {@link stop} and {@link pause} stay immediate;
+   * an ending takes a few seconds by nature, which is wrong for a pause.
+   */
+  finish(): Promise<void>;
   /** Suspend audio, keeping state so {@link resume} continues. */
   pause(): void;
   /** Resume after {@link pause}. */
@@ -55,6 +64,15 @@ const clamp = clampSafe;
 // foreground pause. (On a hidden tab the timer is throttled and the OS suspends anyway; resume
 // re-anchors regardless, so the exact timing isn't critical.)
 const SUSPEND_AFTER_MS = 300;
+
+/**
+ * How much of the closing chord rings at full level before the master starts easing
+ * down. The chord needs to LAND first — fading from the instant it arrives would read
+ * as a fade-out rather than as a cadence.
+ */
+const CLOSING_RING = 0.45;
+/** A moment past the fade before the graph is stopped, so nothing is cut mid-decay. */
+const CLOSING_TAIL_SECONDS = 0.15;
 
 /** The audio graph, built lazily on first start(); null until then (SSR-safe). */
 interface Graph {
@@ -102,6 +120,8 @@ export function createEngine(options: EngineOptions = {}): Engine {
     return graph;
   }
 
+  let finishing: Promise<void> | null = null;
+
   return {
     async start(): Promise<void> {
       if (disposed) return;
@@ -115,7 +135,52 @@ export function createEngine(options: EngineOptions = {}): Engine {
 
     stop(): void {
       cancelPendingSuspend();
+      finishing = null;
       graph?.scheduler.stop();
+    },
+
+    finish(): Promise<void> {
+      if (finishing) return finishing; // an ending, once asked for, runs to its end
+      if (disposed || !graph || !graph.scheduler.isRunning) {
+        graph?.scheduler.stop();
+        return Promise.resolve();
+      }
+      const g = graph;
+      cancelPendingSuspend();
+
+      // Land on the next bar line — a cadence arriving mid-bar is not an arrival. At
+      // most one bar away, so an ending still answers promptly.
+      const at = g.scheduler.nextBoundary(session.beatsPerBar) ?? g.context.currentTime;
+      g.scheduler.stopAt(at); // the piece plays up to there and no further
+
+      const closing = buildLoop(
+        session.closingScore(),
+        g.synth,
+        session.instruments,
+        session.drumKit,
+      );
+      for (const event of closing.events) {
+        event.play(at + event.beat * closing.secondsPerBeat);
+      }
+
+      const ringSeconds = closing.loopBeats * closing.secondsPerBeat;
+      const startsIn = Math.max(0, at - g.context.currentTime);
+      const fadeAfter = startsIn + ringSeconds * CLOSING_RING;
+      const fadeSeconds = ringSeconds * (1 - CLOSING_RING);
+
+      finishing = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          if (!disposed && graph === g) g.synth.fade(0, fadeSeconds);
+          setTimeout(
+            () => {
+              if (!disposed && graph === g) g.scheduler.stop();
+              resolve();
+            },
+            (fadeSeconds + CLOSING_TAIL_SECONDS) * 1000,
+          );
+        }, fadeAfter * 1000);
+      });
+      return finishing;
     },
 
     pause(): void {
