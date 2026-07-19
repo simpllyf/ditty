@@ -66,6 +66,11 @@ export interface SessionOptions {
    * and only ever applied to a lead instrument that sustains.
    */
   slide?: boolean;
+  /**
+   * Let a held lead note oscillate toward its neighbouring swara. Default `true`, and
+   * only ever on a lead that sustains.
+   */
+  shake?: boolean;
   /** Tonic MIDI note (integer 36–84). Default: from the style. */
   rootMidi?: number;
   /** Drum groove name. Default: from the style. */
@@ -264,6 +269,9 @@ export function createSession(options: SessionOptions): Session {
       // Only a voice that holds its note can slide onto one; a struck bar has decayed
       // before the slide would land.
       slide: (options.slide ?? true) && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
+      // Same physics as the slide: a struck bar has decayed before an oscillation could
+      // be heard on it.
+      shake: (options.shake ?? true) && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
       leadRange: section.range, // the part's register — a kriti's anupallavi sings an octave up
       dynamics: section.dynamics,
       fill: section.fill,

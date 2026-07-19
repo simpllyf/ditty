@@ -704,6 +704,44 @@ describe("arrange — golden & validation", () => {
     }
   });
 
+  it("shakes held notes only, as wide as the raga's own step to the next swara", () => {
+    const notesFor = (raga: Scale, o: Record<string, unknown> = {}) =>
+      part(
+        arrange({
+          rng: makeRng(5),
+          parent: SCALES.major,
+          raga,
+          bars: 8,
+          beatsPerBar: 4,
+          bpm: 80,
+          shake: true,
+          ...o,
+        }),
+        "lead",
+      )!.notes;
+
+    const shaken = notesFor(SCALES.mohanam).filter((n) => n.shakeCents !== undefined);
+    expect(shaken.length).toBeGreaterThan(0);
+    // Off by default — an ornament is asked for, not assumed.
+    expect(notesFor(SCALES.mohanam, { shake: false }).some((n) => n.shakeCents !== undefined)).toBe(
+      false,
+    );
+
+    for (const n of shaken) {
+      // Only notes long enough to hold a few swings.
+      expect(n.durationBeats * (60 / 80)).toBeGreaterThanOrEqual(0.6 - 1e-9);
+      expect(n.shakeCents!).toBeGreaterThanOrEqual(40);
+      expect(n.shakeCents!).toBeLessThanOrEqual(170);
+      expect(n.shakeDelaySeconds!).toBeGreaterThan(0); // eases in, lands clean
+    }
+
+    // The width is the RAGA's: mohanam's swaras sit a tone or a minor third apart, a
+    // major scale's often a semitone, so the same rule shakes them differently.
+    const widest = (raga: Scale) => Math.max(...notesFor(raga).map((n) => n.shakeCents ?? 0));
+    expect(widest(SCALES.mohanam)).toBeGreaterThan(widest(SCALES.shankarabharanam) - 1e-9);
+    expect(notesFor(SCALES.shankarabharanam).some((n) => (n.shakeCents ?? 0) < 100)).toBe(true); // a semitone neighbour gives a narrow shake
+  });
+
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {
     const rng = makeRng(1);
     // hindolam has b6 (pc 8), which major lacks → out of key.

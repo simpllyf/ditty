@@ -72,6 +72,11 @@ export class FakeGain extends FakeNode implements GainNodeLike {
 }
 
 export class FakeOscillator extends FakeNode implements OscillatorNodeLike {
+  /** The custom shape applied, if any — a plain oscillator keeps its `type`. */
+  periodicWave: object | null = null;
+  setPeriodicWave(wave: object): void {
+    this.periodicWave = wave;
+  }
   type: OscillatorType = "sine";
   readonly frequency = new FakeParam(440);
   readonly detune = new FakeParam(0);
@@ -190,6 +195,14 @@ export class FakeAudioContext implements AudioContextLike {
   createBuffer(channels: number, length: number): FakeBuffer {
     return new FakeBuffer(length, channels);
   }
+  /** Records the shape so a test can see WHICH wave was asked for, not just that one was. */
+  readonly periodicWaves: { real: number[]; imag: number[] }[] = [];
+  createPeriodicWave(real: Float32Array, imag: Float32Array): object {
+    const wave = { real: [...real], imag: [...imag] };
+    this.periodicWaves.push(wave);
+    return wave;
+  }
+
   createBufferSource(): FakeBufferSource {
     const s = new FakeBufferSource();
     this.bufferSources.push(s);

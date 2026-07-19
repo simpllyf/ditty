@@ -44,6 +44,11 @@ export function buildLoop(
             pan,
             ...(note.slideFromCents !== undefined ? { slideFromCents: note.slideFromCents } : {}),
             ...(note.slideSeconds !== undefined ? { slideSeconds: note.slideSeconds } : {}),
+            ...(note.shakeCents !== undefined ? { shakeCents: note.shakeCents } : {}),
+            ...(note.shakeRateHz !== undefined ? { shakeRateHz: note.shakeRateHz } : {}),
+            ...(note.shakeDelaySeconds !== undefined
+              ? { shakeDelaySeconds: note.shakeDelaySeconds }
+              : {}),
           }),
       });
     }

@@ -42,6 +42,12 @@ export interface ScoreNote {
   readonly slideFromCents?: number;
   /** How long the slide takes, in seconds. Present whenever `slideFromCents` is. */
   readonly slideSeconds?: number;
+  /** Oscillate up to a neighbouring swara and back, this many cents away. */
+  readonly shakeCents?: number;
+  /** Swings per second. */
+  readonly shakeRateHz?: number;
+  /** Ease the shake in over this long, so the note arrives clean and then moves. */
+  readonly shakeDelaySeconds?: number;
 }
 export interface DrumHit {
   readonly startBeat: number;
@@ -113,6 +119,11 @@ export interface ArrangeOptions {
    * Default false.
    */
   slide?: boolean;
+  /**
+   * Let a held note oscillate toward its neighbouring swara — the shake a raga's long
+   * notes carry. Only for instruments that sustain. Default false.
+   */
+  shake?: boolean;
 }
 
 const MIN_ROOT_MIDI = 36;
@@ -246,6 +257,26 @@ export interface PartArranger {
 const DEFAULT_BPM = 100;
 
 /**
+ * A note has to be held to be shaken. At the rate below this is a little under three
+ * swings — fewer and it reads as an out-of-tune attack rather than as movement. It also
+ * keeps the shake a gesture in slow styles: at 0.45s a third of ambient's notes shook,
+ * which is a tremble, not an ornament.
+ */
+const SHAKE_MIN_SECONDS = 0.6;
+/** Swings per second — slow enough to hear as movement between two pitches. */
+const SHAKE_RATE_HZ = 4.6;
+/**
+ * How far toward the next swara the oscillation reaches. Not all the way: a shake that
+ * arrives fully on the neighbour stops being an inflection of THIS note and becomes a
+ * trill between two.
+ */
+const SHAKE_REACH = 0.62;
+/** Even a wide-stepping raga keeps the swing within this, or the pitch stops reading. */
+const SHAKE_MAX_CENTS = 170;
+/** Ease-in, as a share of the note — it lands clean, then moves. */
+const SHAKE_EASE = 0.22;
+
+/**
  * A leap is jumped to unless it is wide enough to be worth connecting. Below this the
  * line is already stepping and a slide would only smear it.
  */
@@ -259,35 +290,57 @@ function arrangeLead(ctx: PartContext): ScoreNote[] {
   const secondsPerBeat = 60 / (ctx.options.bpm ?? DEFAULT_BPM);
   const semitoneOf = (degree: number) => degreeToSemitone(ctx.raga, degree);
 
-  return ctx.leadMelody.map((n, i) => {
-    const start = ctx.swung(n.startBeat);
-    const durationBeats = ctx.fit(start, n.durationBeats);
-    const note: ScoreNote = {
-      startBeat: start,
-      durationBeats,
-      freq: degreeToFrequency(ctx.raga, n.degree, ctx.rootMidi),
-      velocity: n.velocity,
-    };
-    if (!ctx.options.slide) return note;
+  return ctx.leadMelody
+    .map((n, i) => {
+      const start = ctx.swung(n.startBeat);
+      const durationBeats = ctx.fit(start, n.durationBeats);
+      const note: ScoreNote = {
+        startBeat: start,
+        durationBeats,
+        freq: degreeToFrequency(ctx.raga, n.degree, ctx.rootMidi),
+        velocity: n.velocity,
+      };
+      if (!ctx.options.slide) return note;
 
-    // A slide CONNECTS two notes, so it needs one to come from: the previous note has
-    // to run right up to this one. Across a rest the line has already let go, and
-    // sliding out of silence is a swoop, not a phrase.
-    const prev = ctx.leadMelody[i - 1];
-    if (!prev || prev.startBeat + prev.durationBeats < n.startBeat - 1e-9) return note;
+      // A slide CONNECTS two notes, so it needs one to come from: the previous note has
+      // to run right up to this one. Across a rest the line has already let go, and
+      // sliding out of silence is a swoop, not a phrase.
+      const prev = ctx.leadMelody[i - 1];
+      if (!prev || prev.startBeat + prev.durationBeats < n.startBeat - 1e-9) return note;
 
-    const leap = semitoneOf(n.degree) - semitoneOf(prev.degree);
-    if (Math.abs(leap) < SLIDE_MIN_SEMITONES) return note;
+      const leap = semitoneOf(n.degree) - semitoneOf(prev.degree);
+      if (Math.abs(leap) < SLIDE_MIN_SEMITONES) return note;
 
-    const seconds = Math.min(
-      SLIDE_MAX_SECONDS,
-      SLIDE_BASE_SECONDS + Math.abs(leap) * SLIDE_PER_SEMITONE,
-    );
-    // The note must outlast its own approach, or the slide IS the note.
-    if (durationBeats * secondsPerBeat < seconds * 3) return note;
+      const seconds = Math.min(
+        SLIDE_MAX_SECONDS,
+        SLIDE_BASE_SECONDS + Math.abs(leap) * SLIDE_PER_SEMITONE,
+      );
+      // The note must outlast its own approach, or the slide IS the note.
+      if (durationBeats * secondsPerBeat < seconds * 3) return note;
 
-    return { ...note, slideFromCents: -leap * 100, slideSeconds: seconds };
-  });
+      return { ...note, slideFromCents: -leap * 100, slideSeconds: seconds };
+    })
+    .map((note, i) => {
+      if (!ctx.options.shake) return note;
+      const held = note.durationBeats * secondsPerBeat;
+      if (held < SHAKE_MIN_SECONDS) return note;
+
+      // The DEPTH is the raga's own: the distance to the next swara above. That is what
+      // makes this an oscillation between two notes of the raga rather than a vibrato of
+      // some chosen width — a pentatonic shakes wider than a heptatonic because its
+      // neighbours sit further apart, which is exactly right.
+      const degree = ctx.leadMelody[i]!.degree;
+      const toNeighbour = semitoneOf(degree + 1) - semitoneOf(degree);
+      const cents = Math.min(SHAKE_MAX_CENTS, toNeighbour * 100 * SHAKE_REACH);
+      if (cents < 40) return note; // too narrow to hear as movement
+
+      return {
+        ...note,
+        shakeCents: cents,
+        shakeRateHz: SHAKE_RATE_HZ,
+        shakeDelaySeconds: Math.min(0.25, held * SHAKE_EASE),
+      };
+    });
 }
 
 function arrangeBass(ctx: PartContext): ScoreNote[] {
