@@ -61,6 +61,11 @@ export interface SessionOptions {
   form?: FormKind;
   /** Open with a one-time introduction before the form begins. Default `true`. */
   intro?: boolean;
+  /**
+   * Let the lead slide into wide leaps rather than jumping to them. Default `true`,
+   * and only ever applied to a lead instrument that sustains.
+   */
+  slide?: boolean;
   /** Tonic MIDI note (integer 36–84). Default: from the style. */
   rootMidi?: number;
   /** Drum groove name. Default: from the style. */
@@ -129,6 +134,9 @@ export interface Session {
    */
   closingScore(): Score;
 }
+
+/** A lead must hold its note to slide onto one; below this it has already decayed. */
+const SLIDE_MIN_SUSTAIN = 0.25;
 
 /** A 32-bit seed from Web Crypto, falling back to the clock (never Math.random). */
 function randomSeed(): number {
@@ -253,6 +261,9 @@ export function createSession(options: SessionOptions): Session {
       texture: section.texture,
       bassPattern: section.bassPattern,
       contour: options.contour ?? section.contour, // caller can pin one shape for the whole piece
+      // Only a voice that holds its note can slide onto one; a struck bar has decayed
+      // before the slide would land.
+      slide: (options.slide ?? true) && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
       leadRange: section.range, // the part's register — a kriti's anupallavi sings an octave up
       dynamics: section.dynamics,
       fill: section.fill,

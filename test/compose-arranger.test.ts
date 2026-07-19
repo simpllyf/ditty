@@ -1,11 +1,17 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { PART_ARRANGERS, type ScoreVoice, arrange, thirdBelow } from "../src/compose/arranger";
+import {
+  PART_ARRANGERS,
+  SLIDE_MIN_SEMITONES,
+  type ScoreVoice,
+  arrange,
+  thirdBelow,
+} from "../src/compose/arranger";
 import { chordAt, generateHarmony } from "../src/compose/harmony";
 import { makeRng } from "../src/rng";
 import { makeChord } from "../src/theory/chords";
 import { midiToFrequency } from "../src/theory/pitch";
-import { DRUM_GROOVES } from "../src/theory/rhythm";
+import { DRUM_GROOVES, SWING_MAX } from "../src/theory/rhythm";
 import { SCALES, type Scale, degreeToSemitone } from "../src/theory/scales";
 
 const DEFAULT_ROOT = 60;
@@ -669,6 +675,33 @@ describe("arrange — golden & validation", () => {
       }
     }
     expect(checked).toBeGreaterThan(100); // the sample really does contain divided bars
+  });
+
+  it("slides into wide leaps only, and only where a slide can actually be sung", () => {
+    const lead = (o: Record<string, unknown> = {}) =>
+      part(arr({ seed: 9, bars: 8, beatsPerBar: 4, slide: true, ...o }), "lead")!.notes;
+
+    const slid = lead().filter((n) => n.slideFromCents !== undefined);
+    expect(slid.length).toBeGreaterThan(0);
+    // Off by default: a slide is a choice the caller makes, not something notes do.
+    expect(lead({ slide: false }).some((n) => n.slideFromCents !== undefined)).toBe(false);
+
+    const notes = lead();
+    const semis = (f: number) => 12 * Math.log2(f / 261.6256);
+    for (const [i, n] of notes.entries()) {
+      if (n.slideFromCents === undefined) continue;
+      const prev = notes[i - 1]!;
+      expect(prev).toBeDefined();
+      // It begins exactly where the previous note was — that is what makes it a slide
+      // between two notes rather than a swoop out of nowhere.
+      expect(n.slideFromCents).toBeCloseTo((semis(prev.freq) - semis(n.freq)) * 100, 0);
+      expect(Math.abs(semis(n.freq) - semis(prev.freq))).toBeGreaterThanOrEqual(
+        SLIDE_MIN_SEMITONES - 1e-6,
+      );
+      // …and it never slides across a rest, beyond the swing shift.
+      expect(n.startBeat - (prev.startBeat + prev.durationBeats)).toBeLessThan(SWING_MAX + 1e-9);
+      expect(n.slideSeconds!).toBeGreaterThan(0);
+    }
   });
 
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {

@@ -62,6 +62,50 @@ describe("createSession", () => {
     expect(s.nextScore().parts.some((p) => p.voice === "lead")).toBe(true);
   });
 
+  it("only slides on a lead that can hold a note", () => {
+    // A struck bar has decayed before a slide could land on it, so the physics of the
+    // chosen instrument decides — not the style.
+    const slidNotes = (opts: Parameters<typeof createSession>[0]) => {
+      const s = createSession({ humanize: false, evolve: false, ...opts });
+      let slid = 0;
+      for (let i = 0; i < s.sections.length; i++) {
+        for (const n of s.nextScore().parts.find((p) => p.voice === "lead")?.notes ?? []) {
+          if (n.slideFromCents !== undefined) slid++;
+        }
+      }
+      return { slid, sustain: s.instruments.lead.amp.sustain };
+    };
+
+    let sawSustaining = false;
+    const struckThatSlid: string[] = [];
+    let struckSeen = 0;
+    for (const style of Object.keys(STYLES) as (keyof typeof STYLES)[]) {
+      for (let seed = 0; seed < 12; seed++) {
+        const { slid, sustain } = slidNotes({ seed, style });
+        if (sustain >= 0.25) {
+          sawSustaining ||= slid > 0;
+          continue;
+        }
+        struckSeen++;
+        if (slid > 0) struckThatSlid.push(`${style}/${seed}`);
+      }
+    }
+    expect(struckThatSlid).toEqual([]); // marimba, harp: nothing left to bend
+    expect(sawSustaining).toBe(true); // sustaining leads really do slide
+    expect(struckSeen).toBeGreaterThan(0); // …and the sample really did include struck ones
+  });
+
+  it("can be switched off", () => {
+    const s = createSession({ seed: 16, style: "calm", slide: false, humanize: false });
+    let slid = 0;
+    for (let i = 0; i < s.sections.length; i++) {
+      for (const n of s.nextScore().parts.find((p) => p.voice === "lead")?.notes ?? []) {
+        if (n.slideFromCents !== undefined) slid++;
+      }
+    }
+    expect(slid).toBe(0);
+  });
+
   it("validates bpm, beatsPerBar, and bars eagerly", () => {
     expect(() => createSession({ bpm: 0 })).toThrow(RangeError);
     expect(() => createSession({ beatsPerBar: 0 })).toThrow(RangeError);

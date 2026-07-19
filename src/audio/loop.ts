@@ -42,6 +42,8 @@ export function buildLoop(
             velocity: note.velocity * mix,
             reverbSend,
             pan,
+            ...(note.slideFromCents !== undefined ? { slideFromCents: note.slideFromCents } : {}),
+            ...(note.slideSeconds !== undefined ? { slideSeconds: note.slideSeconds } : {}),
           }),
       });
     }
