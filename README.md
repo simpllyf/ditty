@@ -20,7 +20,7 @@ hand-composed signature hook, but it never runs out.
   and humanized timing across a stereo field. Seven styles, ~20 scales/ragas —
   a few of which climb and descend by different notes (arohana/avarohana), so the
   lead moves the way the raga moves rather than treating it as a flat note set.
-- **Zero dependencies, deterministic, tiny** (~16.5 KB min+gzip). Same seed →
+- **Zero dependencies, deterministic, tiny** (~17.5 KB min+gzip). Same seed →
   identical music; the whole pure brain also runs in Node with no `AudioContext`.
 - **Framework-agnostic.** Web Audio only — no DOM access, no framework imports.
 
