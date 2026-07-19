@@ -117,6 +117,7 @@ element, which a synthesis engine isn't.)
 | `form`                           | from seed        | `"song"` (A/B/C) or `"kriti"` (pallavi/anupallavi/charanam — one raga, register-led)     |
 | `intro`                          | `true`           | Open with a one-time introduction; the cycle repeats from `session.loopFrom`             |
 | `slide`                          | `true`           | Let the lead glide into wide leaps; only ever on a lead that sustains                    |
+| `shake`                          | `true`           | Let held lead notes oscillate toward the next swara, as wide as the raga's own step      |
 | `groove` / `kit`                 | from style       | Drum groove name and drum kit                                                            |
 | `rootMidi` / `density` / `swing` | from style       | Tonic MIDI note 36–84; `density` & `swing` are 0..1                                      |
 | `audioContext`                   | created lazily   | Bring your own `AudioContext` (or a compatible one)                                      |

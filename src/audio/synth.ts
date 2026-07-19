@@ -34,8 +34,14 @@ export interface AudioNodeLike {
 export interface GainNodeLike extends AudioNodeLike {
   readonly gain: AudioParamLike;
 }
+/**
+ * A custom LFO shape — an opaque handle, satisfied by a real `PeriodicWave`. Only ever
+ * used here to start an oscillation at a chosen phase.
+ */
+export type PeriodicWaveLike = object;
 export interface OscillatorNodeLike extends AudioNodeLike {
   type: OscillatorType;
+  setPeriodicWave?(wave: PeriodicWaveLike): void;
   readonly frequency: AudioParamLike;
   readonly detune: AudioParamLike; // cents; an LFO connects here for vibrato
   start(when: number): void;
@@ -80,6 +86,8 @@ export interface AudioContextLike {
   createStereoPanner(): StereoPannerLike;
   createBuffer(channels: number, length: number, sampleRate: number): AudioBufferLike;
   createBufferSource(): BufferSourceLike;
+  /** Optional: a custom LFO shape. Without it an oscillation simply starts mid-swing. */
+  createPeriodicWave?(real: Float32Array, imag: Float32Array): PeriodicWaveLike;
 }
 
 /** A pitched note resolved to absolute audio time + seconds. */
@@ -92,6 +100,16 @@ export interface NoteSpec {
   readonly slideFromCents?: number;
   /** How long that slide takes. Ignored without `slideFromCents`. */
   readonly slideSeconds?: number;
+  /**
+   * Oscillate up to a neighbouring pitch and back, this many cents away — the shake a
+   * held note carries. The note itself is the FLOOR of the swing, not its middle, so
+   * the oscillation reaches toward one neighbour instead of smearing around the pitch.
+   */
+  readonly shakeCents?: number;
+  /** How many times a second the shake swings. Ignored without `shakeCents`. */
+  readonly shakeRateHz?: number;
+  /** Ease the shake in over this long, so the note lands clean and then moves. */
+  readonly shakeDelaySeconds?: number;
   /** Wet send 0..1; defaults to the patch's own reverbSend (else 0). */
   readonly reverbSend?: number;
   /** Stereo position: -1 (left) .. 1 (right). Default 0 (centre). */
@@ -275,6 +293,37 @@ export class Synth {
       ampIn = trem;
     }
 
+    // The shake: an oscillation between this note and a neighbouring pitch, which is
+    // what a raga's held notes carry — a structural movement between two swaras, not
+    // the few-cent decorative wobble of `patch.vibrato`.
+    //
+    // It has to START on the note and rise, so the carrier is set half the swing sharp
+    // and a NEGATIVE COSINE takes it back down: at t0 the wave is at -1, cancelling the
+    // offset exactly, and the pitch sits on the note. A plain sine starts mid-swing,
+    // which would sound the note sharp the instant it arrives.
+    let shakeDepth: GainNodeLike | null = null;
+    let shakeOffsetCents = 0;
+    if (note.shakeCents && note.shakeCents > 0 && ctx.createPeriodicWave) {
+      const swing = clamp(note.shakeCents, 0, 1200);
+      shakeOffsetCents = swing / 2;
+      const depth = ctx.createGain();
+      const ease = Math.max(0, note.shakeDelaySeconds ?? 0);
+      if (ease > 0) {
+        depth.gain.setValueAtTime(0, t0);
+        depth.gain.linearRampToValueAtTime(swing / 2, t0 + ease);
+      } else {
+        depth.gain.setValueAtTime(swing / 2, t0);
+      }
+      const lfo = makeLfo(note.shakeRateHz ?? 5);
+      // -cos: real[1] = -1, so the wave begins at its trough.
+      lfo.setPeriodicWave?.(
+        ctx.createPeriodicWave(new Float32Array([0, -1]), new Float32Array([0, 0])),
+      );
+      lfo.connect(depth);
+      nodes.push(depth);
+      shakeDepth = depth;
+    }
+
     // Vibrato: an LFO on each layer's detune (cents), optionally eased in over delaySec.
     let vibratoDepth: GainNodeLike | null = null;
     if (patch.vibrato) {
@@ -335,7 +384,10 @@ export class Synth {
       const osc = ctx.createOscillator();
       osc.type = layer.kind;
       const detune = Math.pow(2, (layer.detuneCents ?? 0) / 1200);
-      const carrierHz = clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist);
+      // The shake's offset rides on the carrier so the swing's FLOOR is the written
+      // pitch: sharpened by half, then pulled back down by the -cos LFO below.
+      const shakeLift = Math.pow(2, shakeOffsetCents / 1200);
+      const carrierHz = clamp(note.freq * (layer.ratio ?? 1) * detune * shakeLift, 0, this.nyquist);
       osc.frequency.setValueAtTime(carrierHz, t0);
       // Slide onto the pitch instead of arriving at it. Detune is in CENTS, so a linear
       // ramp here is an exponential glide in Hz — equal musical distance per unit time,
@@ -345,6 +397,7 @@ export class Synth {
         osc.detune.setValueAtTime(note.slideFromCents, t0);
         osc.detune.linearRampToValueAtTime(0, t0 + note.slideSeconds);
       }
+      if (shakeDepth) shakeDepth.connect(osc.detune);
       if (vibratoDepth) vibratoDepth.connect(osc.detune);
 
       // FM: a sine modulator bends the carrier's frequency; peak deviation =

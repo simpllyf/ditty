@@ -402,3 +402,58 @@ describe("slide (a note reached by gliding)", () => {
     }
   });
 });
+
+describe("shake (oscillating toward a neighbouring swara)", () => {
+  const patch = INSTRUMENTS.sineLead;
+  const play = (spec: Partial<Parameters<Synth["playNote"]>[1]>) => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synth(ctx, { noiseTable: new Float32Array(64) });
+    synth.playNote(patch, {
+      freq: 300,
+      startTime: 0,
+      durationSeconds: 2,
+      velocity: 0.7,
+      ...spec,
+    });
+    return ctx;
+  };
+
+  it("swings from the note UP to its neighbour, never below it", () => {
+    // The note is the FLOOR of the swing, not its middle: the carrier sits half the
+    // swing sharp and a -cos LFO pulls it back down, so the note sounds true on arrival
+    // and reaches the neighbour at the top of each swing.
+    const ctx = play({ shakeCents: 124, shakeRateHz: 4.6 });
+    const wave = ctx.periodicWaves[0];
+    expect(wave).toBeDefined();
+    expect(wave!.real[1]).toBe(-1); // -cos: begins at its trough
+    // Every carrier is lifted by half the swing (124/2 = 62 cents) — compared against
+    // the same note unshaken, since a patch's layers sit at their own ratios.
+    const plain = play({});
+    const carriersOf = (c: FakeAudioContext) =>
+      c.oscillators.filter((o) => o.frequency.value > 100).map((o) => o.frequency.value);
+    const lifted = carriersOf(ctx);
+    const flat = carriersOf(plain);
+    expect(lifted.length).toBe(flat.length);
+    for (const [i, hz] of lifted.entries()) {
+      expect(hz / flat[i]!).toBeCloseTo(Math.pow(2, 62 / 1200), 6);
+    }
+    // …and the LFO's depth is the other half, so the swing spans exactly the interval
+    const depths = ctx.gains.filter((g) => Math.abs(g.gain.value - 62) < 1e-6);
+    expect(depths.length).toBeGreaterThan(0);
+  });
+
+  it("eases in, so the note arrives clean and only then moves", () => {
+    const ctx = play({ shakeCents: 124, shakeRateHz: 4.6, shakeDelaySeconds: 0.2 });
+    const eased = ctx.gains.find((g) =>
+      g.gain.events.some((e) => e.type === "linramp" && Math.abs(e.value - 62) < 1e-6),
+    );
+    expect(eased).toBeDefined();
+    expect(eased!.gain.events[0]).toEqual({ type: "set", value: 0, time: 0 });
+  });
+
+  it("leaves the pitch alone when the note carries no shake", () => {
+    const ctx = play({});
+    expect(ctx.periodicWaves.length).toBe(0); // no custom LFO shape asked for
+    expect(ctx.gains.some((g) => Math.abs(g.gain.value - 62) < 1e-6)).toBe(false);
+  });
+});
