@@ -34,6 +34,14 @@ export interface ScoreNote {
   readonly durationBeats: number;
   readonly freq: number;
   readonly velocity: number;
+  /**
+   * Begin this many cents away from `freq` and slide to it — a note reached by
+   * sliding rather than by being struck. Negative slides up to the pitch, positive
+   * down. Absent on most notes; see {@link SLIDE_MIN_SEMITONES}.
+   */
+  readonly slideFromCents?: number;
+  /** How long the slide takes, in seconds. Present whenever `slideFromCents` is. */
+  readonly slideSeconds?: number;
 }
 export interface DrumHit {
   readonly startBeat: number;
@@ -99,6 +107,12 @@ export interface ArrangeOptions {
   leadRange?: readonly [number, number];
   /** Melody phrase contour shape. Default "arch". */
   contour?: ContourShape;
+  /**
+   * Let the lead slide into wide leaps rather than jumping to them. Only for
+   * instruments that sustain — a struck bar has decayed before a slide could land.
+   * Default false.
+   */
+  slide?: boolean;
 }
 
 const MIN_ROOT_MIDI = 36;
@@ -228,15 +242,51 @@ export interface PartArranger {
   readonly arrange: (ctx: PartContext) => ScoreNote[];
 }
 
+/** Tempo when the caller names none. */
+const DEFAULT_BPM = 100;
+
+/**
+ * A leap is jumped to unless it is wide enough to be worth connecting. Below this the
+ * line is already stepping and a slide would only smear it.
+ */
+export const SLIDE_MIN_SEMITONES = 4;
+/** A slide is a gesture, not a journey: long enough to hear, short enough to arrive. */
+const SLIDE_BASE_SECONDS = 0.05;
+const SLIDE_PER_SEMITONE = 0.015;
+const SLIDE_MAX_SECONDS = 0.16;
+
 function arrangeLead(ctx: PartContext): ScoreNote[] {
-  return ctx.leadMelody.map((n) => {
+  const secondsPerBeat = 60 / (ctx.options.bpm ?? DEFAULT_BPM);
+  const semitoneOf = (degree: number) => degreeToSemitone(ctx.raga, degree);
+
+  return ctx.leadMelody.map((n, i) => {
     const start = ctx.swung(n.startBeat);
-    return {
+    const durationBeats = ctx.fit(start, n.durationBeats);
+    const note: ScoreNote = {
       startBeat: start,
-      durationBeats: ctx.fit(start, n.durationBeats),
+      durationBeats,
       freq: degreeToFrequency(ctx.raga, n.degree, ctx.rootMidi),
       velocity: n.velocity,
     };
+    if (!ctx.options.slide) return note;
+
+    // A slide CONNECTS two notes, so it needs one to come from: the previous note has
+    // to run right up to this one. Across a rest the line has already let go, and
+    // sliding out of silence is a swoop, not a phrase.
+    const prev = ctx.leadMelody[i - 1];
+    if (!prev || prev.startBeat + prev.durationBeats < n.startBeat - 1e-9) return note;
+
+    const leap = semitoneOf(n.degree) - semitoneOf(prev.degree);
+    if (Math.abs(leap) < SLIDE_MIN_SEMITONES) return note;
+
+    const seconds = Math.min(
+      SLIDE_MAX_SECONDS,
+      SLIDE_BASE_SECONDS + Math.abs(leap) * SLIDE_PER_SEMITONE,
+    );
+    // The note must outlast its own approach, or the slide IS the note.
+    if (durationBeats * secondsPerBeat < seconds * 3) return note;
+
+    return { ...note, slideFromCents: -leap * 100, slideSeconds: seconds };
   });
 }
 
@@ -611,7 +661,7 @@ function themeSpanBars(motif: readonly MelodyNote[], beatsPerBar: number): numbe
 /** Compose a {@link Score} from a harmony plan, melody, and groove. Pure & deterministic. */
 export function arrange(options: ArrangeOptions): Score {
   const { rng } = options;
-  const bpm = options.bpm ?? 100;
+  const bpm = options.bpm ?? DEFAULT_BPM;
   const beatsPerBar = options.beatsPerBar ?? 4;
   const bars = options.bars ?? 8;
   const parent = options.parent ?? SCALES.major;

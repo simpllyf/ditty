@@ -88,6 +88,10 @@ export interface NoteSpec {
   readonly startTime: number;
   readonly durationSeconds: number;
   readonly velocity: number;
+  /** Start this many cents off `freq` and slide onto it (see {@link NoteSpec.slideSeconds}). */
+  readonly slideFromCents?: number;
+  /** How long that slide takes. Ignored without `slideFromCents`. */
+  readonly slideSeconds?: number;
   /** Wet send 0..1; defaults to the patch's own reverbSend (else 0). */
   readonly reverbSend?: number;
   /** Stereo position: -1 (left) .. 1 (right). Default 0 (centre). */
@@ -333,6 +337,14 @@ export class Synth {
       const detune = Math.pow(2, (layer.detuneCents ?? 0) / 1200);
       const carrierHz = clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist);
       osc.frequency.setValueAtTime(carrierHz, t0);
+      // Slide onto the pitch instead of arriving at it. Detune is in CENTS, so a linear
+      // ramp here is an exponential glide in Hz — equal musical distance per unit time,
+      // which is what the ear hears as one gesture. Automation and the vibrato LFO both
+      // feed this param and simply sum, so the two never fight.
+      if (note.slideFromCents && note.slideSeconds) {
+        osc.detune.setValueAtTime(note.slideFromCents, t0);
+        osc.detune.linearRampToValueAtTime(0, t0 + note.slideSeconds);
+      }
       if (vibratoDepth) vibratoDepth.connect(osc.detune);
 
       // FM: a sine modulator bends the carrier's frequency; peak deviation =

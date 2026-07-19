@@ -349,3 +349,56 @@ describe("Synth lifecycle", () => {
     expect(ctx.shapers[0]!.oversample).toBe("4x"); // anti-aliased waveshaping
   });
 });
+
+describe("slide (a note reached by gliding)", () => {
+  const patch = INSTRUMENTS.sineLead;
+
+  it("starts the pitch off target and ramps it onto the note, in cents", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synth(ctx, { noiseTable: new Float32Array(64) });
+    synth.playNote(patch, {
+      freq: 440,
+      startTime: 2,
+      durationSeconds: 1,
+      velocity: 0.7,
+      slideFromCents: -700,
+      slideSeconds: 0.06,
+    });
+    // Detune is in CENTS, so a LINEAR ramp here is an exponential glide in Hz — equal
+    // musical distance per unit time, which is what one gesture sounds like.
+    for (const osc of ctx.oscillators.filter((o) => o.frequency.value > 20)) {
+      const evs = osc.detune.events;
+      expect(evs[0]).toEqual({ type: "set", value: -700, time: 2 });
+      expect(evs[1]).toEqual({ type: "linramp", value: 0, time: 2.06 });
+    }
+  });
+
+  it("leaves the pitch alone when the note has no slide", () => {
+    const ctx = new FakeAudioContext();
+    const synth = new Synth(ctx, { noiseTable: new Float32Array(64) });
+    synth.playNote(patch, { freq: 440, startTime: 0, durationSeconds: 1, velocity: 0.7 });
+    for (const osc of ctx.oscillators) {
+      expect(osc.detune.events.filter((e) => e.type === "linramp")).toEqual([]);
+    }
+  });
+
+  it("bends every layer of a stacked patch, so it glides as one voice", () => {
+    // supersaw stacks detuned saws; bending only some would smear into a chorus.
+    const ctx = new FakeAudioContext();
+    const synth = new Synth(ctx, { noiseTable: new Float32Array(64) });
+    synth.playNote(INSTRUMENTS.supersaw, {
+      freq: 220,
+      startTime: 0,
+      durationSeconds: 1,
+      velocity: 0.7,
+      slideFromCents: 500,
+      slideSeconds: 0.05,
+    });
+    const carriers = ctx.oscillators.filter((o) => o.frequency.value > 20);
+    expect(carriers.length).toBeGreaterThan(1);
+    for (const osc of carriers) {
+      expect(osc.detune.events.some((e) => e.type === "set" && e.value === 500)).toBe(true);
+      expect(osc.detune.events.some((e) => e.type === "linramp" && e.value === 0)).toBe(true);
+    }
+  });
+});
