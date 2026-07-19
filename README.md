@@ -60,12 +60,27 @@ playButton.addEventListener("click", () => engine.start());
 engine.setVolume(0.25);
 engine.pause(); // suspend; resume() to continue
 engine.stop(); // stop and silence; start() again later
+await engine.finish(); // END it: a closing cadence, then silence (see below)
 engine.dispose(); // tear down (call this on unmount in React/Svelte/etc.)
 ```
 
 Pick a vibe and let the seed do the rest, or pin any knob yourself — explicit
 options always override the style, e.g.
 `createEngine({ style: "calm", bpm: 84, voices: { arp: false } })`.
+
+### Ending a piece
+
+`stop()` and `pause()` are immediate — they cut wherever the music happens to be, which
+is what you want for a pause. For a deliberate ending there's `finish()`:
+
+```js
+await engine.finish(); // plays to the next bar line, resolves home, fades out
+```
+
+It plays to the next bar line, lands a closing cadence on the tonic, lets it ring and
+fades to silence — then resolves, so you can wait before navigating away or tearing
+down. That takes a few seconds (roughly 4–7, depending on tempo), which is why it is a
+separate call rather than an option on `stop()`.
 
 ### Background playback
 

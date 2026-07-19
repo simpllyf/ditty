@@ -82,6 +82,7 @@ export class Scheduler {
   private anchor = 0; // audio time of the current loop's beat 0
   private index = 0; // next event in the current loop
   private loop: PreparedLoop | null = null;
+  private until: number | null = null; // hard stop: schedule nothing at or after this time
 
   constructor(options: SchedulerOptions) {
     this.context = options.context;
@@ -115,6 +116,30 @@ export class Scheduler {
     this.running = false;
     this.clock.stop();
     this.loop = null;
+    this.until = null;
+  }
+
+  /**
+   * Play up to `time` and no further: events at or after it are never scheduled, and the
+   * timer stops once the audio clock passes it. Lets the music be cut at a chosen musical
+   * instant — a bar line — instead of wherever {@link stop} happened to land.
+   * Already-scheduled audio (at most one look-ahead) still plays out.
+   */
+  stopAt(time: number): void {
+    if (!this.running) return;
+    this.until = time;
+    this.tick(); // apply the limit now rather than up to one interval later
+  }
+
+  /**
+   * Absolute time of the next boundary a whole number of `beats` from the current loop's
+   * start — the next bar line, given a bar's beats. Null when not running, never in the past.
+   */
+  nextBoundary(beats: number): number | null {
+    if (!this.running || !this.loop || !(beats > 0)) return null;
+    const span = beats * this.loop.secondsPerBeat;
+    const elapsed = this.context.currentTime - this.anchor;
+    return this.anchor + Math.max(1, Math.ceil(elapsed / span)) * span;
   }
 
   /** Pause the timer, keeping the loop so {@link resume} continues it. No-op if not running. */
@@ -142,6 +167,11 @@ export class Scheduler {
 
   private tick(): void {
     if (!this.running || !this.loop) return;
+    // Past the hard stop: nothing left to schedule, so shut the timer down.
+    if (this.until !== null && this.context.currentTime >= this.until) {
+      this.stop();
+      return;
+    }
     const horizon = this.context.currentTime + this.lookAheadSeconds;
     for (let guard = 0; guard < MAX_STEPS_PER_TICK; guard++) {
       const loop = this.loop;
@@ -149,6 +179,12 @@ export class Scheduler {
         const event = loop.events[this.index] as ScheduledEvent;
         const time = this.anchor + event.beat * loop.secondsPerBeat;
         if (time > horizon) break;
+        // Nothing at or past the hard stop is ever scheduled. Events are sorted, so the
+        // first one to reach it means this loop — and the music — is done.
+        if (this.until !== null && time >= this.until) {
+          this.stop();
+          return;
+        }
         if (time >= this.context.currentTime - MAX_LATENESS_SECONDS) {
           event.play(Math.max(time, this.context.currentTime)); // never schedule in the past
         }

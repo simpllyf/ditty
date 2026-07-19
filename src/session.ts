@@ -14,6 +14,7 @@ import {
   assertMusicalParams,
 } from "./compose/arranger";
 import { type FormKind, type SectionProfile, buildForm } from "./compose/form";
+import { closingScore } from "./compose/closing";
 import { humanize } from "./compose/humanize";
 import type { MotifDevelopment } from "./compose/motif";
 import {
@@ -122,6 +123,11 @@ export interface Session {
   readonly sections: readonly SectionView[];
   /** Next section of the form (advances through it and loops); cached when `evolve` is off. */
   nextScore(): Score;
+  /**
+   * The closing cadence — a held tonic chord, played INSTEAD of continuing. It is not
+   * part of the cycle and `nextScore` never returns it; ask for it when ending.
+   */
+  closingScore(): Score;
 }
 
 /** A 32-bit seed from Web Crypto, falling back to the clock (never Math.random). */
@@ -290,6 +296,9 @@ export function createSession(options: SessionOptions): Session {
     formKind: form.kind,
     loopFrom,
     sections,
+    closingScore(): Score {
+      return closingScore({ parent, raga, rootMidi, bpm, beatsPerBar });
+    },
     nextScore(): Score {
       const i =
         cursor < played.length

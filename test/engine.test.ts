@@ -108,6 +108,79 @@ describe("createEngine", () => {
     expect(evolving).toBeGreaterThan(repeating); // melodies re-draw on each pass
   });
 
+  it("finish() plays to a bar line, lands a closing chord, then stops", async () => {
+    vi.useFakeTimers();
+    const ctx = new FakeAudioContext();
+    const clock = new TickClock();
+    const session = createSession({ seed: 1, humanize: false });
+    const engine = createEngine({ seed: 1, humanize: false, audioContext: ctx, clock });
+    await engine.start();
+    runLoops(ctx, clock, 4);
+
+    const before = ctx.oscillators.length;
+    const calledAt = ctx.currentTime;
+    const barSeconds = session.beatsPerBar * (60 / session.bpm);
+    const done = engine.finish();
+
+    // The closing chord is scheduled at once, all of it on the next bar line.
+    const closing = ctx.oscillators.slice(before);
+    expect(closing.length).toBeGreaterThan(0);
+    const starts = [...new Set(closing.map((o) => o.startedAt))];
+    expect(starts.length).toBe(1); // one chord, struck once
+    const landsAt = starts[0]!;
+    expect(landsAt).toBeGreaterThan(calledAt);
+    expect(landsAt - calledAt).toBeLessThanOrEqual(barSeconds + 1e-6); // at most one bar away
+
+    let resolved = false;
+    void done.then(() => {
+      resolved = true;
+    });
+    for (let i = 0; i < 300 && !resolved; i++) {
+      ctx.advance(0.05);
+      clock.tick();
+      await vi.advanceTimersByTimeAsync(50);
+    }
+    expect(resolved).toBe(true);
+    // Nothing is scheduled past the closing chord — the music was cut at the bar line.
+    expect(Math.max(...ctx.oscillators.map((o) => o.startedAt ?? 0))).toBe(landsAt);
+    vi.useRealTimers();
+  });
+
+  it("finish() fades the master to exactly zero, so the end is silence not a cut", async () => {
+    vi.useFakeTimers();
+    const { ctx, clock, engine } = setup({ humanize: false });
+    await engine.start();
+    runLoops(ctx, clock, 4);
+    const done = engine.finish();
+    let resolved = false;
+    void done.then(() => {
+      resolved = true;
+    });
+    for (let i = 0; i < 300 && !resolved; i++) {
+      ctx.advance(0.05);
+      clock.tick();
+      await vi.advanceTimersByTimeAsync(50);
+    }
+    const master = ctx.gains[0]!;
+    const last = master.gain.events[master.gain.events.length - 1]!;
+    expect(last.type).toBe("linramp");
+    expect(last.value).toBe(0); // EXACTLY zero — a residual would be chopped off
+    vi.useRealTimers();
+  });
+
+  it("finish() is idempotent, and answers immediately when there is nothing to end", async () => {
+    vi.useFakeTimers();
+    const { ctx, clock, engine } = setup();
+    // Never started: there is no music to finish.
+    await expect(engine.finish()).resolves.toBeUndefined();
+
+    await engine.start();
+    runLoops(ctx, clock, 2);
+    const first = engine.finish();
+    expect(engine.finish()).toBe(first); // an ending, once asked for, runs to its end
+    vi.useRealTimers();
+  });
+
   it("ramps the master to silence on pause then back up on resume, suspending only after", async () => {
     const { ctx, engine } = setup({ volume: 0.5 });
     await engine.start();
