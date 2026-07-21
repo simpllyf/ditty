@@ -740,6 +740,20 @@ describe("arrange — golden & validation", () => {
     const widest = (raga: Scale) => Math.max(...notesFor(raga).map((n) => n.shakeCents ?? 0));
     expect(widest(SCALES.mohanam)).toBeGreaterThan(widest(SCALES.shankarabharanam) - 1e-9);
     expect(notesFor(SCALES.shankarabharanam).some((n) => (n.shakeCents ?? 0) < 100)).toBe(true); // a semitone neighbour gives a narrow shake
+
+    // Sa and Pa are the achala swaras — the fixed tonic and its fifth. They anchor the
+    // drone and are what the shake moves against, so they never carry it themselves.
+    for (const [raga, parent] of [
+      [SCALES.mohanam, SCALES.major],
+      [SCALES.kalyani, SCALES.lydian],
+      [SCALES.shankarabharanam, SCALES.major],
+    ] as const) {
+      for (const n of notesFor(raga, { parent }).filter((x) => x.shakeCents !== undefined)) {
+        const pc = freqToPc(n.freq, DEFAULT_ROOT);
+        expect(pc).not.toBe(0); // not Sa
+        expect(pc).not.toBe(7); // not Pa
+      }
+    }
   });
 
   it("rejects a raga that isn't a pitch-class subset of the parent", () => {

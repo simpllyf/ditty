@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ScoreVoice } from "../src/compose/arranger";
+import { makeRng } from "../src/rng";
 import { createSession } from "../src/session";
-import { STYLES } from "../src/styles";
+import { STYLES, pickStyle } from "../src/styles";
 import { SCALES } from "../src/theory/scales";
 
 const VOICES: ScoreVoice[] = ["lead", "bass", "pad", "arp"];
@@ -104,6 +105,60 @@ describe("createSession", () => {
       }
     }
     expect(slid).toBe(0);
+  });
+
+  it("shakes a raga but not a plain Western scale, and slides either", () => {
+    // Summed across seeds so the count doesn't hinge on one seed's instrument or tempo.
+    const totals = (o: Parameters<typeof createSession>[0]) => {
+      let shaken = 0;
+      let slid = 0;
+      for (let seed = 0; seed < 20; seed++) {
+        const s = createSession({
+          seed,
+          rootMidi: 60,
+          bpm: 80,
+          humanize: false,
+          evolve: false,
+          ...o,
+        });
+        for (let i = 0; i < s.sections.length; i++) {
+          for (const n of s.nextScore().parts.find((p) => p.voice === "lead")?.notes ?? []) {
+            if (n.shakeCents !== undefined) shaken++;
+            if (n.slideFromCents !== undefined) slid++;
+          }
+        }
+      }
+      return { shaken, slid };
+    };
+
+    // A raga carries kampita. majorPentatonic is the SAME array as mohanam, so this can
+    // only be told apart by the flag, not the notes.
+    expect(totals({ parent: SCALES.major, raga: SCALES.mohanam }).shaken).toBeGreaterThan(0);
+    const plain = totals({ parent: SCALES.major, raga: SCALES.majorPentatonic, carnatic: false });
+    expect(plain.shaken).toBe(0);
+    // The slide is portamento — universal in music — so the plain scale still slides.
+    expect(plain.slid).toBeGreaterThan(0);
+  });
+
+  it("gates kampita off the plain Western melody scales the styles ship", () => {
+    // dreamy pairs a harmonic minor and a minor pentatonic as MELODY scales; neither is
+    // a raga, so neither should shake, whatever seed lands.
+    let shaken = 0;
+    let plainSeen = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const s = createSession({ seed, style: "dreamy", humanize: false, evolve: false });
+      // Reconstruct the pairing's flag the way the recipe UI does — via pickStyle.
+      const chosen = pickStyle(makeRng(seed).fork(), "dreamy");
+      if (chosen.carnatic !== false) continue;
+      plainSeen++;
+      for (let i = 0; i < s.sections.length; i++) {
+        for (const n of s.nextScore().parts.find((p) => p.voice === "lead")?.notes ?? []) {
+          if (n.shakeCents !== undefined) shaken++;
+        }
+      }
+    }
+    expect(plainSeen).toBeGreaterThan(0); // the sample really did draw plain scales
+    expect(shaken).toBe(0);
   });
 
   it("validates bpm, beatsPerBar, and bars eagerly", () => {
