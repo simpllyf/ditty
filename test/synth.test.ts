@@ -449,6 +449,20 @@ describe("shake (oscillating toward a neighbouring swara)", () => {
     );
     expect(eased).toBeDefined();
     expect(eased!.gain.events[0]).toEqual({ type: "set", value: 0, time: 0 });
+
+    // The carrier lift must ease in over the SAME window, or the note sounds sharp until
+    // the depth catches up: it starts at the unshaken pitch and ramps up to the lifted
+    // one, so the floor stays on the note throughout the ease.
+    for (const osc of ctx.oscillators.filter((o) => o.frequency.value > 100)) {
+      const evs = osc.frequency.events;
+      const set = evs[0]!;
+      const ramp = evs.find((e) => e.type === "linramp")!;
+      expect(set.type).toBe("set");
+      expect(ramp).toBeDefined();
+      expect(ramp.time).toBe(0.2); // the ramp lands at the end of the ease window
+      expect(ramp.value).toBeGreaterThan(set.value); // …lifting UP to the half-swing offset
+      expect(ramp.value / set.value).toBeCloseTo(Math.pow(2, 62 / 1200), 4); // exactly +62 cents
+    }
   });
 
   it("leaves the pitch alone when the note carries no shake", () => {

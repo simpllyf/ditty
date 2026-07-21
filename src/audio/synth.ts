@@ -301,16 +301,22 @@ export class Synth {
     // and a NEGATIVE COSINE takes it back down: at t0 the wave is at -1, cancelling the
     // offset exactly, and the pitch sits on the note. A plain sine starts mid-swing,
     // which would sound the note sharp the instant it arrives.
+    //
+    // The offset and the LFO depth must move TOGETHER. The depth eases in (a note lands,
+    // then the shake grows), so the carrier's half-swing lift is eased over the same
+    // window below — otherwise the lift is present while the depth is still climbing and
+    // the note sounds sharp until the LFO catches up.
     let shakeDepth: GainNodeLike | null = null;
     let shakeOffsetCents = 0;
+    let shakeEaseSeconds = 0;
     if (note.shakeCents && note.shakeCents > 0 && ctx.createPeriodicWave) {
       const swing = clamp(note.shakeCents, 0, 1200);
       shakeOffsetCents = swing / 2;
+      shakeEaseSeconds = Math.max(0, note.shakeDelaySeconds ?? 0);
       const depth = ctx.createGain();
-      const ease = Math.max(0, note.shakeDelaySeconds ?? 0);
-      if (ease > 0) {
+      if (shakeEaseSeconds > 0) {
         depth.gain.setValueAtTime(0, t0);
-        depth.gain.linearRampToValueAtTime(swing / 2, t0 + ease);
+        depth.gain.linearRampToValueAtTime(swing / 2, t0 + shakeEaseSeconds);
       } else {
         depth.gain.setValueAtTime(swing / 2, t0);
       }
@@ -387,8 +393,16 @@ export class Synth {
       // The shake's offset rides on the carrier so the swing's FLOOR is the written
       // pitch: sharpened by half, then pulled back down by the -cos LFO below.
       const shakeLift = Math.pow(2, shakeOffsetCents / 1200);
-      const carrierHz = clamp(note.freq * (layer.ratio ?? 1) * detune * shakeLift, 0, this.nyquist);
-      osc.frequency.setValueAtTime(carrierHz, t0);
+      const carrierBase = clamp(note.freq * (layer.ratio ?? 1) * detune, 0, this.nyquist);
+      const carrierHz = clamp(carrierBase * shakeLift, 0, this.nyquist);
+      if (shakeEaseSeconds > 0) {
+        // Lift the carrier over the same window the depth eases in, so the floor stays on
+        // the note throughout: the note lands true and the shake grows from nothing.
+        osc.frequency.setValueAtTime(carrierBase, t0);
+        osc.frequency.linearRampToValueAtTime(carrierHz, t0 + shakeEaseSeconds);
+      } else {
+        osc.frequency.setValueAtTime(carrierHz, t0);
+      }
       // Slide onto the pitch instead of arriving at it. Detune is in CENTS, so a linear
       // ramp here is an exponential glide in Hz — equal musical distance per unit time,
       // which is what the ear hears as one gesture. Automation and the vibrato LFO both
