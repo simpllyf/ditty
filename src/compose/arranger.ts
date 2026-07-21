@@ -325,11 +325,18 @@ function arrangeLead(ctx: PartContext): ScoreNote[] {
       const held = note.durationBeats * secondsPerBeat;
       if (held < SHAKE_MIN_SECONDS) return note;
 
+      const degree = ctx.leadMelody[i]!.degree;
+      // Sa and Pa are the achala swaras — the fixed tonic and its fifth. They are the
+      // reference the shake moves AGAINST, the anchor of the drone, so they stay steady
+      // while the moving swaras (Ri, Ga, Ma, Da, Ni) carry the kampita. Read the pitch
+      // class from the tonic: 0 is Sa, 7 is Pa.
+      const pc = ((semitoneOf(degree) % OCTAVE) + OCTAVE) % OCTAVE;
+      if (pc === 0 || pc === 7) return note;
+
       // The DEPTH is the raga's own: the distance to the next swara above. That is what
       // makes this an oscillation between two notes of the raga rather than a vibrato of
       // some chosen width — a pentatonic shakes wider than a heptatonic because its
       // neighbours sit further apart, which is exactly right.
-      const degree = ctx.leadMelody[i]!.degree;
       const toNeighbour = semitoneOf(degree + 1) - semitoneOf(degree);
       const cents = Math.min(SHAKE_MAX_CENTS, toNeighbour * 100 * SHAKE_REACH);
       if (cents < 40) return note; // too narrow to hear as movement

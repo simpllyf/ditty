@@ -57,6 +57,12 @@ export interface SessionOptions {
   raga?: ArrangeOptions["raga"];
   /** Arohana/avarohana for the raga: the notes the lead may use ascending vs descending. */
   paths?: ArrangeOptions["paths"];
+  /**
+   * Treat the melody scale as a raga that carries kampita (the sung shake). Default
+   * `true`. Set `false` for a plain Western melody scale — a pentatonic has no swaras
+   * to oscillate toward. Only gates kampita; the slide is universal and stays on.
+   */
+  carnatic?: boolean;
   /** Pin the layout: a `song` (home/bridge/climax) or a `kriti` (pallavi/anupallavi/charanam). */
   form?: FormKind;
   /** Open with a one-time introduction before the form begins. Default `true`. */
@@ -205,6 +211,11 @@ export function createSession(options: SessionOptions): Session {
   // A raga override without paths means a plain raga: don't leave the previous
   // raga's grammar attached to a different note set.
   const paths = options.paths ?? (options.raga ? undefined : chosen.paths);
+  // Whether the melody carries kampita. A caller passing their own `raga` gets the
+  // Carnatic default (true) unless they say otherwise; the styles mark their plain
+  // Western melody scales false. Kampita is the one raga-specific ornament — the slide
+  // is universal portamento and stays on regardless.
+  const carnatic = options.carnatic ?? (options.raga ? true : (chosen.carnatic ?? true));
   const rootMidi = options.rootMidi ?? chosen.rootMidi;
   const groove = options.groove ?? chosen.groove;
   const density = options.density ?? chosen.density;
@@ -269,9 +280,11 @@ export function createSession(options: SessionOptions): Session {
       // Only a voice that holds its note can slide onto one; a struck bar has decayed
       // before the slide would land.
       slide: (options.slide ?? true) && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
-      // Same physics as the slide: a struck bar has decayed before an oscillation could
-      // be heard on it.
-      shake: (options.shake ?? true) && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
+      // Same physics as the slide (a struck bar has decayed before an oscillation could
+      // be heard), and kampita only on an actual raga — a plain pentatonic has no swaras
+      // to shake toward.
+      shake:
+        (options.shake ?? true) && carnatic && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
       leadRange: section.range, // the part's register — a kriti's anupallavi sings an octave up
       dynamics: section.dynamics,
       fill: section.fill,
