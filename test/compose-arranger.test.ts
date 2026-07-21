@@ -704,6 +704,26 @@ describe("arrange — golden & validation", () => {
     }
   });
 
+  it("slides only into an arrival — a strong beat or a note dwelt on, never a passing tone", () => {
+    // A meend leans into a note that LANDS, not into every wide leap. Swept across many
+    // seeds so the sample really contains the weak short passing notes the gate rejects
+    // (a single seed can pass vacuously — every one of its slides happens to arrive).
+    let checked = 0;
+    let weakShort = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const notes = part(arr({ seed, bars: 8, beatsPerBar: 4, slide: true }), "lead")!.notes;
+      for (const n of notes) {
+        if (n.slideFromCents === undefined) continue;
+        checked++;
+        const inBar = n.startBeat % 4;
+        const strong = inBar < 1e-9 || Math.abs(inBar - 2) < 1e-9; // 4/4 downbeat or midpoint
+        if (!strong && n.durationBeats < 1 - 1e-9) weakShort++;
+      }
+    }
+    expect(checked).toBeGreaterThan(50); // the sweep really produced slides to judge
+    expect(weakShort).toBe(0); // …and not one landed on a weak-beat passing tone
+  });
+
   it("shakes held notes only, as wide as the raga's own step to the next swara", () => {
     const notesFor = (raga: Scale, o: Record<string, unknown> = {}) =>
       part(

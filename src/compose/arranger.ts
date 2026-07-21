@@ -281,6 +281,13 @@ const SHAKE_EASE = 0.22;
  * line is already stepping and a slide would only smear it.
  */
 export const SLIDE_MIN_SEMITONES = 4;
+/**
+ * A slide APPROACHES an arrival — a meend leans into a note that lands and is dwelt on,
+ * not into every passing tone. A note counts as an arrival when it falls on a strong
+ * beat or is held at least this long; sliding into a short note on a weak beat is a
+ * smear, not a gesture. (The line still leaps there — it just doesn't glide.)
+ */
+const SLIDE_ARRIVAL_BEATS = 1;
 /** A slide is a gesture, not a journey: long enough to hear, short enough to arrive. */
 const SLIDE_BASE_SECONDS = 0.05;
 const SLIDE_PER_SEMITONE = 0.015;
@@ -310,6 +317,10 @@ function arrangeLead(ctx: PartContext): ScoreNote[] {
 
       const leap = semitoneOf(n.degree) - semitoneOf(prev.degree);
       if (Math.abs(leap) < SLIDE_MIN_SEMITONES) return note;
+
+      // Slide only into an arrival — a note the line lands on, not a passing one. On a
+      // strong beat, or held long enough to be dwelt on.
+      if (!n.strong && durationBeats < SLIDE_ARRIVAL_BEATS) return note;
 
       const seconds = Math.min(
         SLIDE_MAX_SECONDS,
