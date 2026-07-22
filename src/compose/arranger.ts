@@ -372,7 +372,42 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
   // The metric midpoint, snapped to a beat so it lands on-grid in odd meters
   // (4/4 → 2, 6/8 → 3, 3/4 → beat 1); the two halves fill the bar exactly.
   const mid = Math.floor(beatsPerBar / 2);
-  const low = (pc: number) => midiToFrequency(rootMidi - OCTAVE + pc); // always below the pad
+  const bassFloor = rootMidi - OCTAVE; // the octave the bass sits in, below the pad
+  const low = (pc: number) => midiToFrequency(bassFloor + pc);
+
+  // Lead into chord changes. A bass that restarts cold on each new root reads as placed;
+  // one that steps into the next root on the beat before it reads as composed. The step is a
+  // scale tone a true semitone or tone from the coming root's own pitch (not merely its pitch
+  // class — an octave-folded "neighbour" would leap, not lead), so it stays in key and pulls
+  // the ear into the change without implying a chord of its own.
+  const parentPcs = plan.scale.map((s) => ((s % OCTAVE) + OCTAVE) % OCTAVE);
+  const inScale = (midi: number) =>
+    parentPcs.includes((((midi - rootMidi) % OCTAVE) + OCTAVE) % OCTAVE);
+  /** A scale tone within a whole step of the coming root's bass pitch, nearest `fromMidi`; null if none. */
+  const approachInto = (targetPc: number, fromMidi: number): number | null => {
+    const target = bassFloor + targetPc;
+    const steps = [target - 1, target - 2, target + 1, target + 2].filter(inScale);
+    if (steps.length === 0) return null;
+    return steps.reduce(
+      (best, m) => (Math.abs(m - fromMidi) < Math.abs(best - fromMidi) ? m : best),
+      steps[0]!,
+    );
+  };
+  // Every chord onset across the loop — each bar head, plus a split bar's midpoint.
+  const onsets: { beat: number; root: number }[] = [];
+  for (let bar = 0; bar < bars; bar++) {
+    const bp = plan.bars[bar]!;
+    onsets.push({ beat: bar * beatsPerBar, root: bp.chord.root });
+    if (bp.second) onsets.push({ beat: bar * beatsPerBar + mid, root: bp.second.chord.root });
+  }
+  /** The change this beat leads into, if the very next onset lands on the next beat. */
+  const leadInto = (beat: number, fromRoot: number): number | undefined => {
+    const on = onsets.find((o) => o.beat > beat + 1e-9);
+    return on && Math.abs(on.beat - (beat + 1)) < 1e-9 && on.root !== fromRoot
+      ? on.root
+      : undefined;
+  };
+
   for (let bar = 0; bar < bars; bar++) {
     const barPlan = plan.bars[bar]!;
     const chord = barPlan.chord;
@@ -394,34 +429,71 @@ function arrangeBass(ctx: PartContext): ScoreNote[] {
         freq: low(root),
         velocity: 0.85,
       });
-      const half = under(barStart + mid);
-      const second = bassRng.next() < 0.5 ? half.root : half.fifth;
       const midStart = barStart + mid;
-      notes.push({
-        startBeat: midStart,
-        durationBeats: fit(midStart, beatsPerBar - mid),
-        freq: low(second),
-        velocity: 0.8,
-      });
+      const half = under(midStart);
+      const second = bassRng.next() < 0.5 ? half.root : half.fifth;
+      const secondSpan = beatsPerBar - mid;
+      // Give the last beat to a pickup that steps into the next bar when the chord is about
+      // to change and the second note is long enough to spare it — otherwise hold it out.
+      const into = leadInto(barStart + beatsPerBar - 1, half.root);
+      const step =
+        into !== undefined && secondSpan >= 2 ? approachInto(into, bassFloor + second) : null;
+      if (step !== null) {
+        const mainSpan = secondSpan - 1;
+        notes.push({
+          startBeat: midStart,
+          durationBeats: fit(midStart, mainSpan),
+          freq: low(second),
+          velocity: 0.8,
+        });
+        const pickStart = midStart + mainSpan;
+        notes.push({
+          startBeat: pickStart,
+          durationBeats: fit(pickStart, 1),
+          freq: midiToFrequency(step),
+          velocity: 0.75,
+        });
+      } else {
+        notes.push({
+          startBeat: midStart,
+          durationBeats: fit(midStart, secondSpan),
+          freq: low(second),
+          velocity: 0.8,
+        });
+      }
     } else if (bassPattern === "pulse") {
       for (let b = 0; b < beatsPerBar; b++) {
         const at = barStart + b;
+        const here = under(at).root;
+        const into = leadInto(at, here);
+        const step = into !== undefined ? approachInto(into, bassFloor + here) : null;
         notes.push({
           startBeat: at,
           durationBeats: fit(at, 0.9),
-          freq: low(under(at).root),
+          freq: step !== null ? midiToFrequency(step) : low(here),
           velocity: b === 0 ? 0.85 : 0.72,
         });
       }
     } else if (bassPattern === "walking") {
+      // A real walking bass: land the bar on its root, walk the chord tones through it, and
+      // step into the next root on the last beat before it changes.
+      let prevMidi = bassFloor + under(barStart).root;
       for (let b = 0; b < beatsPerBar; b++) {
         const at = barStart + b;
+        const here = under(at);
+        const into = leadInto(at, here.root);
+        const walk = bassFloor + (here.pcs[b % here.pcs.length] ?? here.root);
+        let midi: number;
+        if (b === 0) midi = bassFloor + here.root;
+        else if (into !== undefined) midi = approachInto(into, prevMidi) ?? walk;
+        else midi = walk;
         notes.push({
           startBeat: at,
           durationBeats: fit(at, 0.9),
-          freq: low(under(at).pcs[b % under(at).pcs.length] ?? under(at).root),
+          freq: midiToFrequency(midi),
           velocity: b === 0 ? 0.85 : 0.75,
         });
+        prevMidi = midi;
       }
     } else {
       // sustained: the root held for the bar, or for each half of a split one

@@ -46,7 +46,7 @@ exports[`arrange — golden & validation > matches a committed structural golden
       "voice": "lead",
     },
     {
-      "count": 16,
+      "count": 21,
       "first3": [
         {
           "durationBeats": 2,
@@ -55,16 +55,16 @@ exports[`arrange — golden & validation > matches a committed structural golden
           "velocity": 0.73,
         },
         {
-          "durationBeats": 2,
+          "durationBeats": 1,
           "freq": 196,
           "startBeat": 2,
           "velocity": 0.77,
         },
         {
-          "durationBeats": 2,
-          "freq": 174.61,
-          "startBeat": 4,
-          "velocity": 0.9,
+          "durationBeats": 1,
+          "freq": 196,
+          "startBeat": 3,
+          "velocity": 0.76,
         },
       ],
       "voice": "bass",

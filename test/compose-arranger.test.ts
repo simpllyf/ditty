@@ -564,13 +564,52 @@ describe("arrange — golden & validation", () => {
       part(arrange({ rng: makeRng(1), ...o, plan, ...(p ? { bassPattern: p } : {}) }), "bass")!
         .notes;
     expect(bass()).toEqual(bass("rootFifth")); // default is rootFifth
-    expect(bass("rootFifth").length).toBe(8 * 2);
+    // rootFifth is two notes a bar, plus a one-beat pickup that steps into each chord change.
+    const pickups = plan.bars.filter((b, i) => {
+      const next = plan.bars[i + 1];
+      const secondRoot = b.second ? b.second.chord.root : b.chord.root;
+      return next !== undefined && next.chord.root !== secondRoot;
+    }).length;
+    expect(bass("rootFifth").length).toBe(8 * 2 + pickups);
     expect(bass("pulse").length).toBe(8 * 4); // a hit every beat
     expect(bass("walking").length).toBe(8 * 4);
     // One held note per bar, and a second in any bar the harmony divides.
     const splits = plan.bars.filter((b) => b.second).length;
     expect(bass("sustained").length).toBe(8 + splits);
     for (const n of bass("walking")) expect(n.freq).toBeLessThan(midiToFrequency(DEFAULT_ROOT)); // stays under the pad
+  });
+
+  it("leads into a chord change with a stepwise approach, in key", () => {
+    // A progression that moves the root every bar, so every boundary is a change to lean into.
+    // The last bass note before a new root should step into it (<= a whole tone), not jump cold.
+    const inKey = new Set(SCALES.major.map((s) => ((s % 12) + 12) % 12));
+    const interval = (a: number, b: number) => Math.abs(Math.round(12 * Math.log2(a / b)));
+    let changes = 0;
+    let stepped = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const score = arrange({
+        rng: makeRng(seed),
+        parent: SCALES.major,
+        raga: SCALES.major,
+        progression: [0, 3, 4, 1], // I IV V ii — roots C F G D, a change every bar
+        bars: 8,
+        beatsPerBar: 4,
+        bassPattern: "pulse",
+      });
+      const bass = part(score, "bass")!.notes;
+      for (const n of bass) expect(inKey.has(freqToPc(n.freq, DEFAULT_ROOT))).toBe(true);
+      for (let k = 1; k < bass.length; k++) {
+        const cur = bass[k]!;
+        const prev = bass[k - 1]!;
+        if (Math.abs(cur.startBeat % 4) > 1e-9) continue; // downbeats — the change points
+        const iv = interval(cur.freq, prev.freq);
+        if (iv === 0) continue; // same root held — no change
+        changes++;
+        if (iv <= 2) stepped++;
+      }
+    }
+    expect(changes).toBeGreaterThan(50); // there really are changes to lead into
+    expect(stepped / changes).toBeGreaterThan(0.85); // almost all are stepwise approaches
   });
 
   it("texture gates the arp/drums by section (dynamic arc); full leaves them intact", () => {
