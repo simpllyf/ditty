@@ -254,3 +254,57 @@ describe("generateHarmony — seventh-chord colour", () => {
     for (const bar of plan.bars) expect(bar.chord.pcs.length).toBeLessThanOrEqual(3);
   });
 });
+
+describe("generateHarmony — secondary dominants", () => {
+  // A secondary dominant is a dominant seventh rooted a fifth ABOVE its target, resolving
+  // down to it: V7/x -> x. Detect one by that shape and resolution.
+  const isSecondaryDominant = (plan: ReturnType<typeof generateHarmony>, i: number): boolean => {
+    const c = plan.bars[i]!.chord;
+    const next = plan.bars[i + 1]?.chord;
+    if (!next) return false;
+    const iv = [...c.pcs].map((p) => (((p - c.root) % 12) + 12) % 12).sort((a, b) => a - b);
+    const isDom7 = iv.length === 4 && iv[0] === 0 && iv[1] === 4 && iv[2] === 7 && iv[3] === 10;
+    return isDom7 && (c.root + 5) % 12 === next.root; // resolves down a fifth to the target
+  };
+
+  it("occasionally leans into a diatonic target with its dominant seventh", () => {
+    let found = 0;
+    for (let seed = 0; seed < 120; seed++) {
+      const p = generateHarmony({
+        rng: makeRng(seed),
+        scale: SCALES.major,
+        bars: 8,
+        secondaryDominants: true,
+      });
+      for (let i = 0; i < p.bars.length - 1; i++) if (isSecondaryDominant(p, i)) found++;
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
+  it("every secondary dominant resolves onto a tonicisable target, never on a cadence bar", () => {
+    const tonicizable = new Set([1, 3, 4, 5]); // ii IV V vi
+    for (let seed = 0; seed < 300; seed++) {
+      const p = generateHarmony({
+        rng: makeRng(seed),
+        scale: SCALES.major,
+        bars: 8,
+        secondaryDominants: true,
+      });
+      for (let i = 0; i < p.bars.length - 1; i++) {
+        if (!isSecondaryDominant(p, i)) continue;
+        expect(tonicizable.has(p.bars[i + 1]!.degree)).toBe(true);
+        expect(i).not.toBe(p.cadences.final);
+        expect(i).not.toBe(p.cadences.final - 1);
+      }
+    }
+  });
+
+  it("adds none when the option is off (the default)", () => {
+    let found = 0;
+    for (let seed = 0; seed < 120; seed++) {
+      const p = generateHarmony({ rng: makeRng(seed), scale: SCALES.major, bars: 8 });
+      for (let i = 0; i < p.bars.length - 1; i++) if (isSecondaryDominant(p, i)) found++;
+    }
+    expect(found).toBe(0);
+  });
+});

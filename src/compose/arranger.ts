@@ -85,6 +85,8 @@ export interface ArrangeOptions {
   progression?: readonly number[];
   /** Scale degrees (0..6) voiced with their diatonic seventh. */
   sevenths?: readonly number[];
+  /** Allow an occasional secondary dominant (V7 of a diatonic target). */
+  secondaryDominants?: boolean;
   generateProgression?: boolean;
   /** Reuse a pre-built harmony plan instead of generating one — lets a caller keep the
    * chord progression fixed across loops while the melody/voicing varies (gentle evolve). */
@@ -808,6 +810,9 @@ export function arrange(options: ArrangeOptions): Score {
         ? { generate: options.generateProgression }
         : {}),
       ...(options.sevenths !== undefined ? { sevenths: options.sevenths } : {}),
+      ...(options.secondaryDominants !== undefined
+        ? { secondaryDominants: options.secondaryDominants }
+        : {}),
     });
 
   // Develop the theme for this section before it is stated — same tune, transformed.
