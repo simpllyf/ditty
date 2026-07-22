@@ -36,8 +36,10 @@ export function humanize(score: Score, rng: Rng, options: HumanizeOptions = {}):
   const parts = score.parts.map((part) => ({
     voice: part.voice,
     notes: part.notes.map((n) => ({
+      // Keep every field (freq and the slide/shake gamaka) and nudge only what humanizes:
+      // timing and velocity. Rebuilding the note from scratch would silently drop ornaments.
+      ...n,
       ...shift(n.startBeat, n.durationBeats),
-      freq: n.freq,
       velocity: swingVelocity(n.velocity),
     })),
   }));
