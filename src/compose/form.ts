@@ -69,6 +69,7 @@ export interface FormOptions {
   readonly density: number; // base melodic density (section A's level)
   readonly groove: DrumGrooveName; // home groove (section A); B/C contrast it
   readonly borrow: boolean; // allow occasional borrowed (non-diatonic) chords
+  readonly sevenths?: readonly number[]; // scale degrees voiced with their diatonic 7th
   readonly form?: FormKind; // pin the layout; otherwise the seed picks one
   readonly intro?: boolean; // open with a one-time introduction (default true)
 }
@@ -324,6 +325,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
     bars,
     beatsPerBar: o.beatsPerBar,
     borrow: o.borrow,
+    ...(o.sevenths !== undefined ? { sevenths: o.sevenths } : {}),
   });
   if (kind === "kriti") return kritiSection(label, o, rootMidi, plan, bars);
   if (label === "B") {

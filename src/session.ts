@@ -65,6 +65,8 @@ export interface SessionOptions {
   carnatic?: boolean;
   /** Pin the layout: a `song` (home/bridge/climax) or a `kriti` (pallavi/anupallavi/charanam). */
   form?: FormKind;
+  /** Scale degrees (0..6) voiced with their diatonic seventh — harmonic colour. */
+  sevenths?: readonly number[];
   /** Open with a one-time introduction before the form begins. Default `true`. */
   intro?: boolean;
   /**
@@ -216,6 +218,7 @@ export function createSession(options: SessionOptions): Session {
   // Western melody scales false. Kampita is the one raga-specific ornament — the slide
   // is universal portamento and stays on regardless.
   const carnatic = options.carnatic ?? (options.raga ? true : (chosen.carnatic ?? true));
+  const sevenths = options.sevenths ?? chosen.sevenths;
   const rootMidi = options.rootMidi ?? chosen.rootMidi;
   const groove = options.groove ?? chosen.groove;
   const density = options.density ?? chosen.density;
@@ -251,6 +254,7 @@ export function createSession(options: SessionOptions): Session {
     density,
     groove,
     borrow: options.chromatic ?? true,
+    ...(sevenths !== undefined ? { sevenths } : {}),
     ...(options.form !== undefined ? { form: options.form } : {}),
     ...(options.intro !== undefined ? { intro: options.intro } : {}),
   });

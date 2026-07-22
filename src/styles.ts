@@ -44,6 +44,12 @@ export interface Style {
   readonly swing: readonly [number, number];
   readonly density: readonly [number, number];
   readonly rootMidi: readonly [number, number]; // integer, inclusive, ⊆ [36, 84]
+  /**
+   * Scale degrees (0..6) voiced with their diatonic seventh — the style's harmonic
+   * colour. Lush styles voice most chords as sevenths; bright ones stay near-triadic.
+   * Omit for all triads.
+   */
+  readonly sevenths?: readonly number[];
   /** Optional per-voice instrument shortlists; an unset voice uses all suitable instruments. */
   readonly instruments?: Partial<Record<ScoreVoice, readonly InstrumentName[]>>;
 }
@@ -55,6 +61,8 @@ export interface ChosenStyle {
   readonly paths?: RagaPaths;
   /** Whether the melody scale carries kampita — see {@link ScaleKey.carnatic}. */
   readonly carnatic?: boolean;
+  /** Scale degrees voiced with their diatonic seventh — the style's harmonic colour. */
+  readonly sevenths?: readonly number[];
   readonly rootMidi: number;
   readonly groove: DrumGrooveName;
   readonly bpm: number;
@@ -81,6 +89,7 @@ export const STYLES = {
     swing: [0, 0.3],
     density: [0.5, 0.8],
     rootMidi: [57, 64],
+    sevenths: [4], // V7 only — a touch of pull, stays bright
     instruments: {
       lead: ["pluck", "marimba", "squareLead", "synthBrass", "supersaw"],
       pad: ["warmPad", "glassPad", "organ", "strings", "supersaw"],
@@ -105,6 +114,7 @@ export const STYLES = {
     swing: [0, 0.4],
     density: [0.2, 0.5],
     rootMidi: [55, 62],
+    sevenths: [1, 4, 5], // ii7 · V7 · vi7 — gently warm
     instruments: {
       lead: ["sineLead", "marimba", "epiano", "airLead", "clarinet", "strings", "harp"],
       pad: ["warmPad", "glassPad", "epiano", "strings", "tubularBell", "choir"],
@@ -136,6 +146,7 @@ export const STYLES = {
     swing: [0.1, 0.4],
     density: [0.6, 0.9],
     rootMidi: [57, 64],
+    sevenths: [4], // V7 only — bright and simple
     instruments: {
       lead: ["squareLead", "pluck", "synthArp", "synthBrass", "supersaw"],
       pad: ["organ", "glassPad", "strings", "supersaw"],
@@ -165,6 +176,7 @@ export const STYLES = {
     swing: [0, 0.3],
     density: [0.3, 0.6],
     rootMidi: [55, 62],
+    sevenths: [0, 1, 3, 4, 5], // lush: maj7 tonic and sevenths throughout
     instruments: {
       lead: ["sineLead", "marimba", "epiano", "airLead", "clarinet", "strings", "harp"],
       pad: ["glassPad", "warmPad", "epiano", "strings", "tubularBell", "choir"],
@@ -186,6 +198,7 @@ export const STYLES = {
     swing: [0.2, 0.5], // dusty shuffle
     density: [0.3, 0.55],
     rootMidi: [55, 62],
+    sevenths: [0, 1, 2, 3, 4, 5, 6], // sevenths on everything — the lofi signature
     instruments: {
       lead: ["epiano", "sineLead", "marimba", "clarinet"],
       pad: ["warmPad", "epiano", "choir", "glassPad"],
@@ -209,6 +222,7 @@ export const STYLES = {
     swing: [0, 0.2],
     density: [0.35, 0.65],
     rootMidi: [52, 60], // weighty, lower register
+    sevenths: [1, 3, 4, 5], // rich, but a clean triad tonic for gravitas
     instruments: {
       lead: ["strings", "airLead", "choir", "sineLead"],
       pad: ["strings", "choir", "warmPad", "glassPad"],
@@ -231,6 +245,7 @@ export const STYLES = {
     swing: [0, 0.2],
     density: [0.15, 0.4], // sparse, floating
     rootMidi: [55, 64],
+    sevenths: [0, 1, 3, 4, 5], // floaty maj7 colour
     instruments: {
       lead: ["airLead", "choir", "sineLead", "strings"],
       pad: ["warmPad", "glassPad", "choir", "strings", "tubularBell"],
@@ -278,6 +293,7 @@ export function pickStyle(rng: Rng, name: StyleName = "peppy"): ChosenStyle {
     raga: key.raga,
     ...(key.paths !== undefined ? { paths: key.paths } : {}),
     ...(key.carnatic !== undefined ? { carnatic: key.carnatic } : {}),
+    ...(style.sevenths !== undefined ? { sevenths: style.sevenths } : {}),
     rootMidi,
     groove,
     bpm,

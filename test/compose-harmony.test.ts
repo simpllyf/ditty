@@ -213,3 +213,44 @@ describe("generateHarmony — borrowed chords are tonic-relative (any key)", () 
     }
   });
 });
+
+describe("generateHarmony — seventh-chord colour", () => {
+  it("voices the named degrees with their diatonic seventh, in key", () => {
+    const plan = generateHarmony({
+      rng: makeRng(3),
+      scale: SCALES.major,
+      bars: 8,
+      beatsPerBar: 4,
+      progression: [1, 3, 4, 5], // ii IV V vi
+      sevenths: [1, 3, 4, 5],
+    });
+    const majorPcs = new Set<number>(SCALES.major);
+    // Body chords on the named degrees carry a seventh (four tones); the final tonic
+    // stays a triad and is excluded.
+    const bodySevenths = plan.bars.filter(
+      (bar, i) => bar.degree !== 0 && i !== plan.cadences.final,
+    );
+    expect(bodySevenths.length).toBeGreaterThan(0);
+    expect(bodySevenths.every((bar) => bar.chord.pcs.length === 4)).toBe(true);
+    // …and every tone is diatonic — a seventh is never out of key.
+    const outOfKey = plan.bars.flatMap((bar) =>
+      bar.chord.pcs.filter((pc) => !majorPcs.has(((pc % 12) + 12) % 12)),
+    );
+    expect(outOfKey).toEqual([]);
+  });
+
+  it("keeps the final resolution a plain triad, so the loop still lands", () => {
+    const plan = generateHarmony({
+      rng: makeRng(5),
+      scale: SCALES.major,
+      bars: 8,
+      sevenths: [0, 1, 2, 3, 4, 5, 6], // seventh on everything
+    });
+    expect(plan.bars[plan.cadences.final]!.chord.pcs.length).toBe(3); // the tonic lands clean
+  });
+
+  it("is all triads when no degrees are named (the default)", () => {
+    const plan = generateHarmony({ rng: makeRng(7), scale: SCALES.major, bars: 8 });
+    for (const bar of plan.bars) expect(bar.chord.pcs.length).toBeLessThanOrEqual(3);
+  });
+});

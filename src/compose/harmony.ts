@@ -71,6 +71,13 @@ export interface HarmonyOptions {
   generate?: boolean;
   /** Allow an occasional borrowed (non-diatonic) chord — only over bright-major keys. */
   borrow?: boolean;
+  /**
+   * Scale degrees (0..6) voiced with their diatonic seventh — harmonic colour. A
+   * diatonic seventh is always in key, and its quality (maj7 / min7 / dom7) falls out
+   * of the scale. The final tonic resolution stays a plain triad regardless, so the
+   * loop still lands. Default: none (all triads).
+   */
+  sevenths?: readonly number[];
 }
 
 const DEFAULT_BARS = 8;
@@ -155,9 +162,15 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
     degrees[final - 1] = 4; // V→I — the authentic cadence
   }
 
-  const barsOut: HarmonicBar[] = degrees.map((degree) => ({
+  // Voice a degree with its diatonic seventh when the style asks — except the final
+  // resolution, which stays a triad so the loop lands cleanly on a plain tonic.
+  const seventhDegrees = new Set(options.sevenths ?? []);
+  const chordFor = (degree: number, isFinalResolution: boolean): Chord =>
+    diatonicChord(scale, degree, !isFinalResolution && seventhDegrees.has(degree) ? 4 : 3);
+
+  const barsOut: HarmonicBar[] = degrees.map((degree, i) => ({
     degree,
-    chord: diatonicChord(scale, degree),
+    chord: chordFor(degree, i === final),
   }));
 
   // Harmonic rhythm: the approach to a cadence may move twice as fast, compressing
@@ -169,8 +182,8 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
     const approach = final - 1;
     barsOut[approach] = {
       degree: 1, // ii for the first half…
-      chord: diatonicChord(scale, 1),
-      second: { degree: 4, chord: diatonicChord(scale, 4) }, // …V for the second
+      chord: chordFor(1, false),
+      second: { degree: 4, chord: chordFor(4, false) }, // …V for the second
     };
   }
 

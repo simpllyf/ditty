@@ -10,7 +10,7 @@ all synthesized through the Web Audio API. No audio files, no samples, no
 frameworks. It's coherent and pleasant background music; it won't write you a
 hand-composed signature hook, but it never runs out.
 
-- **Coherent, composed.** Functional harmony, in-key ragas, chord tones on strong
+- **Coherent, composed.** Functional harmony with seventh-chord colour, in-key ragas, chord tones on strong
   beats, and cadences arrange into a real song form (verse / bridge / climax) with
   key changes and a theme that develops as it recurs — sequenced, mirrored, or
   broadened where the music turns. Some pieces come out as a Carnatic **kriti**
