@@ -897,23 +897,40 @@ export function arrange(options: ArrangeOptions): Score {
     }
   }
 
-  // Dynamics: scale the whole section's velocities for the loud/soft arc.
+  // Dynamics: the section's loud/soft scale, plus a phrase swell on the PITCHED voices —
+  // they breathe as one, rising toward the middle of each phrase and easing off, so a
+  // piece rises and falls instead of sitting at one level. The drums stay out of it: the
+  // beat is the steady anchor the melody breathes over, and a swelling kit only pumps.
   const dynamics = options.dynamics ?? 1;
-  if (dynamics !== 1) {
-    const scale = (v: number) => Math.min(1, v * dynamics);
-    return {
-      bpm,
-      beatsPerBar,
-      bars,
-      lengthBeats,
-      rootMidi,
-      parts: parts.map((p) => ({
-        voice: p.voice,
-        notes: p.notes.map((n) => ({ ...n, velocity: scale(n.velocity) })),
-      })),
-      drums: drums.map((h) => ({ ...h, velocity: scale(h.velocity) })),
-    };
-  }
+  const swell = (beat: number) =>
+    1 + PHRASE_SWELL * (2 * Math.sin(Math.PI * phrasePosition(beat, beatsPerBar)) - 1);
+  const pitched = (v: number, beat: number) => Math.min(1, v * dynamics * swell(beat));
+  const struck = (v: number) => Math.min(1, v * dynamics);
 
-  return { bpm, beatsPerBar, bars, lengthBeats, rootMidi, parts, drums };
+  return {
+    bpm,
+    beatsPerBar,
+    bars,
+    lengthBeats,
+    rootMidi,
+    parts: parts.map((p) => ({
+      voice: p.voice,
+      notes: p.notes.map((n) => ({ ...n, velocity: pitched(n.velocity, n.startBeat) })),
+    })),
+    drums: drums.map((h) => ({ ...h, velocity: struck(h.velocity) })),
+  };
+}
+
+/** Bars a phrase spans — the swell arcs over this. */
+const PHRASE_BARS = 4;
+/** How far the phrase swell lifts and dips the velocity at its peak and edges. */
+const PHRASE_SWELL = 0.14;
+
+/**
+ * Where a beat falls within its phrase, 0..1. The swell arcs over this: softer at the
+ * phrase edges, fullest in the middle. A section shorter than a phrase is one phrase.
+ */
+function phrasePosition(beat: number, beatsPerBar: number): number {
+  const phraseLen = PHRASE_BARS * beatsPerBar;
+  return (((beat % phraseLen) + phraseLen) % phraseLen) / phraseLen;
 }
