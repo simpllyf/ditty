@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A/B — bass leads into changes</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0 auto; font: 15px/1.5 system-ui, sans-serif; background: #0e1116; color: #e6e6e6; padding: 24px; max-width: 720px; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p.sub { color: #9aa4b2; margin: 0 0 20px; }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 14px 0; }
+      label { color: #9aa4b2; min-width: 44px; }
+      input, select { background: #1a2029; color: #e6e6e6; border: 1px solid #2a3441; border-radius: 8px; padding: 8px 10px; font: inherit; }
+      input[type="number"] { width: 90px; }
+      .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+      .card { border: 1px solid #2a3441; border-radius: 14px; padding: 18px; background: #141a22; }
+      .card h2 { font-size: 15px; margin: 0 0 4px; }
+      .card .desc { color: #9aa4b2; font-size: 13px; min-height: 48px; margin-bottom: 12px; }
+      button.play { width: 100%; padding: 12px; border-radius: 10px; border: none; font: inherit; font-weight: 700; cursor: pointer; background: #475569; color: #fff; }
+      button.play.b { background: #0d9488; }
+      button.play.on { background: #16a34a; }
+      .stopwrap { margin-top: 14px; }
+      button.util { padding: 9px 16px; border-radius: 9px; border: 1px solid #2a3441; background: #1a2029; color: #e6e6e6; font: inherit; cursor: pointer; }
+      .note { color: #6b7686; font-size: 12px; margin-top: 20px; }
+    </style>
+  </head>
+  <body>
+    <h1>Bass A/B — does it lead into changes?</h1>
+    <p class="sub">Same seed, same style, same everything — only the bass differs.
+      <b>A</b> is today's bass: it jumps to each new chord's root cold. <b>B</b> steps into the
+      change on the beat before it (a pickup / walking approach), in key.</p>
+
+    <div class="row">
+      <label for="style">Style</label>
+      <select id="style">
+        <option>peppy</option><option>playful</option><option>lofi</option>
+        <option>cinematic</option><option>calm</option><option>dreamy</option><option>ambient</option>
+      </select>
+      <label for="seed">Seed</label>
+      <input id="seed" type="number" value="0" />
+      <button class="util" id="rnd">random</button>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h2>A — today (cold jumps)</h2>
+        <div class="desc">The bass restarts on each new root with no connection into the change.</div>
+        <button class="play a" id="playA">▶ Play A</button>
+      </div>
+      <div class="card">
+        <h2>B — leads into changes</h2>
+        <div class="desc">The last beat before a change steps into the coming root — a bass pickup.</div>
+        <button class="play b" id="playB">▶ Play B</button>
+      </div>
+    </div>
+    <div class="stopwrap"><button class="util" id="stop">■ Stop</button></div>
+
+    <p class="note">Most audible on driving styles with a busy bass — <b>peppy, playful, lofi, cinematic</b> —
+      where pulse/walking bass patterns show up. Try seeds 0, 1, 2. Listen to the low end right before
+      each chord change: does B pull you into the change (more composed), or does the pickup sound off?
+      "Similar / not worth it" is a fine verdict.</p>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      let ctx = null, engine = null, current = null, makers = {};
+
+      async function libs() {
+        if (!makers.A) makers.A = (await import("./lib-base/index.js")).createEngine; // today
+        if (!makers.B) makers.B = (await import("./lib/index.js")).createEngine;       // new
+        return makers;
+      }
+      function ensureCtx() {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") ctx.resume();
+        return ctx;
+      }
+      async function stop() {
+        current = null;
+        for (const id of ["playA", "playB"]) $(id).classList.remove("on");
+        $("playA").textContent = "▶ Play A";
+        $("playB").textContent = "▶ Play B";
+        if (engine) { try { engine.dispose(); } catch (e) {} engine = null; }
+      }
+      async function play(which) {
+        if (current === which) { await stop(); return; }
+        await stop();
+        current = which;
+        const m = await libs();
+        const createEngine = which === "A" ? m.A : m.B;
+        engine = createEngine({
+          seed: Number($("seed").value) | 0,
+          style: $("style").value,
+          audioContext: ensureCtx(),
+          volume: 0.9,
+        });
+        await engine.start();
+        const btn = which === "A" ? $("playA") : $("playB");
+        btn.classList.add("on");
+        btn.textContent = "⏸ Playing " + which + " — tap to stop";
+      }
+      $("playA").onclick = () => play("A");
+      $("playB").onclick = () => play("B");
+      $("stop").onclick = stop;
+      $("rnd").onclick = () => { $("seed").value = Math.floor(Math.random() * 9999); if (current) play(current); };
+    </script>
+  </body>
+</html>
