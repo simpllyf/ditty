@@ -67,6 +67,8 @@ export interface SessionOptions {
   form?: FormKind;
   /** Scale degrees (0..6) voiced with their diatonic seventh — harmonic colour. */
   sevenths?: readonly number[];
+  /** Allow occasional secondary dominants. Default follows `chromatic`. */
+  secondaryDominants?: boolean;
   /** Open with a one-time introduction before the form begins. Default `true`. */
   intro?: boolean;
   /**
@@ -254,6 +256,7 @@ export function createSession(options: SessionOptions): Session {
     density,
     groove,
     borrow: options.chromatic ?? true,
+    secondaryDominants: options.secondaryDominants ?? options.chromatic ?? true,
     ...(sevenths !== undefined ? { sevenths } : {}),
     ...(options.form !== undefined ? { form: options.form } : {}),
     ...(options.intro !== undefined ? { intro: options.intro } : {}),

@@ -12,6 +12,7 @@ const base = {
   density: 0.5,
   groove: "straight",
   borrow: false,
+  secondaryDominants: false,
 } as const;
 
 /** First seed whose form contains a B section (a contrasting part). */

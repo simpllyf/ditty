@@ -72,6 +72,11 @@ export interface HarmonyOptions {
   /** Allow an occasional borrowed (non-diatonic) chord — only over bright-major keys. */
   borrow?: boolean;
   /**
+   * Allow an occasional secondary dominant — the dominant seventh of a diatonic target,
+   * approaching it for a chromatic forward pull. Works in any key.
+   */
+  secondaryDominants?: boolean;
+  /**
    * Scale degrees (0..6) voiced with their diatonic seventh — harmonic colour. A
    * diatonic seventh is always in key, and its quality (maj7 / min7 / dom7) falls out
    * of the scale. The final tonic resolution stays a plain triad regardless, so the
@@ -88,6 +93,11 @@ const DEFAULT_BEATS_PER_BAR = 4;
 const SPLIT_RATE = 0.4;
 
 const BORROW_RATE = 0.4;
+
+/** How often a piece leans into a diatonic target with the target's own dominant seventh. */
+const SECONDARY_DOMINANT_RATE = 0.35;
+/** Degrees worth tonicising: ii, IV, V, vi. Not the tonic (redundant), not vii° (a poor target). */
+const TONICIZABLE_DEGREES = new Set([1, 3, 4, 5]);
 /**
  * Borrowed chords (modal interchange), relative to the tonic. Each shares a tone
  * with the tonic and with any in-key raga, so the melody still lands consonantly.
@@ -202,6 +212,37 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
       barsOut[i] = {
         degree: barsOut[i]!.degree,
         chord: makeChord(borrowed.shift, borrowed.quality),
+      };
+    }
+  }
+
+  // Secondary dominant: occasionally approach a diatonic target (ii, IV, V or vi) with
+  // ITS dominant seventh — a chromatic chord rooted a fifth above the target that leans
+  // into it, the classic forward pull. The melody's strong beats snap to the chord tones
+  // that are in the raga (the target's leading tone is not), so the pull is felt without
+  // the melody having to leave the key. Never on a cadence bar. (Roll always consumed.)
+  if (options.secondaryDominants && rng.next() < SECONDARY_DOMINANT_RATE) {
+    const eligible = barsOut
+      .map((_, i) => i)
+      .filter((i) => {
+        const next = barsOut[i + 1];
+        return (
+          i !== 0 &&
+          i !== half &&
+          i !== final &&
+          i !== final - 1 &&
+          !barsOut[i]!.second &&
+          next !== undefined &&
+          TONICIZABLE_DEGREES.has(next.degree) &&
+          next.chord.pcs.length >= 3 // a real triad target, not a folded pentatonic chord
+        );
+      });
+    if (eligible.length > 0) {
+      const i = rng.pick(eligible);
+      const targetRoot = barsOut[i + 1]!.chord.root;
+      barsOut[i] = {
+        degree: barsOut[i]!.degree,
+        chord: makeChord((targetRoot + 7) % 12, "dominant7"), // V7 of the next chord
       };
     }
   }
