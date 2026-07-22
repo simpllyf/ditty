@@ -318,6 +318,37 @@ describe("arrange — voices & registers", () => {
     }
   });
 
+  it("swells the pitched voices across a phrase, leaving the beat steady", () => {
+    // The ensemble breathes: within a 4-bar phrase, pitched velocities rise toward the
+    // middle and ease off at the edges, so a piece isn't dynamically flat. The drums do
+    // NOT swell — the beat is the steady anchor.
+    let edge = 0;
+    let edgeN = 0;
+    let peak = 0;
+    let peakN = 0;
+    for (let seed = 1; seed < 30; seed++) {
+      const lead = part(arr({ seed, bars: 8, beatsPerBar: 4 }), "lead")!.notes;
+      for (const n of lead) {
+        const posInPhrase = (n.startBeat % 16) / 16; // 4-bar phrase = 16 beats
+        if (posInPhrase < 0.15 || posInPhrase > 0.85) {
+          edge += n.velocity;
+          edgeN++;
+        } else if (posInPhrase > 0.4 && posInPhrase < 0.6) {
+          peak += n.velocity;
+          peakN++;
+        }
+      }
+    }
+    expect(edgeN).toBeGreaterThan(20);
+    expect(peakN).toBeGreaterThan(20);
+    expect(peak / peakN).toBeGreaterThan(edge / edgeN + 0.03); // the middle is audibly fuller
+
+    // Drums keep their fixed accent — no swell — so the beat stays put.
+    const drums = arr({ seed: 1 }).drums;
+    const kicks = new Set(drums.filter((h) => h.drum === "kick").map((h) => h.velocity));
+    expect(kicks).toEqual(new Set([1])); // one steady value, not a swept range
+  });
+
   it("uses the accent scheme kick=1 > snare=0.9 > hat=0.45", () => {
     const score = arr({ seed: 1 });
     const vels = (d: string) => [

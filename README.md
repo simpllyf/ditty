@@ -12,7 +12,7 @@ hand-composed signature hook, but it never runs out.
 
 - **Coherent, composed.** Functional harmony with seventh-chord colour, in-key ragas, chord tones on strong
   beats, and cadences arrange into a real song form (verse / bridge / climax) with
-  key changes and a theme that develops as it recurs — sequenced, mirrored, or
+  key changes, a phrase that swells and eases, and a theme that develops as it recurs — sequenced, mirrored, or
   broadened where the music turns. Some pieces come out as a Carnatic **kriti**
   instead — pallavi, anupallavi, charanam, one raga throughout, the parts told apart
   by register. Never exactly repeating, always looping seamlessly.
