@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ABX — bass change, audible or not?</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0 auto; font: 15px/1.55 system-ui, sans-serif; background: #0e1116; color: #e6e6e6; padding: 24px; max-width: 640px; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p.sub { color: #9aa4b2; margin: 0 0 18px; }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+      label { color: #9aa4b2; }
+      select { background: #1a2029; color: #e6e6e6; border: 1px solid #2a3441; border-radius: 8px; padding: 8px 10px; font: inherit; }
+      .status { color: #9aa4b2; font-size: 13px; margin: 6px 0 16px; }
+      .listen { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+      .listen button { padding: 16px 0; border-radius: 12px; border: 1px solid #2a3441; background: #1a2029; color: #e6e6e6; font: inherit; font-weight: 700; font-size: 17px; cursor: pointer; }
+      .listen button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+      #xbtn.on { background: #b45309; border-color: #b45309; }
+      .guess { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+      .guess button { padding: 14px 0; border-radius: 12px; border: none; background: #0d9488; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      .guess button:disabled { opacity: .4; cursor: default; }
+      .bar { display: flex; gap: 6px; margin: 16px 0 4px; flex-wrap: wrap; }
+      .pip { width: 16px; height: 16px; border-radius: 4px; background: #2a3441; }
+      .pip.ok { background: #16a34a; } .pip.no { background: #dc2626; }
+      .util { padding: 9px 16px; border-radius: 9px; border: 1px solid #2a3441; background: #1a2029; color: #e6e6e6; font: inherit; cursor: pointer; }
+      .verdict { margin-top: 18px; padding: 16px; border-radius: 12px; background: #141a22; border: 1px solid #2a3441; }
+      .verdict.audible { border-color: #16a34a; }
+      .verdict.inaudible { border-color: #b45309; }
+      .big { font-size: 18px; font-weight: 700; }
+      .note { color: #6b7686; font-size: 12px; margin-top: 16px; }
+      kbd { background: #1a2029; border: 1px solid #2a3441; border-radius: 4px; padding: 1px 6px; font: inherit; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>ABX — can you actually hear the bass change?</h1>
+    <p class="sub"><b>A</b> = today's bass (cold jumps). <b>B</b> = leads into changes. <b>X</b> is secretly
+      A or B, re-rolled each trial. Listen to all three (same track, same moment — switch freely), then say
+      which one X is. After 12 trials the maths decides: reliably right → audible; near chance → your ear
+      can't tell them apart.</p>
+
+    <div class="row">
+      <label for="track">Track</label>
+      <select id="track">
+        <option value="lofi:0">lofi · seed 0 (bass most prominent)</option>
+        <option value="cinematic:0">cinematic · seed 0</option>
+        <option value="peppy:0">peppy · seed 0</option>
+        <option value="lofi:1">lofi · seed 1</option>
+      </select>
+      <button class="util" id="reset">restart 12</button>
+    </div>
+    <div class="status" id="status">Loading…</div>
+
+    <div class="listen">
+      <button id="abtn" disabled>A</button>
+      <button id="bbtn" disabled>B</button>
+      <button id="xbtn" disabled>X ?</button>
+    </div>
+    <div class="guess">
+      <button id="guessA" disabled>X is A</button>
+      <button id="guessB" disabled>X is B</button>
+    </div>
+
+    <div class="bar" id="pips"></div>
+    <div id="verdict"></div>
+
+    <p class="note">Tip: switch A ↔ X ↔ B rapidly and listen to the low end at chord changes — that's the only
+      thing that differs. Keys: <kbd>a</kbd> <kbd>b</kbd> <kbd>x</kbd> to listen, <kbd>1</kbd>/<kbd>2</kbd> to
+      guess A/B. If you're guessing, that's the answer — it means the change is below your hearing threshold here.</p>
+
+    <script type="module">
+      import { renderOffline as renderNew } from "./lib/index.js";        // B — new bass
+      import { renderOffline as renderOld } from "./lib-base/index.js";    // A — old bass
+
+      const $ = (id) => document.getElementById(id);
+      const N = 12;
+      let ctx, bufA, bufB, srcA, srcB, gA, gB, playing = false;
+      let trial = 0, correct = 0, secret = "A", results = [], locked = false, loadedKey = "";
+
+      function ensureCtx() {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") ctx.resume();
+        return ctx;
+      }
+      const toBuffer = (res) => {
+        const b = ctx.createBuffer(res.channels.length, res.channels[0].length, res.sampleRate);
+        res.channels.forEach((ch, i) => b.copyToChannel(ch, i));
+        return b;
+      };
+
+      async function loadTrack() {
+        const key = $("track").value;
+        if (key === loadedKey && bufA && bufB) return;
+        stop();
+        $("status").textContent = "Rendering A and B…";
+        setListen(false);
+        ensureCtx();
+        const [style, seedStr] = key.split(":");
+        const opts = { seed: +seedStr, style, humanize: false, evolve: false, loops: 2, sampleRate: ctx.sampleRate };
+        const [ra, rb] = await Promise.all([renderOld(opts), renderNew(opts)]);
+        bufA = toBuffer(ra); bufB = toBuffer(rb);
+        loadedKey = key;
+        restart();
+      }
+
+      function buildGraph() {
+        // Two looping sources kept in perfect sync; switching only flips gains → instant, position-matched.
+        srcA = ctx.createBufferSource(); srcA.buffer = bufA; srcA.loop = true;
+        srcB = ctx.createBufferSource(); srcB.buffer = bufB; srcB.loop = true;
+        gA = ctx.createGain(); gB = ctx.createGain(); gA.gain.value = 0; gB.gain.value = 0;
+        srcA.connect(gA).connect(ctx.destination);
+        srcB.connect(gB).connect(ctx.destination);
+        const t = ctx.currentTime + 0.05;
+        srcA.start(t); srcB.start(t);
+        playing = true;
+      }
+      function stop() {
+        playing = false;
+        try { srcA && srcA.stop(); srcB && srcB.stop(); } catch (e) {}
+        srcA = srcB = null;
+        for (const id of ["abtn", "bbtn", "xbtn"]) $(id).classList.remove("on");
+      }
+      // sel: 'A' | 'B' | 'X'  (X resolves to the hidden `secret`)
+      function listen(sel) {
+        if (!bufA || !bufB) return;
+        ensureCtx();
+        if (!playing) buildGraph();
+        const eff = sel === "X" ? secret : sel;
+        gA.gain.setTargetAtTime(eff === "A" ? 1 : 0, ctx.currentTime, 0.008);
+        gB.gain.setTargetAtTime(eff === "B" ? 1 : 0, ctx.currentTime, 0.008);
+        for (const id of ["abtn", "bbtn", "xbtn"]) $(id).classList.remove("on");
+        $(sel === "A" ? "abtn" : sel === "B" ? "bbtn" : "xbtn").classList.add("on");
+      }
+      function setListen(on) {
+        for (const id of ["abtn", "bbtn", "xbtn", "guessA", "guessB"]) $(id).disabled = !on;
+      }
+
+      function newTrial() {
+        secret = Math.random() < 0.5 ? "A" : "B";
+        locked = false;
+        setListen(true);
+        $("status").innerHTML = `Trial <b>${trial + 1}</b> / ${N} &nbsp;·&nbsp; score ${correct}/${trial}`;
+      }
+      function guess(g) {
+        if (locked || trial >= N) return;
+        locked = true;
+        const ok = g === secret;
+        if (ok) correct++;
+        results.push(ok);
+        renderPips();
+        trial++;
+        if (trial >= N) return finish();
+        newTrial();
+        listen("X");
+      }
+      function renderPips() {
+        $("pips").innerHTML = results.map((r) => `<span class="pip ${r ? "ok" : "no"}"></span>`).join("") +
+          Array.from({ length: N - results.length }, () => `<span class="pip"></span>`).join("");
+      }
+
+      // P(X >= k) for n fair coin flips
+      function pUpper(k, n) {
+        const c = (n, i) => { let r = 1; for (let j = 0; j < i; j++) r = (r * (n - j)) / (j + 1); return r; };
+        let s = 0; for (let i = k; i <= n; i++) s += c(n, i);
+        return s / 2 ** n;
+      }
+      function finish() {
+        stop(); setListen(false);
+        $("status").innerHTML = `Done — <b>${correct}/${N}</b> correct.`;
+        const p = pUpper(correct, N);
+        const audible = p < 0.05;
+        const el = $("verdict");
+        el.className = "verdict " + (audible ? "audible" : "inaudible");
+        el.innerHTML = audible
+          ? `<div class="big">✅ Audible.</div>You identified X reliably — ${correct}/${N}, p = ${p.toFixed(3)} (&lt; 0.05).
+             The bass change is something you can genuinely hear.`
+          : `<div class="big">🟠 Not audible (to you, here).</div>${correct}/${N} is consistent with guessing —
+             p = ${p.toFixed(3)}. At <b>≥10/12</b> we'd call it audible. Below that, your ear can't reliably
+             tell the two basses apart, which means the change isn't worth shipping on audibility grounds.`;
+      }
+
+      function restart() {
+        trial = 0; correct = 0; results = []; $("verdict").innerHTML = "";
+        renderPips(); newTrial();
+        listen("X");
+      }
+
+      $("abtn").onclick = () => listen("A");
+      $("bbtn").onclick = () => listen("B");
+      $("xbtn").onclick = () => listen("X");
+      $("guessA").onclick = () => guess("A");
+      $("guessB").onclick = () => guess("B");
+      $("reset").onclick = () => { ensureCtx(); restart(); };
+      $("track").onchange = loadTrack;
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "a") listen("A"); else if (e.key === "b") listen("B"); else if (e.key === "x") listen("X");
+        else if (e.key === "1") guess("A"); else if (e.key === "2") guess("B");
+      });
+      loadTrack();
+    </script>
+  </body>
+</html>
