@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { arrange } from "../src/compose/arranger";
+import { type Score, arrange } from "../src/compose/arranger";
 import { humanize } from "../src/compose/humanize";
 import { makeRng } from "../src/rng";
 
@@ -9,6 +9,44 @@ const base = (seed = 1) => arrange({ rng: makeRng(seed), bars: 8, beatsPerBar: 4
 describe("humanize", () => {
   it("is deterministic for a given rng seed", () => {
     expect(humanize(base(), makeRng(5))).toEqual(humanize(base(), makeRng(5)));
+  });
+
+  it("preserves the slide and shake ornaments — humanizing must not strip gamaka", () => {
+    // A note carrying both a meend (slide) and kampita (shake). The arranger produces
+    // these; if humanize rebuilds notes from scratch it silently drops them and the whole
+    // ornament layer never reaches audio. Nudging timing/velocity must leave them intact.
+    const score: Score = {
+      bpm: 100,
+      beatsPerBar: 4,
+      bars: 2,
+      lengthBeats: 8,
+      rootMidi: 60,
+      parts: [
+        {
+          voice: "lead",
+          notes: [
+            {
+              startBeat: 1,
+              durationBeats: 1,
+              freq: 440,
+              velocity: 0.8,
+              slideFromCents: -400,
+              slideSeconds: 0.11,
+              shakeCents: 120,
+              shakeRateHz: 5.5,
+              shakeDelaySeconds: 0.1,
+            },
+          ],
+        },
+      ],
+      drums: [],
+    };
+    const n = humanize(score, makeRng(2)).parts[0]!.notes[0]!;
+    expect(n.slideFromCents).toBe(-400);
+    expect(n.slideSeconds).toBe(0.11);
+    expect(n.shakeCents).toBe(120);
+    expect(n.shakeRateHz).toBe(5.5);
+    expect(n.shakeDelaySeconds).toBe(0.1);
   });
 
   it("leaves pitch and note count untouched", () => {
