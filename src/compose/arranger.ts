@@ -83,6 +83,8 @@ export interface ArrangeOptions {
   paths?: RagaPaths;
   rootMidi?: number;
   progression?: readonly number[];
+  /** Scale degrees (0..6) voiced with their diatonic seventh. */
+  sevenths?: readonly number[];
   generateProgression?: boolean;
   /** Reuse a pre-built harmony plan instead of generating one — lets a caller keep the
    * chord progression fixed across loops while the melody/voicing varies (gentle evolve). */
@@ -457,7 +459,7 @@ function voiceLead(
   hi: number,
 ): number[] {
   const centre = (rootMidi + hi) / 2;
-  return pcs.map((pc) => {
+  const voiced = pcs.map((pc) => {
     // Chord tones are pitch classes RELATIVE TO THE TONIC, so every placement of this
     // tone is rootMidi + pc, an octave at a time.
     const base = rootMidi + (((pc % OCTAVE) + OCTAVE) % OCTAVE);
@@ -475,6 +477,28 @@ function voiceLead(
     }
     return best;
   });
+  return openLowClusters(voiced, hi);
+}
+
+/**
+ * Open any minor-second cluster low in the voicing by lifting the upper of the pair an
+ * octave, when there is room. A major seventh sits a semitone under the octave, and
+ * nearest-note voice-leading can land it right against the root down where it muddies;
+ * spreading the two keeps the seventh's colour without the low beat. Only the low pairs
+ * — a close major seventh up high is bright, not muddy.
+ */
+function openLowClusters(voicing: readonly number[], hi: number): number[] {
+  const out = [...voicing].sort((a, b) => a - b);
+  for (let i = 0; i + 1 < out.length; i++) {
+    const lo = out[i]!;
+    const up = out[i + 1]!;
+    if (up - lo === 1 && lo < 60 && up + OCTAVE <= hi) {
+      out[i + 1] = up + OCTAVE;
+      out.sort((a, b) => a - b);
+      i = -1; // a lift can create a new adjacency — rescan from the bottom
+    }
+  }
+  return out;
 }
 
 function arrangePad(ctx: PartContext): ScoreNote[] {
@@ -486,7 +510,9 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
   const padHi = rootMidi + 2 * OCTAVE;
   const mid = Math.floor(beatsPerBar / 2); // where a split bar changes chord
   // Open in root position — that states the harmony plainly — then lead the voices
-  // from bar to bar.
+  // from bar to bar. A seventh chord voices all four tones: keeping the fifth gives the
+  // next chord more common tones to hold, so the pad moves LESS, not more; the low
+  // major-seventh cluster it would otherwise make is opened by voiceLead's declutter.
   const opening = plan.bars[0]!.chord;
   let voicing = opening.pcs.map(
     (pc) => rootMidi + opening.root + ((pc - opening.root + OCTAVE) % OCTAVE),
@@ -781,6 +807,7 @@ export function arrange(options: ArrangeOptions): Score {
       ...(options.generateProgression !== undefined
         ? { generate: options.generateProgression }
         : {}),
+      ...(options.sevenths !== undefined ? { sevenths: options.sevenths } : {}),
     });
 
   // Develop the theme for this section before it is stated — same tune, transformed.

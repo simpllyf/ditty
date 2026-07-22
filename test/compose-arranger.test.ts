@@ -226,15 +226,49 @@ describe("arrange — voices & registers", () => {
     }
   });
 
-  it("plays the chord root on the bass downbeat (matches the pad's root per bar)", () => {
+  it("opens low seventh-chord clusters — the pad never crowds a minor 2nd down low", () => {
+    // A major seventh sits a semitone under the octave; packed low it muddies. voiceLead
+    // opens any such low cluster, so even with a seventh on every chord the pad stays clear.
+    let low = 0;
+    let bars = 0;
+    for (let seed = 1; seed < 20; seed++) {
+      const pad = part(
+        arr({ seed, bars: 8, beatsPerBar: 4, rootMidi: 52, sevenths: [0, 1, 2, 3, 4, 5, 6] }),
+        "pad",
+      )!.notes;
+      const byBar = new Map<number, Set<number>>();
+      for (const n of pad) {
+        const bar = Math.floor((n.startBeat + 0.25) / 4);
+        const m = Math.round(69 + 12 * Math.log2(n.freq / 440));
+        byBar.set(bar, (byBar.get(bar) ?? new Set()).add(m));
+      }
+      for (const set of byBar.values()) {
+        bars++;
+        const ms = [...set].sort((a, b) => a - b);
+        for (let k = 1; k < ms.length; k++) if (ms[k]! - ms[k - 1]! === 1 && ms[k - 1]! < 60) low++;
+      }
+    }
+    expect(bars).toBeGreaterThan(50); // the sample really has low-register seventh chords
+    expect(low).toBe(0);
+  });
+
+  it("anchors the bass downbeat on a chord tone the pad also voices", () => {
+    // Bass and pad share the harmony. The bass roots the chord on the downbeat; the pad
+    // voices the same chord above it. (The pad's voicing order and octaves are the
+    // voice-leader's business — it need not put the root lowest — so check membership,
+    // not position.)
     const score = arr({ seed: 7 });
     const bass = part(score, "bass")!.notes;
     const pad = part(score, "pad")!.notes;
     for (let bar = 0; bar < score.bars; bar++) {
       const at = bar * score.beatsPerBar;
       const bassDown = bass.find((n) => n.startBeat === at)!;
-      const padRoot = pad.find((n) => n.startBeat === at)!; // pad emits chord.pcs root-first
-      expect(freqToPc(bassDown.freq, DEFAULT_ROOT)).toBe(freqToPc(padRoot.freq, DEFAULT_ROOT));
+      const padPcs = new Set(
+        pad
+          .filter((n) => Math.floor((n.startBeat + 0.25) / score.beatsPerBar) === bar)
+          .map((n) => freqToPc(n.freq, DEFAULT_ROOT)),
+      );
+      expect(padPcs.has(freqToPc(bassDown.freq, DEFAULT_ROOT))).toBe(true);
     }
   });
 

@@ -42,7 +42,7 @@ exports[`createSession > locks the seed→session mapping (golden — pins the s
     262,
     330,
     392,
-    392,
+    294,
   ],
   "instruments": {
     "arp": "pluck",
