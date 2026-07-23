@@ -1,6 +1,6 @@
 {
   "name": "@simpllyf/ditty",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "description": "Zero-dependency, harmony-led generative music engine for the browser — endless, seamlessly-looping multi-instrument background music, synthesized via the Web Audio API.",
   "type": "module",
   "license": "MIT",
