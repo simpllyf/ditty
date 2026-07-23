@@ -177,6 +177,13 @@ function kritiRange(label: string, octave: number): readonly [number, number] {
 
 /** Default lead register — the octave above the tonic. */
 const DEFAULT_RANGE: readonly [number, number] = [0, 7];
+/**
+ * The climax sings higher. A raised register is the one intensity cue the master limiter
+ * can't flatten (it caps loudness, not pitch), so lifting the tessitura is what makes the
+ * peak read as a peak — home is already full and loud, so register and density are the axes
+ * with headroom left. Kept short of the very top so it lifts without turning shrill.
+ */
+const CLIMAX_RANGE: readonly [number, number] = [4, 11];
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
 
@@ -360,16 +367,16 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
       plan,
       texture: "full",
       bassPattern: "pulse",
-      density: clampDensity(o.density * 1.25),
+      density: clampDensity(o.density * 1.4),
       contour: o.rng.pick(["rising", "arch"]),
       dynamics: 1.12,
       bpmScale: 1.06, // climax pushes ahead
       groove: busier(o.groove),
       voices: {}, // full ensemble
-      arpRole: "double", // the arp doubles the theme an octave up — a tutti climax
+      arpRole: "arp", // a busy running figure — the climax DRIVES (a sparse octave-double read as calmer than home)
       padPattern: "stabs", // pad punches on each beat — drives the climax
       development: o.rng.pick(CLIMAX_DEVELOPMENT),
-      range: DEFAULT_RANGE,
+      range: CLIMAX_RANGE, // sing higher — the intensity cue the limiter can't cap
       part: label,
       bars,
     };
