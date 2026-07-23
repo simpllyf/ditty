@@ -84,6 +84,19 @@ describe("buildForm", () => {
     expect(form.intro!.dynamics).toBeLessThan(A.dynamics - 0.1); // a real dip, not a nudge
   });
 
+  it("has a depth arc: soft sections sit back (wetter), the climax comes forward (drier)", () => {
+    let form = buildForm({ rng: makeRng(1), ...base });
+    for (let s = 2; s < 80 && !form.sections.some((x) => x.label === "C"); s++) {
+      form = buildForm({ rng: makeRng(s), ...base });
+    }
+    const A = form.sections.find((s) => s.label === "A")!;
+    const B = form.sections.find((s) => s.label === "B")!;
+    const C = form.sections.find((s) => s.label === "C")!;
+    expect(form.intro!.reverbScale).toBeGreaterThan(A.reverbScale); // opening set back in space
+    expect(B.reverbScale).toBeGreaterThan(A.reverbScale); // bridge open and distant
+    expect(C.reverbScale).toBeLessThan(A.reverbScale); // climax up front and dry
+  });
+
   it("modulates some sections to a related key while A stays home", () => {
     let form = buildForm({ rng: makeRng(1), ...base });
     for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {

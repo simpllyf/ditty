@@ -30,6 +30,7 @@ export interface SectionProfile {
   readonly contour: ContourShape; // melodic phrase arc — A varies, B settles, C builds
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
   readonly dynamicsTo?: number; // if set, the level ramps to this by the section's end (a build's crescendo)
+  readonly reverbScale: number; // the depth arc — wetter/distant when soft, drier/present at the climax
   readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
   readonly groove: DrumGrooveName; // drum groove (B sparser, C busier than home)
   readonly voices: VoiceToggles; // which voices play this section (instruments enter/leave)
@@ -118,6 +119,7 @@ function buildIntro(o: FormOptions, home: SectionRecipe): SectionProfile {
     // pulling it down here is heard as quieter (the loud sections can't move — they're pinned),
     // which is what widens the arc and lets the climax tower.
     dynamics: 0.68,
+    reverbScale: REVERB_DISTANT, // the opening sits back in a big, quiet space
     development: PLAIN_STATEMENT,
     voices: { lead: false, arp: false, drums: false },
     fill: false,
@@ -192,6 +194,15 @@ const CLIMAX_RANGE: readonly [number, number] = [4, 11];
 const BUILD_FROM = 0.85;
 /** Climax level a build ramps toward when (defensively) no C recipe is on hand. */
 const DEFAULT_CLIMAX_DYNAMICS = 1.12;
+
+/**
+ * The depth arc — a reverb-send multiplier per part. Soft, sparse sections sit BACK in a
+ * larger, wetter space (distant, intimate); the climax comes FORWARD, present and dry. Depth
+ * moves with the arc, so a piece feels three-dimensional, not just louder and softer.
+ */
+const REVERB_DISTANT = 1.5; // intro — far back, room around it
+const REVERB_SPACIOUS = 1.3; // bridge — open, drifting
+const REVERB_PRESENT = 0.62; // climax — up front, dry
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
 
@@ -284,6 +295,7 @@ function kritiSection(
     plan,
     bars,
     bpmScale: 1, // the tala doesn't shift mid-piece
+    reverbScale: 1, // a kriti holds one space throughout — no song-like depth arc
     groove: o.groove,
     voices: {}, // the ensemble plays throughout
     padPattern: "sustain" as PadPattern, // a held bed, standing in for the drone
@@ -356,6 +368,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
       density: clampDensity(o.density * 0.6),
       contour: o.rng.pick(["falling", "flat", "arch"]),
       dynamics: 0.72, // a real dip — softer than home so the arc has depth under the climax
+      reverbScale: REVERB_SPACIOUS, // and set back in a wider space — intimate, drifting
       bpmScale: 0.96, // bridge eases back a touch
       groove: sparser(o.groove),
       voices: { drums: false }, // drums drop out — an intimate, drumless bridge
@@ -378,6 +391,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
       density: clampDensity(o.density * 1.4),
       contour: o.rng.pick(["rising", "arch"]),
       dynamics: 1.12,
+      reverbScale: REVERB_PRESENT, // up front and dry — the peak is in the room with you
       bpmScale: 1.06, // climax pushes ahead
       groove: busier(o.groove),
       voices: {}, // full ensemble
@@ -399,6 +413,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
     density: clampDensity(o.density),
     contour: o.rng.pick(["arch", "arch", "rising", "flat"]),
     dynamics: 1,
+    reverbScale: 1, // home — neither pushed back nor forward, the reference depth
     bpmScale: 1, // home tempo
     groove: o.groove, // home groove (the style's pick)
     voices: {}, // full ensemble
