@@ -29,7 +29,10 @@ export function buildLoop(
   const reverbScale = score.reverbScale ?? 1; // the section's depth in the arc — wetter when distant
   for (const part of score.parts) {
     const patch = instruments[part.voice];
-    const reverbSend = Math.min(1, (patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice]) * reverbScale);
+    const reverbSend = Math.min(
+      1,
+      (patch.reverbSend ?? REVERB_SEND_BY_VOICE[part.voice]) * reverbScale,
+    );
     const mix = MIX_BY_VOICE[part.voice]; // bring the lead forward of the bed
     const pan = PAN_BY_VOICE[part.voice]; // place the voice in the stereo field
     for (const note of part.notes) {

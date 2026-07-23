@@ -203,6 +203,9 @@ const DEFAULT_CLIMAX_DYNAMICS = 1.12;
 const REVERB_DISTANT = 1.5; // intro — far back, room around it
 const REVERB_SPACIOUS = 1.3; // bridge — open, drifting
 const REVERB_PRESENT = 0.62; // climax — up front, dry
+/** The release after the peak: a gentle comedown that opens back into space. */
+const SETTLE_DYNAMICS = 0.82;
+const SETTLE_REVERB = 1.25;
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
 
@@ -459,6 +462,16 @@ export function buildForm(o: FormOptions): Form {
         texture: "build" as const,
         dynamics: BUILD_FROM,
         dynamicsTo: recipes.get("C")?.dynamics ?? DEFAULT_CLIMAX_DYNAMICS,
+      };
+    }
+    // Settle AFTER the climax: the section following the peak eases down, thins, and opens back
+    // into space — a release, so the piece resolves instead of snapping straight back to home.
+    if (kind !== "kriti" && parts[i - 1] === "C" && label !== "C") {
+      return {
+        ...section,
+        texture: "breakdown" as const,
+        dynamics: SETTLE_DYNAMICS,
+        reverbScale: SETTLE_REVERB,
       };
     }
     return section;

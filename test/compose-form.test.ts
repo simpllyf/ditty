@@ -97,6 +97,20 @@ describe("buildForm", () => {
     expect(C.reverbScale).toBeLessThan(A.reverbScale); // climax up front and dry
   });
 
+  it("settles after the climax when a section follows it — a release, not a snap back", () => {
+    // Find a form where a section actually follows C (many put C last and loop to the soft intro).
+    let form = buildForm({ rng: makeRng(1), ...base });
+    const after = (f: typeof form) => {
+      const ci = f.sections.findIndex((x) => x.label === "C");
+      return ci >= 0 && ci < f.sections.length - 1 ? f.sections[ci + 1]! : null;
+    };
+    for (let s = 2; s < 120 && !after(form); s++) form = buildForm({ rng: makeRng(s), ...base });
+    const settle = after(form)!;
+    const A = form.sections.find((x) => x.label === "A")!;
+    expect(settle.dynamics).toBeLessThan(A.dynamics); // eases down from home
+    expect(settle.reverbScale).toBeGreaterThan(A.reverbScale); // and opens back into space
+  });
+
   it("modulates some sections to a related key while A stays home", () => {
     let form = buildForm({ rng: makeRng(1), ...base });
     for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {
