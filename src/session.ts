@@ -65,6 +65,16 @@ export interface SessionOptions {
   carnatic?: boolean;
   /** Pin the layout: a `song` (home/bridge/climax) or a `kriti` (pallavi/anupallavi/charanam). */
   form?: FormKind;
+  /**
+   * Raga mode: an authentic Carnatic texture in place of the Western/fusion default. The
+   * harmony collapses to a static Sa+Pa tonic drone — no chord progression, no cadences,
+   * no modulation — that the pad and bass hold while the raga melody floats over it,
+   * settling onto Sa/Pa on strong beats the way Carnatic music does. Always laid out as a
+   * `kriti` (one tonic for the whole piece — a raga has a single Sa), so it overrides
+   * `form`; and the arp drops out (an arpeggio over a fixed drone is just a Sa–Pa
+   * ostinato — a plucked tanpura voice comes later). Default `false`. Pair with a
+   * `raga`/`parent` to choose the scale. */
+  ragaMode?: boolean;
   /** Scale degrees (0..6) voiced with their diatonic seventh — harmonic colour. */
   sevenths?: readonly number[];
   /** Allow occasional secondary dominants. Default follows `chromatic`. */
@@ -195,13 +205,21 @@ export function createSession(options: SessionOptions): Session {
   }
   const bars = options.bars ?? 8;
   const evolve = options.evolve ?? true;
+  const ragaMode = options.ragaMode ?? false;
+  // A raga stays in one Sa, so raga mode is always a kriti: a song layout would modulate
+  // the drone to a new key at the bridge, which is a different raga.
+  const layout = ragaMode ? "kriti" : options.form;
 
+  // Fixed draw order (lead, bass, pad, arp) so a given seed keeps the same instruments;
+  // raga mode then voices the arp slot as the tanpura drone. The arp is still drawn (and
+  // discarded) so the seed→instrument mapping for the other voices doesn't shift.
   const instruments: Record<ScoreVoice, Instrument> = {
     lead: pickInstrument(instrumentRng, chosen.instruments.lead),
     bass: pickInstrument(instrumentRng, chosen.instruments.bass),
     pad: pickInstrument(instrumentRng, chosen.instruments.pad),
     arp: pickInstrument(instrumentRng, chosen.instruments.arp),
   };
+  if (ragaMode) instruments.arp = INSTRUMENTS.tanpura;
   const kitName = options.kit ?? "default";
   if (!(kitName in DRUM_KITS)) {
     throw new RangeError(`createSession: unknown drum kit "${kitName}"`);
@@ -257,8 +275,9 @@ export function createSession(options: SessionOptions): Session {
     groove,
     borrow: options.chromatic ?? true,
     secondaryDominants: options.secondaryDominants ?? options.chromatic ?? true,
+    drone: ragaMode,
     ...(sevenths !== undefined ? { sevenths } : {}),
-    ...(options.form !== undefined ? { form: options.form } : {}),
+    ...(layout !== undefined ? { form: layout } : {}),
     ...(options.intro !== undefined ? { intro: options.intro } : {}),
   });
 
@@ -273,6 +292,7 @@ export function createSession(options: SessionOptions): Session {
       bpm: Math.round(bpm * section.bpmScale), // per-section tempo (B pulls back, C pushes)
       beatsPerBar,
       bars: section.bars, // sections run to their own length
+      drone: ragaMode, // raga mode: static Sa+Pa drone → the arp voices a tanpura, bass pulls back
       parent,
       raga,
       ...(paths !== undefined ? { paths } : {}),

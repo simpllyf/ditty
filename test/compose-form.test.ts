@@ -353,6 +353,39 @@ describe("buildForm", () => {
     for (const s of form.sections) expect(s.bars).toBe(8);
   });
 
+  it("raga mode: every section holds a Sa+Pa drone, drops the pad, keeps the tanpura (arp slot)", () => {
+    const form = buildForm({ rng: makeRng(1), ...base, form: "kriti", drone: true });
+    for (const sec of form.sections) {
+      for (const bar of sec.plan.bars) {
+        expect(bar.degree).toBe(0); // the tonic, always — no progression
+        expect([...bar.chord.pcs]).toEqual([0, 7]); // Sa + Pa, no third
+        expect(bar.second).toBeUndefined(); // never splits into two chords
+      }
+      expect(sec.voices.pad).toBe(false); // the tanpura + bass carry the drone, not a colour pad
+      expect(sec.voices.arp).not.toBe(false); // the arp slot voices the tanpura
+    }
+    // The one-time opening settles the same drone: tanpura + bass, the pad held back.
+    expect(form.intro).not.toBeNull();
+    for (const bar of form.intro!.plan.bars) expect([...bar.chord.pcs]).toEqual([0, 7]);
+    expect(form.intro!.voices.pad).toBe(false);
+    expect(form.intro!.voices.arp).not.toBe(false);
+  });
+
+  it("carries the drone whatever layout the seed draws, and only when asked", () => {
+    // The drone is orthogonal to the layout: a song template holds it just the same.
+    for (let s = 1; s < 20; s++) {
+      const droned = buildForm({ rng: makeRng(s), ...base, drone: true });
+      for (const sec of droned.sections) {
+        expect(sec.plan.bars.every((b) => b.degree === 0)).toBe(true);
+        expect(sec.voices.pad).toBe(false); // pad dropped for the tanpura drone
+      }
+      // Off (the default): the harmony moves — some bar is not the tonic — and the pad stays.
+      const plain = buildForm({ rng: makeRng(s), ...base });
+      expect(plain.sections.some((sec) => sec.plan.bars.some((b) => b.degree !== 0))).toBe(true);
+      for (const sec of plain.sections) expect(sec.voices.pad).not.toBe(false);
+    }
+  });
+
   it("keeps section density strictly within (0,1) even at extreme base density", () => {
     for (const density of [0, 1]) {
       const form = buildForm({ rng: makeRng(3), ...base, density });

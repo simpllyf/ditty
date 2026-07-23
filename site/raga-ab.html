@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>ditty — raga-mode A/B (throwaway)</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #14151a;
+        --card: #1e2029;
+        --ink: #e8e8ef;
+        --muted: #9aa0b4;
+        --a: #6ea8fe;
+        --b: #ffb454;
+        --line: #2c2f3c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        padding: max(16px, env(safe-area-inset-top)) 16px 48px;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0 0 4px;
+      }
+      p.lede {
+        color: var(--muted);
+        margin: 0 0 24px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 18px;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .row {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .row > div {
+        flex: 1 1 140px;
+      }
+      select,
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        font: inherit;
+        color: var(--ink);
+        background: #262936;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .btns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 4px;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 18px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        color: #14151a;
+        cursor: pointer;
+      }
+      button.a {
+        background: var(--a);
+      }
+      button.b {
+        background: var(--b);
+      }
+      button.stop {
+        grid-column: 1 / -1;
+        background: #2c2f3c;
+        color: var(--ink);
+      }
+      button[aria-pressed="true"] {
+        outline: 3px solid #fff;
+        outline-offset: 2px;
+      }
+      .status {
+        margin-top: 14px;
+        font-size: 0.9rem;
+        color: var(--muted);
+        min-height: 1.5em;
+      }
+      .status b {
+        color: var(--ink);
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 14px;
+        margin: 0;
+        font-size: 0.85rem;
+      }
+      dt {
+        color: var(--muted);
+      }
+      dd {
+        margin: 0;
+      }
+      code {
+        background: #262936;
+        padding: 1px 5px;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Raga-mode A/B — throwaway ear-check</h1>
+      <p class="lede">
+        Same style, seed, instruments and raga in both — the <b>only</b> difference is the mode.
+        <br />A = the current Western/fusion engine. B = raga mode: a static Sa+Pa drone (no chord
+        changes, no modulation), laid out as a kriti, arp dropped.
+      </p>
+
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="style">Style</label>
+            <select id="style">
+              <option value="calm">calm</option>
+              <option value="dreamy">dreamy</option>
+              <option value="ambient">ambient</option>
+              <option value="lofi">lofi</option>
+              <option value="cinematic">cinematic</option>
+              <option value="peppy">peppy</option>
+              <option value="playful">playful</option>
+            </select>
+          </div>
+          <div>
+            <label for="seed">Seed</label>
+            <input id="seed" type="number" value="7" min="0" step="1" />
+          </div>
+          <div>
+            <label for="vol">Volume</label>
+            <input id="vol" type="range" min="0" max="1" step="0.01" value="0.5" />
+          </div>
+        </div>
+
+        <div class="btns" style="margin-top: 16px">
+          <button class="a" id="playA" aria-pressed="false">▶ A · Fusion</button>
+          <button class="b" id="playB" aria-pressed="false">▶ B · Raga mode</button>
+          <button class="stop" id="stop">■ Stop</button>
+        </div>
+        <div class="status" id="status">
+          Pick a style + seed, then A or B. Switch freely to compare.
+        </div>
+
+        <div style="margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px">
+          <div class="btns">
+            <button class="a" id="wavA">⤓ WAV · A (offline)</button>
+            <button class="b" id="wavB">⤓ WAV · B (offline)</button>
+          </div>
+          <div class="status" id="wavStatus" style="margin-top: 10px">
+            Offline render (no realtime scheduling). Compare a WAV to the live buttons on the same
+            device, and play it on headphones vs the speaker — that separates the generation from
+            the speaker.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <dl id="info">
+          <dt>A · fusion</dt>
+          <dd id="infoA">—</dd>
+          <dt>B · raga</dt>
+          <dd id="infoB">—</dd>
+        </dl>
+        <p class="lede" style="margin: 14px 0 0">
+          Tip: a slow style (calm / dreamy / ambient) lets the drone and the sung shake breathe.
+          Seeds are stable — note any you like.
+        </p>
+      </div>
+    </main>
+
+    <script type="module">
+      import { createEngine, renderOffline, encodeWav } from "./lib/index.js";
+      import { createSession } from "./lib/core.js";
+
+      const $ = (id) => document.getElementById(id);
+      const statusEl = $("status");
+      let engine = null;
+      let current = null; // "A" | "B" | null
+
+      const opts = () => ({
+        style: $("style").value,
+        seed: Number($("seed").value),
+      });
+
+      // A quick, audio-free peek at what each mode resolves to, so the labels aren't a mystery.
+      function describe() {
+        const base = opts();
+        try {
+          const fusion = createSession(base);
+          const raga = createSession({ ...base, ragaMode: true });
+          const line = (s) =>
+            `${s.formKind}, ${s.beatsPerBar}/bar, ${s.bpm} bpm, ${s.sections.length} sections`;
+          $("infoA").textContent = line(fusion);
+          $("infoB").textContent = line(raga);
+        } catch (e) {
+          $("infoA").textContent = $("infoB").textContent = String(e);
+        }
+      }
+
+      function stop() {
+        if (engine) {
+          engine.stop();
+          engine.dispose();
+          engine = null;
+        }
+        current = null;
+        $("playA").setAttribute("aria-pressed", "false");
+        $("playB").setAttribute("aria-pressed", "false");
+        statusEl.textContent = "Stopped.";
+      }
+
+      async function play(which) {
+        stop();
+        const ragaMode = which === "B";
+        engine = createEngine({ ...opts(), ragaMode });
+        engine.setVolume(Number($("vol").value));
+        current = which;
+        $("play" + which).setAttribute("aria-pressed", "true");
+        statusEl.innerHTML = `Playing <b>${which} · ${ragaMode ? "raga mode" : "fusion"}</b> — ${
+          which === "A" ? $("infoA").textContent : $("infoB").textContent
+        }`;
+        await engine.start();
+      }
+
+      async function downloadWav(which) {
+        stop();
+        const ragaMode = which === "B";
+        $("wavStatus").textContent = `Rendering ${which} offline…`;
+        try {
+          const result = await renderOffline({
+            ...opts(),
+            ragaMode,
+            seconds: 30,
+            volume: Number($("vol").value),
+          });
+          const bytes = encodeWav(result.channels, result.sampleRate);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+          a.download = `ditty-${$("style").value}-${$("seed").value}-${ragaMode ? "raga" : "fusion"}.wav`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+          $("wavStatus").textContent = `Saved ${a.download}. Play it on headphones vs the speaker.`;
+        } catch (e) {
+          $("wavStatus").textContent = String(e);
+        }
+      }
+
+      $("playA").addEventListener("click", () => play("A"));
+      $("playB").addEventListener("click", () => play("B"));
+      $("wavA").addEventListener("click", () => downloadWav("A"));
+      $("wavB").addEventListener("click", () => downloadWav("B"));
+      $("stop").addEventListener("click", stop);
+      $("vol").addEventListener("input", () => engine?.setVolume(Number($("vol").value)));
+      for (const id of ["style", "seed"]) $(id).addEventListener("change", describe);
+      describe();
+    </script>
+  </body>
+</html>
