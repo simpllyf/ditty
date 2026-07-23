@@ -97,6 +97,12 @@ export interface ArrangeOptions {
   bassPattern?: BassPatternName;
   /** Velocity scale for the whole section — the loud/soft arc. Default 1. */
   dynamics?: number;
+  /**
+   * When set, the level ramps linearly from {@link dynamics} at the section's head to this at
+   * its tail — a crescendo (or diminuendo) built into the bars, so a build section swells into
+   * the part that follows. Default: no ramp (flat at {@link dynamics}).
+   */
+  dynamicsTo?: number;
   /** End the last bar with a drum fill (a buildup into the next section). Default false. */
   fill?: boolean;
   /** Recurring theme stated at the lead's head (degrees transpose with the key). */
@@ -901,11 +907,18 @@ export function arrange(options: ArrangeOptions): Score {
   // they breathe as one, rising toward the middle of each phrase and easing off, so a
   // piece rises and falls instead of sitting at one level. The drums stay out of it: the
   // beat is the steady anchor the melody breathes over, and a swelling kit only pumps.
-  const dynamics = options.dynamics ?? 1;
+  // The level can RAMP across the section: from `dynamics` at the head to `dynamicsTo` at the
+  // tail. A build section swells into the part after it instead of stepping up flat — and the
+  // ramp is heard even under the master limiter, because its soft start sits below the ceiling
+  // the loud end hits. Absent a target, the level is the flat scale (unchanged).
+  const dynamicsFrom = options.dynamics ?? 1;
+  const dynamicsTo = options.dynamicsTo ?? dynamicsFrom;
+  const level = (beat: number) =>
+    dynamicsFrom + (dynamicsTo - dynamicsFrom) * (lengthBeats > 0 ? beat / lengthBeats : 0);
   const swell = (beat: number) =>
     1 + PHRASE_SWELL * (2 * Math.sin(Math.PI * phrasePosition(beat, beatsPerBar)) - 1);
-  const pitched = (v: number, beat: number) => Math.min(1, v * dynamics * swell(beat));
-  const struck = (v: number) => Math.min(1, v * dynamics);
+  const pitched = (v: number, beat: number) => Math.min(1, v * level(beat) * swell(beat));
+  const struck = (v: number, beat: number) => Math.min(1, v * level(beat));
 
   return {
     bpm,
@@ -917,7 +930,7 @@ export function arrange(options: ArrangeOptions): Score {
       voice: p.voice,
       notes: p.notes.map((n) => ({ ...n, velocity: pitched(n.velocity, n.startBeat) })),
     })),
-    drums: drums.map((h) => ({ ...h, velocity: struck(h.velocity) })),
+    drums: drums.map((h) => ({ ...h, velocity: struck(h.velocity, h.startBeat) })),
   };
 }
 

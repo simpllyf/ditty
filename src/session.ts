@@ -294,6 +294,7 @@ export function createSession(options: SessionOptions): Session {
         (options.shake ?? true) && carnatic && instruments.lead.amp.sustain >= SLIDE_MIN_SUSTAIN,
       leadRange: section.range, // the part's register — a kriti's anupallavi sings an octave up
       dynamics: section.dynamics,
+      ...(section.dynamicsTo !== undefined ? { dynamicsTo: section.dynamicsTo } : {}),
       fill: section.fill,
       arpRole: options.arpRole ?? section.arpRole, // arp arpeggiates / harmonises / doubles / counters the theme
       padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)

@@ -49,6 +49,41 @@ describe("buildForm", () => {
     expect(A.plan).not.toBe(B.plan); // distinct sections → distinct progressions
   });
 
+  it("the climax (C) rises above home: higher register and busier", () => {
+    let form = buildForm({ rng: makeRng(1), ...base });
+    for (let s = 2; s < 80 && !form.sections.some((x) => x.label === "C"); s++) {
+      form = buildForm({ rng: makeRng(s), ...base });
+    }
+    const A = form.sections.find((s) => s.label === "A")!;
+    const C = form.sections.find((s) => s.label === "C")!;
+    // Register is the intensity cue the master limiter can't flatten — the climax must sing
+    // higher than home, not merely fuller. (Its lead-degree window starts above home's.)
+    expect(C.range[0]).toBeGreaterThan(A.range[0]);
+    expect(C.range[1]).toBeGreaterThan(A.range[1]);
+    expect(C.density).toBeGreaterThan(A.density); // …and busier
+    expect(C.dynamics).toBeGreaterThan(A.dynamics); // …and pushes louder
+  });
+
+  it("builds INTO the climax: the section before it pulls back and swells", () => {
+    let form = buildForm({ rng: makeRng(1), ...base });
+    for (let s = 2; s < 80 && !form.sections.some((x) => x.label === "C"); s++) {
+      form = buildForm({ rng: makeRng(s), ...base });
+    }
+    const ci = form.sections.findIndex((x) => x.label === "C");
+    const approach = form.sections[ci - 1]!;
+    // A crescendo built into the bars — pulled back, ramping up to the climax's level.
+    expect(approach.dynamicsTo).toBeGreaterThan(approach.dynamics);
+    expect(approach.dynamicsTo).toBe(form.sections[ci]!.dynamics);
+    expect(approach.texture).toBe("build"); // arp/drums re-enter across the bars
+  });
+
+  it("opens genuinely soft — the intro sits well under home, widening the arc", () => {
+    const form = buildForm({ rng: makeRng(1), ...base });
+    const A = form.sections.find((s) => s.label === "A")!;
+    expect(form.intro).not.toBeNull();
+    expect(form.intro!.dynamics).toBeLessThan(A.dynamics - 0.1); // a real dip, not a nudge
+  });
+
   it("modulates some sections to a related key while A stays home", () => {
     let form = buildForm({ rng: makeRng(1), ...base });
     for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {
