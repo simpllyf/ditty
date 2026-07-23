@@ -114,7 +114,10 @@ function buildIntro(o: FormOptions, home: SectionRecipe): SectionProfile {
     plan: { ...home.plan, bars: home.plan.bars.slice(0, bars), cadences: { half: -1, final: -1 } },
     texture: "full",
     density: clampDensity(o.density * 0.5),
-    dynamics: 0.85,
+    // Genuinely soft, not just sparse. The opening sits well below the limiter's ceiling, so
+    // pulling it down here is heard as quieter (the loud sections can't move — they're pinned),
+    // which is what widens the arc and lets the climax tower.
+    dynamics: 0.68,
     development: PLAIN_STATEMENT,
     voices: { lead: false, arp: false, drums: false },
     fill: false,
@@ -352,7 +355,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
       bassPattern: o.rng.pick(["sustained", "walking", "rootFifth"]),
       density: clampDensity(o.density * 0.6),
       contour: o.rng.pick(["falling", "flat", "arch"]),
-      dynamics: 0.82,
+      dynamics: 0.72, // a real dip — softer than home so the arc has depth under the climax
       bpmScale: 0.96, // bridge eases back a touch
       groove: sparser(o.groove),
       voices: { drums: false }, // drums drop out — an intimate, drumless bridge

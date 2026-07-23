@@ -77,6 +77,13 @@ describe("buildForm", () => {
     expect(approach.texture).toBe("build"); // arp/drums re-enter across the bars
   });
 
+  it("opens genuinely soft — the intro sits well under home, widening the arc", () => {
+    const form = buildForm({ rng: makeRng(1), ...base });
+    const A = form.sections.find((s) => s.label === "A")!;
+    expect(form.intro).not.toBeNull();
+    expect(form.intro!.dynamics).toBeLessThan(A.dynamics - 0.1); // a real dip, not a nudge
+  });
+
   it("modulates some sections to a related key while A stays home", () => {
     let form = buildForm({ rng: makeRng(1), ...base });
     for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {
