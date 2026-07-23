@@ -29,6 +29,7 @@ export interface SectionProfile {
   readonly density: number; // melodic density 0..1 (contrast: B sparser, C busier)
   readonly contour: ContourShape; // melodic phrase arc — A varies, B settles, C builds
   readonly dynamics: number; // velocity scale — the loud/soft arc (B softer, C louder)
+  readonly dynamicsTo?: number; // if set, the level ramps to this by the section's end (a build's crescendo)
   readonly bpmScale: number; // tempo multiplier vs the base (B pulls back, C pushes)
   readonly groove: DrumGrooveName; // drum groove (B sparser, C busier than home)
   readonly voices: VoiceToggles; // which voices play this section (instruments enter/leave)
@@ -184,6 +185,10 @@ const DEFAULT_RANGE: readonly [number, number] = [0, 7];
  * with headroom left. Kept short of the very top so it lifts without turning shrill.
  */
 const CLIMAX_RANGE: readonly [number, number] = [4, 11];
+/** A build section pulls its level back to this, then swells up into the climax. */
+const BUILD_FROM = 0.85;
+/** Climax level a build ramps toward when (defensively) no C recipe is on hand. */
+const DEFAULT_CLIMAX_DYNAMICS = 1.12;
 
 const clampDensity = (d: number) => Math.min(0.95, Math.max(0.05, d));
 
@@ -421,13 +426,24 @@ export function buildForm(o: FormOptions): Form {
   }
   const sections = parts.map((label, i) => {
     const recipe = recipes.get(label)!;
-    return {
+    const section = {
       ...recipe,
       // The part's own scoring, then the arc across the piece — so a section that
       // recurs is not orchestrated identically every time it comes round.
       voices: { ...recipe.voices, ...orchestration(i, parts.length, kind) },
       fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
     };
+    // Build INTO the climax: the section right before it pulls back and swells, its arp/drums
+    // re-entering across the bars, so the peak lands as an arrival rather than a flat step up.
+    if (kind !== "kriti" && parts[i + 1] === "C" && label !== "C") {
+      return {
+        ...section,
+        texture: "build" as TextureName,
+        dynamics: BUILD_FROM,
+        dynamicsTo: recipes.get("C")?.dynamics ?? DEFAULT_CLIMAX_DYNAMICS,
+      };
+    }
+    return section;
   });
 
   // The theme: a short phrase over the home section's opening bars, stated at the head

@@ -64,6 +64,19 @@ describe("buildForm", () => {
     expect(C.dynamics).toBeGreaterThan(A.dynamics); // …and pushes louder
   });
 
+  it("builds INTO the climax: the section before it pulls back and swells", () => {
+    let form = buildForm({ rng: makeRng(1), ...base });
+    for (let s = 2; s < 80 && !form.sections.some((x) => x.label === "C"); s++) {
+      form = buildForm({ rng: makeRng(s), ...base });
+    }
+    const ci = form.sections.findIndex((x) => x.label === "C");
+    const approach = form.sections[ci - 1]!;
+    // A crescendo built into the bars — pulled back, ramping up to the climax's level.
+    expect(approach.dynamicsTo).toBeGreaterThan(approach.dynamics);
+    expect(approach.dynamicsTo).toBe(form.sections[ci]!.dynamics);
+    expect(approach.texture).toBe("build"); // arp/drums re-enter across the bars
+  });
+
   it("modulates some sections to a related key while A stays home", () => {
     let form = buildForm({ rng: makeRng(1), ...base });
     for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {
