@@ -353,6 +353,37 @@ describe("buildForm", () => {
     for (const s of form.sections) expect(s.bars).toBe(8);
   });
 
+  it("raga mode: every section holds a Sa+Pa drone and drops the arp", () => {
+    const form = buildForm({ rng: makeRng(1), ...base, form: "kriti", drone: true });
+    for (const sec of form.sections) {
+      for (const bar of sec.plan.bars) {
+        expect(bar.degree).toBe(0); // the tonic, always — no progression
+        expect([...bar.chord.pcs]).toEqual([0, 7]); // Sa + Pa, no third
+        expect(bar.second).toBeUndefined(); // never splits into two chords
+      }
+      expect(sec.voices.arp).toBe(false); // an arpeggio over a fixed drone is just a Sa–Pa ostinato
+    }
+    // The one-time opening previews the same drone (and holds back the arp as it always does).
+    expect(form.intro).not.toBeNull();
+    for (const bar of form.intro!.plan.bars) expect([...bar.chord.pcs]).toEqual([0, 7]);
+    expect(form.intro!.voices.arp).toBe(false);
+  });
+
+  it("carries the drone whatever layout the seed draws, and only when asked", () => {
+    // The drone is orthogonal to the layout: a song template holds it just the same.
+    for (let s = 1; s < 20; s++) {
+      const droned = buildForm({ rng: makeRng(s), ...base, drone: true });
+      for (const sec of droned.sections) {
+        expect(sec.plan.bars.every((b) => b.degree === 0)).toBe(true);
+        expect(sec.voices.arp).toBe(false);
+      }
+      // Off (the default): the harmony moves — some bar is not the tonic, and the arp plays.
+      const plain = buildForm({ rng: makeRng(s), ...base });
+      expect(plain.sections.some((sec) => sec.plan.bars.some((b) => b.degree !== 0))).toBe(true);
+      expect(plain.sections.some((sec) => sec.voices.arp !== false)).toBe(true);
+    }
+  });
+
   it("keeps section density strictly within (0,1) even at extreme base density", () => {
     for (const density of [0, 1]) {
       const form = buildForm({ rng: makeRng(3), ...base, density });

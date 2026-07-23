@@ -75,6 +75,7 @@ export interface FormOptions {
   readonly sevenths?: readonly number[]; // scale degrees voiced with their diatonic 7th
   readonly form?: FormKind; // pin the layout; otherwise the seed picks one
   readonly intro?: boolean; // open with a one-time introduction (default true)
+  readonly drone?: boolean; // raga mode: every section holds a Sa+Pa tonic drone (no progression); the arp drops out
 }
 
 /**
@@ -358,6 +359,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
     borrow: o.borrow,
     secondaryDominants: o.secondaryDominants,
     ...(o.sevenths !== undefined ? { sevenths: o.sevenths } : {}),
+    ...(o.drone ? { drone: true } : {}),
   });
   if (kind === "kriti") return kritiSection(label, o, rootMidi, plan, bars);
   if (label === "B") {
@@ -450,8 +452,14 @@ export function buildForm(o: FormOptions): Form {
     const section = {
       ...recipe,
       // The part's own scoring, then the arc across the piece — so a section that
-      // recurs is not orchestrated identically every time it comes round.
-      voices: { ...recipe.voices, ...orchestration(i, parts.length, kind) },
+      // recurs is not orchestrated identically every time it comes round. Raga mode
+      // then takes the arp out: an arpeggio over a static Sa+Pa drone is just a
+      // repeating Sa–Pa ostinato, not a raga texture (a plucked tanpura comes later).
+      voices: {
+        ...recipe.voices,
+        ...orchestration(i, parts.length, kind),
+        ...(o.drone ? { arp: false } : {}),
+      },
       fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
     };
     // Build INTO the climax: the section right before it pulls back and swells, its arp/drums

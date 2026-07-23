@@ -161,6 +161,60 @@ describe("createSession", () => {
     expect(shaken).toBe(0);
   });
 
+  it("raga mode: a raga over a held Sa+Pa drone — kriti layout, no arp, no modulation", () => {
+    const midiOf = (freq: number) => Math.round(69 + 12 * Math.log2(freq / 440));
+    const pcOf = (freq: number) => (((midiOf(freq) - 60) % 12) + 12) % 12; // semitones over the tonic
+    const s = createSession({
+      seed: 7,
+      parent: SCALES.major,
+      raga: SCALES.mohanam,
+      rootMidi: 60,
+      ragaMode: true,
+      humanize: false,
+      evolve: false,
+    });
+
+    // A raga has a single Sa: laid out as a kriti, never a modulating song.
+    expect(s.formKind).toBe("kriti");
+    for (const sec of s.sections) expect(sec.keyShift).toBe(0);
+
+    for (let i = 0; i < s.sections.length; i++) {
+      const score = s.nextScore();
+      expect(score.parts.some((p) => p.voice === "arp")).toBe(false); // the drone needs no arpeggio
+      // The pad and bass hold the drone: every note they play is Sa (0) or Pa (7).
+      for (const voice of ["pad", "bass"] as const) {
+        const part = score.parts.find((p) => p.voice === voice);
+        if (!part) continue; // the intro has no bass-less sections, but be defensive
+        for (const n of part.notes) expect([0, 7]).toContain(pcOf(n.freq));
+      }
+    }
+  });
+
+  it("is the Western/fusion default when ragaMode is off — the harmony moves", () => {
+    const midiOf = (freq: number) => Math.round(69 + 12 * Math.log2(freq / 440));
+    const pcOf = (freq: number) => (((midiOf(freq) - 60) % 12) + 12) % 12;
+    const s = createSession({
+      seed: 7,
+      parent: SCALES.major,
+      raga: SCALES.mohanam,
+      rootMidi: 60,
+      humanize: false,
+      evolve: false,
+    });
+    // Somewhere the pad voices a chord tone that is neither Sa nor Pa — the harmony is a
+    // real progression, not a static drone.
+    let movingPc = false;
+    let sawArp = false;
+    for (let i = 0; i < s.sections.length; i++) {
+      const score = s.nextScore();
+      sawArp ||= score.parts.some((p) => p.voice === "arp");
+      const pad = score.parts.find((p) => p.voice === "pad");
+      if (pad?.notes.some((n) => ![0, 7].includes(pcOf(n.freq)))) movingPc = true;
+    }
+    expect(movingPc).toBe(true);
+    expect(sawArp).toBe(true); // …and the arp plays
+  });
+
   it("validates bpm, beatsPerBar, and bars eagerly", () => {
     expect(() => createSession({ bpm: 0 })).toThrow(RangeError);
     expect(() => createSession({ beatsPerBar: 0 })).toThrow(RangeError);
