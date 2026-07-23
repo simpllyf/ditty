@@ -353,7 +353,7 @@ describe("buildForm", () => {
     for (const s of form.sections) expect(s.bars).toBe(8);
   });
 
-  it("raga mode: every section holds a Sa+Pa drone and drops the arp", () => {
+  it("raga mode: every section holds a Sa+Pa drone, drops the pad, keeps the tanpura (arp slot)", () => {
     const form = buildForm({ rng: makeRng(1), ...base, form: "kriti", drone: true });
     for (const sec of form.sections) {
       for (const bar of sec.plan.bars) {
@@ -361,12 +361,14 @@ describe("buildForm", () => {
         expect([...bar.chord.pcs]).toEqual([0, 7]); // Sa + Pa, no third
         expect(bar.second).toBeUndefined(); // never splits into two chords
       }
-      expect(sec.voices.arp).toBe(false); // an arpeggio over a fixed drone is just a Sa–Pa ostinato
+      expect(sec.voices.pad).toBe(false); // the tanpura + bass carry the drone, not a colour pad
+      expect(sec.voices.arp).not.toBe(false); // the arp slot voices the tanpura
     }
-    // The one-time opening previews the same drone (and holds back the arp as it always does).
+    // The one-time opening settles the same drone: tanpura + bass, the pad held back.
     expect(form.intro).not.toBeNull();
     for (const bar of form.intro!.plan.bars) expect([...bar.chord.pcs]).toEqual([0, 7]);
-    expect(form.intro!.voices.arp).toBe(false);
+    expect(form.intro!.voices.pad).toBe(false);
+    expect(form.intro!.voices.arp).not.toBe(false);
   });
 
   it("carries the drone whatever layout the seed draws, and only when asked", () => {
@@ -375,12 +377,12 @@ describe("buildForm", () => {
       const droned = buildForm({ rng: makeRng(s), ...base, drone: true });
       for (const sec of droned.sections) {
         expect(sec.plan.bars.every((b) => b.degree === 0)).toBe(true);
-        expect(sec.voices.arp).toBe(false);
+        expect(sec.voices.pad).toBe(false); // pad dropped for the tanpura drone
       }
-      // Off (the default): the harmony moves — some bar is not the tonic, and the arp plays.
+      // Off (the default): the harmony moves — some bar is not the tonic — and the pad stays.
       const plain = buildForm({ rng: makeRng(s), ...base });
       expect(plain.sections.some((sec) => sec.plan.bars.some((b) => b.degree !== 0))).toBe(true);
-      expect(plain.sections.some((sec) => sec.voices.arp !== false)).toBe(true);
+      for (const sec of plain.sections) expect(sec.voices.pad).not.toBe(false);
     }
   });
 

@@ -75,7 +75,7 @@ export interface FormOptions {
   readonly sevenths?: readonly number[]; // scale degrees voiced with their diatonic 7th
   readonly form?: FormKind; // pin the layout; otherwise the seed picks one
   readonly intro?: boolean; // open with a one-time introduction (default true)
-  readonly drone?: boolean; // raga mode: every section holds a Sa+Pa tonic drone (no progression); the arp drops out
+  readonly drone?: boolean; // raga mode: every section holds a Sa+Pa tonic drone (no progression); the pad drops out
 }
 
 /**
@@ -122,7 +122,12 @@ function buildIntro(o: FormOptions, home: SectionRecipe): SectionProfile {
     dynamics: 0.68,
     reverbScale: REVERB_DISTANT, // the opening sits back in a big, quiet space
     development: PLAIN_STATEMENT,
-    voices: { lead: false, arp: false, drums: false },
+    // Hold back the theme (and the drums) so its first statement lands. Raga mode opens on
+    // the tanpura+bass drone settling the key (the arp voices the tanpura, pad drops);
+    // otherwise it is the pad+bass bed with no colour arp yet.
+    voices: o.drone
+      ? { lead: false, pad: false, drums: false }
+      : { lead: false, arp: false, drums: false },
     fill: false,
   };
 }
@@ -453,12 +458,12 @@ export function buildForm(o: FormOptions): Form {
       ...recipe,
       // The part's own scoring, then the arc across the piece — so a section that
       // recurs is not orchestrated identically every time it comes round. Raga mode
-      // then takes the arp out: an arpeggio over a static Sa+Pa drone is just a
-      // repeating Sa–Pa ostinato, not a raga texture (a plucked tanpura comes later).
+      // drops the pad: the tanpura (voiced in the arp slot) and the bass carry the
+      // Sa+Pa drone, and a sustained colour pad held forever only muddies it.
       voices: {
         ...recipe.voices,
         ...orchestration(i, parts.length, kind),
-        ...(o.drone ? { arp: false } : {}),
+        ...(o.drone ? { pad: false } : {}),
       },
       fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
     };

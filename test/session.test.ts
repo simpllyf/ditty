@@ -161,7 +161,7 @@ describe("createSession", () => {
     expect(shaken).toBe(0);
   });
 
-  it("raga mode: a raga over a held Sa+Pa drone — kriti layout, no arp, no modulation", () => {
+  it("raga mode: a raga over a tanpura Sa+Pa drone — kriti layout, no pad, no modulation", () => {
     const midiOf = (freq: number) => Math.round(69 + 12 * Math.log2(freq / 440));
     const pcOf = (freq: number) => (((midiOf(freq) - 60) % 12) + 12) % 12; // semitones over the tonic
     const s = createSession({
@@ -174,20 +174,25 @@ describe("createSession", () => {
       evolve: false,
     });
 
-    // A raga has a single Sa: laid out as a kriti, never a modulating song.
+    // A raga has a single Sa: laid out as a kriti, never a modulating song, with the
+    // tanpura voiced in the arp slot.
     expect(s.formKind).toBe("kriti");
+    expect(s.instruments.arp.name).toBe("tanpura");
     for (const sec of s.sections) expect(sec.keyShift).toBe(0);
 
+    let sawTanpura = false;
     for (let i = 0; i < s.sections.length; i++) {
       const score = s.nextScore();
-      expect(score.parts.some((p) => p.voice === "arp")).toBe(false); // the drone needs no arpeggio
-      // The pad and bass hold the drone: every note they play is Sa (0) or Pa (7).
-      for (const voice of ["pad", "bass"] as const) {
+      expect(score.parts.some((p) => p.voice === "pad")).toBe(false); // the colour pad is dropped
+      // The tanpura (arp slot) and the bass hold the drone: every note is Sa (0) or Pa (7).
+      for (const voice of ["arp", "bass"] as const) {
         const part = score.parts.find((p) => p.voice === voice);
-        if (!part) continue; // the intro has no bass-less sections, but be defensive
+        if (!part || part.notes.length === 0) continue;
+        if (voice === "arp") sawTanpura = true;
         for (const n of part.notes) expect([0, 7]).toContain(pcOf(n.freq));
       }
     }
+    expect(sawTanpura).toBe(true); // the tanpura really does sound across the piece
   });
 
   it("is the Western/fusion default when ragaMode is off — the harmony moves", () => {
