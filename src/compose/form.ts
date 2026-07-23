@@ -441,7 +441,7 @@ export function buildForm(o: FormOptions): Form {
     if (kind !== "kriti" && parts[i + 1] === "C" && label !== "C") {
       return {
         ...section,
-        texture: "build" as TextureName,
+        texture: "build" as const,
         dynamics: BUILD_FROM,
         dynamicsTo: recipes.get("C")?.dynamics ?? DEFAULT_CLIMAX_DYNAMICS,
       };
