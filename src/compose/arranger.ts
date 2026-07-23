@@ -68,6 +68,12 @@ export interface Score {
   readonly rootMidi: number;
   readonly parts: readonly ScorePart[];
   readonly drums: readonly DrumHit[];
+  /**
+   * Reverb-send multiplier for the whole section — the depth arc. Above 1 pushes the
+   * section back into a larger, wetter space (a distant, intimate intro or bridge); below
+   * 1 pulls it forward, present and dry (the climax, up front). Default 1 (unscaled).
+   */
+  readonly reverbScale?: number;
 }
 
 export interface ArrangeOptions {
@@ -103,6 +109,8 @@ export interface ArrangeOptions {
    * the part that follows. Default: no ramp (flat at {@link dynamics}).
    */
   dynamicsTo?: number;
+  /** Reverb-send multiplier for the section — the depth arc. Passed onto the {@link Score}. Default 1. */
+  reverbScale?: number;
   /** End the last bar with a drum fill (a buildup into the next section). Default false. */
   fill?: boolean;
   /** Recurring theme stated at the lead's head (degrees transpose with the key). */
@@ -931,6 +939,7 @@ export function arrange(options: ArrangeOptions): Score {
       notes: p.notes.map((n) => ({ ...n, velocity: pitched(n.velocity, n.startBeat) })),
     })),
     drums: drums.map((h) => ({ ...h, velocity: struck(h.velocity, h.startBeat) })),
+    ...(options.reverbScale !== undefined ? { reverbScale: options.reverbScale } : {}),
   };
 }
 

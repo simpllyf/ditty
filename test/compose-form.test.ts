@@ -84,6 +84,33 @@ describe("buildForm", () => {
     expect(form.intro!.dynamics).toBeLessThan(A.dynamics - 0.1); // a real dip, not a nudge
   });
 
+  it("has a depth arc: soft sections sit back (wetter), the climax comes forward (drier)", () => {
+    let form = buildForm({ rng: makeRng(1), ...base });
+    for (let s = 2; s < 80 && !form.sections.some((x) => x.label === "C"); s++) {
+      form = buildForm({ rng: makeRng(s), ...base });
+    }
+    const A = form.sections.find((s) => s.label === "A")!;
+    const B = form.sections.find((s) => s.label === "B")!;
+    const C = form.sections.find((s) => s.label === "C")!;
+    expect(form.intro!.reverbScale).toBeGreaterThan(A.reverbScale); // opening set back in space
+    expect(B.reverbScale).toBeGreaterThan(A.reverbScale); // bridge open and distant
+    expect(C.reverbScale).toBeLessThan(A.reverbScale); // climax up front and dry
+  });
+
+  it("settles after the climax when a section follows it — a release, not a snap back", () => {
+    // Find a form where a section actually follows C (many put C last and loop to the soft intro).
+    let form = buildForm({ rng: makeRng(1), ...base });
+    const after = (f: typeof form) => {
+      const ci = f.sections.findIndex((x) => x.label === "C");
+      return ci >= 0 && ci < f.sections.length - 1 ? f.sections[ci + 1]! : null;
+    };
+    for (let s = 2; s < 120 && !after(form); s++) form = buildForm({ rng: makeRng(s), ...base });
+    const settle = after(form)!;
+    const A = form.sections.find((x) => x.label === "A")!;
+    expect(settle.dynamics).toBeLessThan(A.dynamics); // eases down from home
+    expect(settle.reverbScale).toBeGreaterThan(A.reverbScale); // and opens back into space
+  });
+
   it("modulates some sections to a related key while A stays home", () => {
     let form = buildForm({ rng: makeRng(1), ...base });
     for (let s = 2; s < 100 && form.sections.every((x) => x.rootMidi === base.rootMidi); s++) {

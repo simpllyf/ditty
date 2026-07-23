@@ -295,6 +295,7 @@ export function createSession(options: SessionOptions): Session {
       leadRange: section.range, // the part's register — a kriti's anupallavi sings an octave up
       dynamics: section.dynamics,
       ...(section.dynamicsTo !== undefined ? { dynamicsTo: section.dynamicsTo } : {}),
+      reverbScale: section.reverbScale,
       fill: section.fill,
       arpRole: options.arpRole ?? section.arpRole, // arp arpeggiates / harmonises / doubles / counters the theme
       padPattern: section.padPattern, // pad: sustain (A) / broken (B) / stabs (C)
