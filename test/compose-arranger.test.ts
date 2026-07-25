@@ -440,6 +440,29 @@ describe("arrange — swing", () => {
   });
 });
 
+describe("arrange — raga drone (tanpura)", () => {
+  it("voices the arp as a tanpura: Pa/Sa plucks, one per beat, steady — not an arpeggio", () => {
+    const score = arr({ seed: 3, drone: true, beatsPerBar: 4, bars: 4 });
+    const arp = part(score, "arp")!;
+    expect(arp.notes.length).toBe(16); // one pluck per beat (4×4), not the eighth-note arpeggio (32)
+    for (const n of arp.notes) {
+      expect(Number.isInteger(n.startBeat)).toBe(true); // plucked on the beat, no swing
+      expect([0, 7]).toContain(freqToPc(n.freq, DEFAULT_ROOT)); // only Sa and Pa
+    }
+    // The cycle is Pa · Sa · Sa · Sa: Pa once per four beats, Sa the rest.
+    const pcs = arp.notes.map((n) => freqToPc(n.freq, DEFAULT_ROOT));
+    expect(pcs.filter((pc) => pc === 7).length).toBe(4); // Pa, once per cycle
+    expect(pcs.filter((pc) => pc === 0).length).toBe(12); // Sa
+  });
+
+  it("pulls the bass back in drone mode so it underpins rather than dominates", () => {
+    const maxVel = (p: ReturnType<typeof part>) => Math.max(...p!.notes.map((n) => n.velocity));
+    const on = maxVel(part(arr({ seed: 3, drone: true }), "bass"));
+    const off = maxVel(part(arr({ seed: 3, drone: false }), "bass"));
+    expect(on).toBeLessThan(off); // the drone bass is scaled down
+  });
+});
+
 describe("arrange — golden & validation", () => {
   it("matches a committed structural golden", () => {
     const score = arr({ seed: 42, bars: 8, raga: SCALES.mohanam });

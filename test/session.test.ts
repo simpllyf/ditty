@@ -161,6 +161,65 @@ describe("createSession", () => {
     expect(shaken).toBe(0);
   });
 
+  it("raga mode: a raga over a tanpura Sa+Pa drone — kriti layout, no pad, no modulation", () => {
+    const midiOf = (freq: number) => Math.round(69 + 12 * Math.log2(freq / 440));
+    const pcOf = (freq: number) => (((midiOf(freq) - 60) % 12) + 12) % 12; // semitones over the tonic
+    const s = createSession({
+      seed: 7,
+      parent: SCALES.major,
+      raga: SCALES.mohanam,
+      rootMidi: 60,
+      ragaMode: true,
+      humanize: false,
+      evolve: false,
+    });
+
+    // A raga has a single Sa: laid out as a kriti, never a modulating song, with the
+    // tanpura voiced in the arp slot.
+    expect(s.formKind).toBe("kriti");
+    expect(s.instruments.arp.name).toBe("tanpura");
+    for (const sec of s.sections) expect(sec.keyShift).toBe(0);
+
+    let sawTanpura = false;
+    for (let i = 0; i < s.sections.length; i++) {
+      const score = s.nextScore();
+      expect(score.parts.some((p) => p.voice === "pad")).toBe(false); // the colour pad is dropped
+      // The tanpura (arp slot) and the bass hold the drone: every note is Sa (0) or Pa (7).
+      for (const voice of ["arp", "bass"] as const) {
+        const part = score.parts.find((p) => p.voice === voice);
+        if (!part || part.notes.length === 0) continue;
+        if (voice === "arp") sawTanpura = true;
+        for (const n of part.notes) expect([0, 7]).toContain(pcOf(n.freq));
+      }
+    }
+    expect(sawTanpura).toBe(true); // the tanpura really does sound across the piece
+  });
+
+  it("is the Western/fusion default when ragaMode is off — the harmony moves", () => {
+    const midiOf = (freq: number) => Math.round(69 + 12 * Math.log2(freq / 440));
+    const pcOf = (freq: number) => (((midiOf(freq) - 60) % 12) + 12) % 12;
+    const s = createSession({
+      seed: 7,
+      parent: SCALES.major,
+      raga: SCALES.mohanam,
+      rootMidi: 60,
+      humanize: false,
+      evolve: false,
+    });
+    // Somewhere the pad voices a chord tone that is neither Sa nor Pa — the harmony is a
+    // real progression, not a static drone.
+    let movingPc = false;
+    let sawArp = false;
+    for (let i = 0; i < s.sections.length; i++) {
+      const score = s.nextScore();
+      sawArp ||= score.parts.some((p) => p.voice === "arp");
+      const pad = score.parts.find((p) => p.voice === "pad");
+      if (pad?.notes.some((n) => ![0, 7].includes(pcOf(n.freq)))) movingPc = true;
+    }
+    expect(movingPc).toBe(true);
+    expect(sawArp).toBe(true); // …and the arp plays
+  });
+
   it("validates bpm, beatsPerBar, and bars eagerly", () => {
     expect(() => createSession({ bpm: 0 })).toThrow(RangeError);
     expect(() => createSession({ beatsPerBar: 0 })).toThrow(RangeError);

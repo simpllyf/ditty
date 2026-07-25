@@ -75,6 +75,7 @@ export interface FormOptions {
   readonly sevenths?: readonly number[]; // scale degrees voiced with their diatonic 7th
   readonly form?: FormKind; // pin the layout; otherwise the seed picks one
   readonly intro?: boolean; // open with a one-time introduction (default true)
+  readonly drone?: boolean; // raga mode: every section holds a Sa+Pa tonic drone (no progression); the pad drops out
 }
 
 /**
@@ -121,7 +122,12 @@ function buildIntro(o: FormOptions, home: SectionRecipe): SectionProfile {
     dynamics: 0.68,
     reverbScale: REVERB_DISTANT, // the opening sits back in a big, quiet space
     development: PLAIN_STATEMENT,
-    voices: { lead: false, arp: false, drums: false },
+    // Hold back the theme (and the drums) so its first statement lands. Raga mode opens on
+    // the tanpura+bass drone settling the key (the arp voices the tanpura, pad drops);
+    // otherwise it is the pad+bass bed with no colour arp yet.
+    voices: o.drone
+      ? { lead: false, pad: false, drums: false }
+      : { lead: false, arp: false, drums: false },
     fill: false,
   };
 }
@@ -358,6 +364,7 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
     borrow: o.borrow,
     secondaryDominants: o.secondaryDominants,
     ...(o.sevenths !== undefined ? { sevenths: o.sevenths } : {}),
+    ...(o.drone ? { drone: true } : {}),
   });
   if (kind === "kriti") return kritiSection(label, o, rootMidi, plan, bars);
   if (label === "B") {
@@ -450,8 +457,14 @@ export function buildForm(o: FormOptions): Form {
     const section = {
       ...recipe,
       // The part's own scoring, then the arc across the piece — so a section that
-      // recurs is not orchestrated identically every time it comes round.
-      voices: { ...recipe.voices, ...orchestration(i, parts.length, kind) },
+      // recurs is not orchestrated identically every time it comes round. Raga mode
+      // drops the pad: the tanpura (voiced in the arp slot) and the bass carry the
+      // Sa+Pa drone, and a sustained colour pad held forever only muddies it.
+      voices: {
+        ...recipe.voices,
+        ...orchestration(i, parts.length, kind),
+        ...(o.drone ? { pad: false } : {}),
+      },
       fill: parts[(i + 1) % parts.length] !== label, // fill into a part change (incl. the loop wrap)
     };
     // Build INTO the climax: the section right before it pulls back and swells, its arp/drums

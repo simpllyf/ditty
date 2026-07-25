@@ -114,6 +114,10 @@ export function createEngine(options: EngineOptions = {}): Engine {
         }
         return lastLoop;
       },
+      // A hidden tab throttles the timer, so the scheduler needs to reach further ahead
+      // there. Read lazily (never at import) and tolerate no `document` at all, so this
+      // stays SSR-safe and works in a worker.
+      isHidden: () => typeof document !== "undefined" && document.visibilityState === "hidden",
       ...(options.clock ? { clock: options.clock } : {}),
     });
     graph = { context, synth, scheduler, ownsContext: !options.audioContext };

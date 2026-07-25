@@ -12,6 +12,20 @@ function plan(seed: number, opts: Partial<HarmonyOptions> = {}) {
   return generateHarmony({ rng: makeRng(seed), ...opts });
 }
 
+describe("generateHarmony — raga drone mode", () => {
+  it("holds a tonic Sa+Pa pedal every bar — no progression, no cadence changes", () => {
+    for (const seed of [1, 7, 42]) {
+      const p = plan(seed, { bars: 8, beatsPerBar: 8, drone: true, borrow: true, generate: true });
+      expect(p.bars).toHaveLength(8);
+      for (const bar of p.bars) {
+        expect(bar.degree).toBe(0); // the tonic, always
+        expect([...bar.chord.pcs]).toEqual([0, 7]); // Sa + Pa, no third
+        expect(bar.second).toBeUndefined(); // never splits
+      }
+    }
+  });
+});
+
 describe("generateHarmony — shape & determinism", () => {
   it("produces the requested number of bars and defaults", () => {
     const p = plan(1);

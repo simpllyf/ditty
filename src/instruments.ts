@@ -365,6 +365,30 @@ export const INSTRUMENTS = {
     filter: { type: "lowpass", cutoff: 2200, q: 1.5, envAmount: 1800, envDecay: 0.1 },
     reverbSend: 0.3,
   },
+
+  // ── drone ──
+  tanpura: {
+    name: "tanpura",
+    // The raga drone, plucked string by string and left to ring long, so consecutive
+    // plucks overlap into one continuous shimmer. Harmonically RICH on purpose (a
+    // sawtooth pair with a hair of detune — the tanpura's jivari shimmer — plus an
+    // octave), so the drone's energy climbs into the mid instead of piling up on the
+    // fundamental the way a sine bass does; that is what keeps it present and stops it
+    // asking a small speaker to reproduce one loud low tone. No vibrato, no breath
+    // noise: the shimmer is the pitch, not a wobble on top of it.
+    voices: ["arp"],
+    layers: [
+      { kind: "sawtooth", gain: 0.5 },
+      { kind: "sawtooth", detuneCents: 5, gain: 0.35 },
+      { kind: "sine", ratio: 2, gain: 0.25 },
+    ],
+    amp: { attack: 0.008, decay: 2.0, sustain: 0.22, release: 1.5 },
+    // A bright bloom on the pluck that settles to a mellow ring — the jivari sparkle
+    // without a noise layer.
+    filter: { type: "lowpass", cutoff: 1600, q: 1, envAmount: 2400, envDecay: 0.7 },
+    gain: 0.6,
+    reverbSend: 0.3,
+  },
 } as const satisfies Record<string, Instrument>;
 
 export type InstrumentName = keyof typeof INSTRUMENTS;

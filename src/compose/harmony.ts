@@ -83,6 +83,13 @@ export interface HarmonyOptions {
    * loop still lands. Default: none (all triads).
    */
   sevenths?: readonly number[];
+  /**
+   * Raga mode: no chord progression at all. Every bar is the tonic drone — Sa and Pa
+   * (root + fifth, no third), the tanpura's pitches — so the melody floats over a fixed
+   * tonal centre the way Carnatic music does, its strong beats settling onto Sa/Pa rather
+   * than tracking changing chords. Overrides every progression/cadence/borrow option.
+   */
+  drone?: boolean;
 }
 
 const DEFAULT_BARS = 8;
@@ -135,6 +142,19 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
   }
   if (!Number.isInteger(rootMidi)) {
     throw new RangeError(`generateHarmony rootMidi must be an integer, got ${rootMidi}`);
+  }
+
+  // Raga mode: a tonic pedal. Every bar holds Sa+Pa (the tanpura's drone), no progression
+  // and no cadence — the melody is anchored to a fixed tonal centre, not led through changes.
+  if (options.drone) {
+    const droneChord: Chord = { root: 0, pcs: [0, 7] };
+    return {
+      scale,
+      rootMidi,
+      beatsPerBar,
+      bars: Array.from({ length: bars }, () => ({ degree: 0, chord: droneChord })),
+      cadences: { half: Math.floor(bars / 2) - 1, final: bars - 1 },
+    };
   }
 
   let degrees: number[];

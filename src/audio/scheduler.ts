@@ -38,6 +38,16 @@ export interface SchedulerOptions {
   provider: () => PreparedLoop;
   /** How far ahead to schedule, in seconds. Default 0.1. */
   lookAheadSeconds?: number;
+  /**
+   * How far ahead to schedule while {@link isHidden} reports the page is hidden.
+   * Default 1.5 — see {@link HIDDEN_LOOK_AHEAD_SECONDS}.
+   */
+  hiddenLookAheadSeconds?: number;
+  /**
+   * Is the page currently hidden? Injected (not read from `document`) so the scheduler
+   * stays testable and free of globals. Default: never hidden.
+   */
+  isHidden?: () => boolean;
   /** How often the timer wakes, in milliseconds. Default 25. */
   intervalMs?: number;
   /** The repeating timer. Default wraps the global `setInterval`. */
@@ -45,6 +55,15 @@ export interface SchedulerOptions {
 }
 
 const DEFAULT_LOOK_AHEAD_SECONDS = 0.1;
+/**
+ * Look-ahead while the page is hidden. A background tab keeps its audio clock running but
+ * throttles timers to ~1 s or worse, so a 0.1 s window schedules a sliver and everything in
+ * the rest of the gap arrives past {@link MAX_LATENESS_SECONDS} and is dropped — the music
+ * comes back full of holes. Nothing is dropped as long as the window covers the wake gap:
+ * `lookAhead >= throttlePeriod - MAX_LATENESS_SECONDS`, so this survives a ~1.75 s period.
+ * Only latency suffers, and latency is exactly what doesn't matter on a tab nobody is looking at.
+ */
+const HIDDEN_LOOK_AHEAD_SECONDS = 1.5;
 const DEFAULT_INTERVAL_MS = 25;
 /** Safety cap on iterations per tick: far above any real look-ahead/loop combination. */
 const MAX_STEPS_PER_TICK = 100_000;
@@ -76,6 +95,8 @@ export class Scheduler {
   private readonly provider: () => PreparedLoop;
   private readonly clock: SchedulerClock;
   private readonly lookAheadSeconds: number;
+  private readonly hiddenLookAheadSeconds: number;
+  private readonly isHidden: () => boolean;
   private readonly intervalMs: number;
 
   private running = false;
@@ -89,6 +110,8 @@ export class Scheduler {
     this.provider = options.provider;
     this.clock = options.clock ?? defaultClock();
     this.lookAheadSeconds = options.lookAheadSeconds ?? DEFAULT_LOOK_AHEAD_SECONDS;
+    this.hiddenLookAheadSeconds = options.hiddenLookAheadSeconds ?? HIDDEN_LOOK_AHEAD_SECONDS;
+    this.isHidden = options.isHidden ?? (() => false);
     this.intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   }
 
@@ -172,7 +195,10 @@ export class Scheduler {
       this.stop();
       return;
     }
-    const horizon = this.context.currentTime + this.lookAheadSeconds;
+    // Widen the window when nobody is looking: the timer is throttled there, and a window
+    // narrower than the wake gap loses every event in between.
+    const lookAhead = this.isHidden() ? this.hiddenLookAheadSeconds : this.lookAheadSeconds;
+    const horizon = this.context.currentTime + lookAhead;
     for (let guard = 0; guard < MAX_STEPS_PER_TICK; guard++) {
       const loop = this.loop;
       if (this.index < loop.events.length) {

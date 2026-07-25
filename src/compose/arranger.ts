@@ -142,6 +142,12 @@ export interface ArrangeOptions {
    * notes carry. Only for instruments that sustain. Default false.
    */
   shake?: boolean;
+  /**
+   * Raga mode: the harmony is a fixed Sa+Pa drone. The arp voice becomes a tanpura —
+   * plucking the Pa·Sa·Sa·low-Sa string cycle instead of arpeggiating — and the bass is
+   * pulled back so it underpins the drone rather than dominating the mix. Default false.
+   */
+  drone?: boolean;
 }
 
 const MIN_ROOT_MIDI = 36;
@@ -600,8 +606,37 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
   return notes;
 }
 
+/**
+ * The tanpura's plucked cycle, as semitone offsets from Sa: Pa · Sa · Sa · Sa. Pa is the
+ * fourth below the tonic; the strings stay in the tonic's own octave (mid-range) so their
+ * harmonics fill the mid — the low mandra Sa is left to the bass, and doubling it here only
+ * piles more energy onto the one low tone the mix is already heavy with.
+ */
+const TANPURA_CYCLE = [-5, 0, 0, 0] as const;
+
 function arrangeArp(ctx: PartContext): ScoreNote[] {
   const { plan, beatsPerBar, bars, rootMidi, raga, fit, swung, active, texture, arpRng } = ctx;
+
+  if (ctx.options.drone) {
+    // Raga mode: a tanpura, not an arpeggio. Pluck one string per beat through the
+    // Pa·Sa·Sa·low-Sa cycle; each rings ~two beats (the patch's long release carries the
+    // tail) so the plucks overlap into a continuous drone. Steady — no swing, no section
+    // gating: a drone that dropped out on a breakdown bar would stop being a drone.
+    const notes: ScoreNote[] = [];
+    for (let bar = 0; bar < bars; bar++) {
+      for (let b = 0; b < beatsPerBar; b++) {
+        const start = bar * beatsPerBar + b;
+        notes.push({
+          startBeat: start,
+          durationBeats: fit(start, 2),
+          freq: midiToFrequency(rootMidi + TANPURA_CYCLE[start % TANPURA_CYCLE.length]!),
+          velocity: 0.7, // forward enough to carry the drone in front of the bass
+        });
+      }
+    }
+    return notes;
+  }
+
   const arpRole = ctx.options.arpRole ?? "arp";
   // Both theme-following roles need a theme. With the lead switched off there is
   // nothing to double or harmonise, so the arp keeps its own figure rather than
@@ -827,6 +862,7 @@ export function arrange(options: ArrangeOptions): Score {
       ...(options.secondaryDominants !== undefined
         ? { secondaryDominants: options.secondaryDominants }
         : {}),
+      ...(options.drone ? { drone: true } : {}),
     });
 
   // Develop the theme for this section before it is stated — same tune, transformed.
@@ -927,6 +963,11 @@ export function arrange(options: ArrangeOptions): Score {
     1 + PHRASE_SWELL * (2 * Math.sin(Math.PI * phrasePosition(beat, beatsPerBar)) - 1);
   const pitched = (v: number, beat: number) => Math.min(1, v * level(beat) * swell(beat));
   const struck = (v: number, beat: number) => Math.min(1, v * level(beat));
+  // Raga mode: pull the bass back so the tanpura carries the drone. A sine sub-bass holding
+  // Sa otherwise piles ~90% of the mix onto one low tone — boomy, and enough to make a small
+  // speaker distort; a gentler bass lets the tanpura's mid-rich shimmer sit in front.
+  const DRONE_BASS = 0.4;
+  const voiceGain = (voice: ScoreVoice) => (options.drone && voice === "bass" ? DRONE_BASS : 1);
 
   return {
     bpm,
@@ -936,7 +977,10 @@ export function arrange(options: ArrangeOptions): Score {
     rootMidi,
     parts: parts.map((p) => ({
       voice: p.voice,
-      notes: p.notes.map((n) => ({ ...n, velocity: pitched(n.velocity, n.startBeat) })),
+      notes: p.notes.map((n) => ({
+        ...n,
+        velocity: pitched(n.velocity * voiceGain(p.voice), n.startBeat),
+      })),
     })),
     drums: drums.map((h) => ({ ...h, velocity: struck(h.velocity, h.startBeat) })),
     ...(options.reverbScale !== undefined ? { reverbScale: options.reverbScale } : {}),
