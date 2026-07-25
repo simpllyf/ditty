@@ -238,6 +238,33 @@ describe("createSession", () => {
     }
   });
 
+  it("never sounds a panchama under a raga that has none", () => {
+    // hindolam has no Pa. Sounding one in the drone — tanpura, pad or bass — puts a note
+    // against the melody that the raga itself excludes.
+    const midiOf = (f: number) => Math.round(69 + 12 * Math.log2(f / 440));
+    const s = createSession({
+      seed: 2,
+      parent: SCALES.naturalMinor,
+      raga: SCALES.hindolam,
+      rootMidi: 60,
+      ragaMode: true,
+      humanize: false,
+      evolve: false,
+    });
+    let sounded = 0;
+    for (let i = 0; i < s.sections.length; i++) {
+      const score = s.nextScore();
+      for (const part of score.parts) {
+        for (const n of part.notes) {
+          const pc = (((midiOf(n.freq) - score.rootMidi) % 12) + 12) % 12;
+          expect(pc).not.toBe(7); // no Pa, from any voice
+          sounded++;
+        }
+      }
+    }
+    expect(sounded).toBeGreaterThan(0); // the piece really did play
+  });
+
   it("plays the tala on a tuned hand drum, and leaves fusion on the backbeat kit", () => {
     const raga = createSession({ seed: 3, ragaMode: true });
     const fusion = createSession({ seed: 3 });

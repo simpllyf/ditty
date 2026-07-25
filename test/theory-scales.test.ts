@@ -5,6 +5,7 @@ import {
   SCALES,
   type Scale,
   degreePitchClass,
+  droneTones,
   degreeToFrequency,
   degreeToSemitone,
 } from "../src/theory/scales";
@@ -98,5 +99,29 @@ describe("degreeToFrequency", () => {
     const penta = SCALES.majorPentatonic;
     expect(degreeToFrequency(penta, 3, 60)).toBeCloseTo(semitoneToFrequency(7, 60), 10);
     expect(degreeToFrequency(penta, 2)).toBe(degreeToFrequency(penta, 2, 60));
+  });
+});
+
+describe("droneTones", () => {
+  it("is Sa+Pa for a raga that has a panchama", () => {
+    for (const raga of [SCALES.mohanam, SCALES.kalyani, SCALES.madhyamavati, SCALES.revati]) {
+      expect(droneTones(raga)).toEqual([0, 7]);
+    }
+  });
+
+  it("drops to Sa alone for a panchama-varjya raga", () => {
+    // hindolam, abhogi and sriranjani have no fifth; a tanpura sounding one would
+    // contradict the very melody sitting over it.
+    for (const raga of [SCALES.hindolam, SCALES.abhogi, SCALES.sriranjani]) {
+      expect(raga.some((s) => s % 12 === 7)).toBe(false); // …they really do lack Pa
+      expect(droneTones(raga)).toEqual([0]);
+    }
+  });
+
+  it("never sounds a pitch class the raga leaves out", () => {
+    for (const raga of Object.values(SCALES)) {
+      const pcs = new Set(raga.map((s) => ((s % 12) + 12) % 12));
+      for (const tone of droneTones(raga)) expect(pcs.has(tone)).toBe(true);
+    }
   });
 });

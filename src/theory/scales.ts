@@ -120,3 +120,19 @@ export function degreeToFrequency(
 export function degreePitchClass(scale: Scale, degree: number): number {
   return pitchClass(degreeToSemitone(scale, degree));
 }
+
+/** The panchama — the fifth, the tanpura's second pitch and the raga's other fixed note. */
+const PANCHAMA = 7;
+
+/**
+ * The drone a raga is sung against, as pitch classes from Sa. Sa+Pa, except for a
+ * **panchama-varjya** raga (one with no fifth — hindolam, abhogi, sriranjani): there the
+ * tanpura's Pa string is retuned to Sa, because a drone sounding a note the raga itself
+ * omits contradicts the melody sitting over it.
+ *
+ * The single place this is decided — the harmony and the tanpura both read it, and a drone
+ * whose two voices disagreed would beat against itself.
+ */
+export function droneTones(raga: Scale): readonly number[] {
+  return raga.some((s) => pitchClass(s) === PANCHAMA) ? [0, PANCHAMA] : [0];
+}
