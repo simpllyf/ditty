@@ -111,6 +111,36 @@ describe("Scheduler", () => {
     expect(played.every((p) => p.time <= 10)).toBe(true);
   });
 
+  it("a hidden page schedules far enough ahead to survive a throttled timer", () => {
+    // A background tab keeps the audio clock running but wakes the timer ~once a second.
+    // With only the visible look-ahead, everything between wakes lands past the lateness
+    // cap and is dropped — the music comes back full of holes.
+    const run = (hidden: boolean) => {
+      const ctx = new FakeAudioContext();
+      const played: number[] = [];
+      const clock = new ManualClock();
+      const provider = (): PreparedLoop => ({
+        // A steady stream: one event every 0.25 s over a 8 s loop.
+        events: Array.from({ length: 32 }, (_, i) => ({
+          beat: i * 0.5,
+          play: (t: number) => played.push(t),
+        })),
+        loopBeats: 16,
+        secondsPerBeat: 0.5,
+      });
+      const sch = new Scheduler({ context: ctx, provider, clock, isHidden: () => hidden });
+      sch.start();
+      for (let i = 0; i < 12; i++) {
+        ctx.advance(1); // the throttled wake period
+        clock.tick();
+      }
+      return played.length;
+    };
+    const expected = 12 / 0.25; // 12 s of music at one event per 0.25 s
+    expect(run(true)).toBeGreaterThanOrEqual(expected * 0.95); // hidden: essentially everything
+    expect(run(false)).toBeLessThan(expected * 0.6); // visible window would have dropped most
+  });
+
   it("the default clock drives ticks via setInterval and stops cleanly", () => {
     vi.useFakeTimers();
     try {
