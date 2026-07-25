@@ -6,6 +6,7 @@ import {
   applySwing,
   fitGroove,
   TALAS,
+  angaStarts,
   melodyRhythm,
   metricStrength,
 } from "../src/theory/rhythm";
@@ -208,5 +209,55 @@ describe("talas", () => {
     for (const name of TALAS) {
       expect(DRUM_GROOVES[name].beatsPerBar).toBeGreaterThan(4);
     }
+  });
+});
+
+describe("anga accents", () => {
+  it("a tala's accents are its anga boundaries, not the even-meter midpoint", () => {
+    expect(angaStarts("adi")).toEqual([0, 4, 6]); // 4+2+2
+    expect(angaStarts("rupaka")).toEqual([0, 2]); // 2+4 — NOT the midpoint (3)
+    expect(angaStarts("misraChapu")).toEqual([0, 3, 5]); // 3+2+2 — a 7-beat cycle has no midpoint
+    for (const t of TALAS) {
+      // Every accent lies inside the cycle, and the sam leads.
+      expect(angaStarts(t)[0]).toBe(0);
+      for (const a of angaStarts(t)) expect(a).toBeLessThan(DRUM_GROOVES[t].beatsPerBar);
+    }
+  });
+
+  it("the drums and the melody lean on the SAME beats", () => {
+    // The kit marks the cycle and the line lands on it; if these drifted apart the
+    // melody would resolve where nothing is struck.
+    for (const t of TALAS) {
+      const struck = [...DRUM_GROOVES[t].kick, ...DRUM_GROOVES[t].snare].sort((a, b) => a - b);
+      expect(struck).toEqual(angaStarts(t));
+    }
+  });
+
+  it("metricStrength honours explicit accents, and is unchanged without them", () => {
+    // Misra Chapu: 3 and 5 are stresses; 2 and 4 are not.
+    const chapu = angaStarts("misraChapu");
+    expect(metricStrength(0, 7, chapu)).toBe(1);
+    expect(metricStrength(3, 7, chapu)).toBe(0.8);
+    expect(metricStrength(5, 7, chapu)).toBe(0.8);
+    expect(metricStrength(4, 7, chapu)).toBe(0.5);
+    // Without accents a 7-beat cycle has NO strong beat but the downbeat — the gap this closes.
+    expect(metricStrength(3, 7)).toBe(0.5);
+    expect(metricStrength(5, 7)).toBe(0.5);
+    // The even-meter default is untouched.
+    expect(metricStrength(2, 4)).toBe(0.8);
+    expect(metricStrength(1.5, 4)).toBe(0.3);
+  });
+
+  it("melodyRhythm marks strong onsets on the anga starts", () => {
+    const accents = angaStarts("misraChapu");
+    const strongStarts = new Set<number>();
+    for (let seed = 0; seed < 30; seed++) {
+      for (const o of melodyRhythm(makeRng(seed), 7, { density: 0.9, accents })) {
+        if (o.strong) strongStarts.add(o.startBeat);
+      }
+    }
+    for (const b of strongStarts) expect(accents).toContain(b); // nothing else is ever "strong"
+    // The inner angas really do get landed on — the even-meter default stresses none of them.
+    expect([...strongStarts].some((b) => b !== 0)).toBe(true);
   });
 });

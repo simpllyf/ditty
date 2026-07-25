@@ -470,3 +470,48 @@ describe("generateMelody — arohana / avarohana", () => {
     expect(symmetric).toEqual(plain);
   });
 });
+
+describe("generateMelody — tala accents", () => {
+  const dronePlan = (beatsPerBar: number) =>
+    generateHarmony({ rng: makeRng(1), bars: 8, beatsPerBar, drone: true });
+
+  it("marks the anga starts strong — and without accents a 7-beat cycle has only the sam", () => {
+    const accents = [0, 3, 5]; // misra chapu, 3+2+2
+    const opts = (a?: readonly number[]) => ({
+      rng: makeRng(9),
+      plan: dronePlan(7),
+      scale: SCALES.mohanam,
+      density: 0.9,
+      ...(a ? { accents: a } : {}),
+    });
+    const withAccents = generateMelody(opts(accents));
+    const without = generateMelody(opts());
+
+    const strongBeats = (notes: MelodyNote[]) =>
+      new Set(notes.filter((n) => n.strong).map((n) => n.startBeat % 7));
+    // With the cycle's accents the line leans on 3 and 5 as well as the sam…
+    const leaned = strongBeats(withAccents);
+    expect(leaned.has(0)).toBe(true);
+    expect([...leaned].some((b) => b === 3 || b === 5)).toBe(true);
+    for (const b of leaned) expect([0, 3, 5]).toContain(b); // and nowhere else
+    // …where the even-meter default can only ever stress the downbeat.
+    expect([...strongBeats(without)]).toEqual([0]);
+  });
+
+  it("resolves onto the drone's Sa/Pa where the cycle leans", () => {
+    const notes = generateMelody({
+      rng: makeRng(4),
+      plan: dronePlan(7),
+      scale: SCALES.mohanam,
+      density: 0.9,
+      accents: [0, 3, 5],
+    });
+    const strong = notes.filter((n) => n.strong);
+    expect(strong.length).toBeGreaterThan(0);
+    // A strong beat takes a chord tone, and in raga mode the chord IS the Sa+Pa drone.
+    const droneTones = strong.filter((n) =>
+      [0, 7].includes(degreePitchClass(SCALES.mohanam, n.degree)),
+    );
+    expect(droneTones.length / strong.length).toBeGreaterThan(0.9);
+  });
+});

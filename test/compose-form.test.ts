@@ -386,6 +386,31 @@ describe("buildForm", () => {
     }
   });
 
+  it("states the theme with the tala's lean, not against it", () => {
+    // The motif is stated at the head of every section, so if it were drawn on even-meter
+    // accents the theme would pull against the cycle every time it came round.
+    const strongBeats = new Set<number>();
+    for (let s = 1; s < 25; s++) {
+      const tala = buildForm({
+        rng: makeRng(s),
+        ...base,
+        groove: "misraChapu",
+        beatsPerBar: 7,
+        density: 0.9,
+      });
+      for (const n of tala.motif) if (n.strong) strongBeats.add(n.startBeat % 7);
+    }
+    for (const b of strongBeats) expect([0, 3, 5]).toContain(b); // only the anga starts
+    // …and an INNER anga really is landed on. Without the tala's accents a 7-beat cycle
+    // stresses nothing but the sam, so this is what the even-meter default cannot do.
+    expect([...strongBeats].some((b) => b === 3 || b === 5)).toBe(true);
+    // A Western groove keeps the even-meter accents (the midpoint), untouched by this.
+    const western = buildForm({ rng: makeRng(1), ...base, groove: "straight", beatsPerBar: 4 });
+    for (const b of western.motif.filter((n) => n.strong).map((n) => n.startBeat % 4)) {
+      expect([0, 2]).toContain(b);
+    }
+  });
+
   it("keeps section density strictly within (0,1) even at extreme base density", () => {
     for (const density of [0, 1]) {
       const form = buildForm({ rng: makeRng(3), ...base, density });

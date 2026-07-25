@@ -223,7 +223,8 @@ export function createSession(options: SessionOptions): Session {
     arp: pickInstrument(instrumentRng, chosen.instruments.arp),
   };
   if (ragaMode) instruments.arp = INSTRUMENTS.tanpura;
-  const kitName = options.kit ?? "default";
+  // A tala is played on a hand drum tuned to the tonic, not a backbeat kit.
+  const kitName = options.kit ?? (ragaMode ? "mridangam" : "default");
   if (!(kitName in DRUM_KITS)) {
     throw new RangeError(`createSession: unknown drum kit "${kitName}"`);
   }

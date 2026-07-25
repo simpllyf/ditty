@@ -11,7 +11,14 @@
 import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
 import { DEFAULT_ROOT_MIDI, OCTAVE, midiToFrequency, pitchClass } from "../theory/pitch";
-import { DRUM_GROOVES, type DrumGrooveName, applySwing, fitGroove } from "../theory/rhythm";
+import {
+  DRUM_GROOVES,
+  type DrumGrooveName,
+  angaStarts,
+  applySwing,
+  fitGroove,
+  isTala,
+} from "../theory/rhythm";
 import {
   SCALES,
   type RagaPaths,
@@ -880,6 +887,10 @@ export function arrange(options: ArrangeOptions): Score {
 
   // Draw the lead line up front: the lead part renders it and the arp may double or
   // harmonise it, so it can't live inside a single part's arranger.
+  // A tala's stresses are its anga boundaries, not an even meter's midpoint — read them
+  // off the cycle so the line lands where the tala leans.
+  const accents = isTala(groove) ? angaStarts(groove) : undefined;
+
   const leadMelody: readonly MelodyNote[] = enabled("lead")
     ? generateMelody({
         rng: leadRng,
@@ -887,6 +898,7 @@ export function arrange(options: ArrangeOptions): Score {
         scale: raga,
         range: leadRange,
         density,
+        ...(accents !== undefined ? { accents } : {}),
         ...(options.paths !== undefined ? { paths: options.paths } : {}),
         ...(options.contour !== undefined ? { contour: options.contour } : {}),
         ...(theme ? { motif: theme.notes, motifBars: theme.bars } : {}),
