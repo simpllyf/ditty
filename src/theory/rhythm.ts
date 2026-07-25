@@ -188,6 +188,14 @@ export const DRUM_GROOVES = {
  */
 export const TALAS = ["adi", "rupaka", "misraChapu"] as const satisfies readonly DrumGrooveName[];
 
+/**
+ * How often each tala is drawn. The repertoire is not uniform: Adi carries the great majority
+ * of the standard teaching corpus, Rupaka most of the rest, and Misra Chapu is comparatively
+ * rare — picking evenly makes a third of pieces limp in seven, which no listener would take as
+ * typical. Weights, not a fixed order, so every tala still appears.
+ */
+export const TALA_WEIGHTS: readonly number[] = [6, 3, 1]; // adi · rupaka · misraChapu
+
 /** A tala's angas — the counted groups its cycle divides into. Their sum is the meter. */
 export const TALA_ANGAS = {
   adi: [4, 2, 2], // laghu + drutam + drutam

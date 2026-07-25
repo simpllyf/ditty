@@ -151,6 +151,12 @@ export interface ArrangeOptions {
    */
   shake?: boolean;
   /**
+   * The swaras this raga oscillates, as pitch classes from Sa. Omit when unsourced — every
+   * moving swara is then fair game, which is right for Kalyani and too broad for most ragas.
+   * An empty list means the raga oscillates nothing.
+   */
+  kampita?: readonly number[];
+  /**
    * Raga mode: the harmony is a fixed tonic drone. The arp voice becomes a tanpura —
    * plucking its string cycle instead of arpeggiating, tuned to the raga — and the bass is
    * pulled back so it underpins the drone rather than dominating the mix. Default false.
@@ -314,6 +320,13 @@ const SHAKE_EASE = 0.22;
  */
 export const SLIDE_MIN_SEMITONES = 4;
 /**
+ * …and it must also skip at least one swara. Ragas step unevenly — hamsadhwani's Pa→Ni and
+ * abhogi's Ma→Da are four semitones yet are ADJACENT notes — so the semitone bar alone would
+ * glide between neighbours. Sliding is for a gap the line jumps over, and the datu (leap)
+ * exercises exist to train those jumps crisply.
+ */
+export const SLIDE_MIN_DEGREES = 2;
+/**
  * A slide APPROACHES an arrival — a meend leans into a note that lands and is dwelt on,
  * not into every passing tone. A note counts as an arrival when it falls on a strong
  * beat or is held at least this long; sliding into a short note on a weak beat is a
@@ -348,6 +361,11 @@ function arrangeLead(ctx: PartContext): ScoreNote[] {
       if (!prev || prev.startBeat + prev.durationBeats < n.startBeat - 1e-9) return note;
 
       const leap = semitoneOf(n.degree) - semitoneOf(prev.degree);
+      // A leap is measured in the RAGA's steps, not in semitones. Adjacent swaras sit up to
+      // four semitones apart in the ragas we ship (hamsadhwani's Pa–Ni, abhogi's Ma–Da), so a
+      // semitone threshold calls an ordinary step a leap and glides between neighbours. The
+      // line must skip a swara before it is worth connecting.
+      if (Math.abs(n.degree - prev.degree) < SLIDE_MIN_DEGREES) return note;
       if (Math.abs(leap) < SLIDE_MIN_SEMITONES) return note;
 
       // Slide only into an arrival — a note the line lands on, not a passing one. On a
@@ -375,12 +393,18 @@ function arrangeLead(ctx: PartContext): ScoreNote[] {
       // class from the tonic: 0 is Sa, 7 is Pa.
       const pc = ((semitoneOf(degree) % OCTAVE) + OCTAVE) % OCTAVE;
       if (pc === 0 || pc === 7) return note;
+      // Which swaras oscillate is the RAGA's own business, not a consequence of its
+      // intervals: a swara deliberately left plain is often the one that identifies the
+      // raga. Absent a source we oscillate every moving swara, which is right for Kalyani
+      // and too broad for most.
+      if (ctx.options.kampita && !ctx.options.kampita.includes(pc)) return note;
 
-      // The DEPTH is the raga's own: the distance to the next swara above. That is what
-      // makes this an oscillation between two notes of the raga rather than a vibrato of
-      // some chosen width — a pentatonic shakes wider than a heptatonic because its
-      // neighbours sit further apart, which is exactly right.
-      const toNeighbour = semitoneOf(degree + 1) - semitoneOf(degree);
+      // The oscillation reaches toward the neighbouring SVARASTHANA — the next semitone
+      // position — not the next note of the raga. In a raga with a wide gap those are very
+      // different: swinging most of the way to a note three semitones off sweeps through
+      // pitches the raga deliberately omits, and an ornament that suggests an omitted note
+      // blurs the raga into its neighbour.
+      const toNeighbour = Math.min(1, semitoneOf(degree + 1) - semitoneOf(degree));
       const cents = Math.min(SHAKE_MAX_CENTS, toNeighbour * 100 * SHAKE_REACH);
       if (cents < 40) return note; // too narrow to hear as movement
 

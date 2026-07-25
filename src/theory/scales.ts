@@ -125,6 +125,34 @@ export function degreePitchClass(scale: Scale, degree: number): number {
   return pitchClass(degreeToSemitone(scale, degree));
 }
 
+/**
+ * Which swaras a raga oscillates (kampita), as pitch classes from Sa.
+ *
+ * This is per-raga knowledge, not a rule that falls out of the intervals: two ragas can share
+ * a note and ornament it differently, and a swara left deliberately plain is often the one that
+ * identifies the raga. Sa and Pa are excluded everywhere — they are the fixed reference the
+ * oscillation moves against — so they never appear here.
+ *
+ * A raga ABSENT from this table is not "ornament nothing": it means we have no source for it,
+ * and it falls back to oscillating every held non-Sa/Pa swara. Only add an entry backed by a
+ * source, and prefer omitting one to guessing.
+ */
+export const RAGA_KAMPITA = {
+  mohanam: [2, 4, 9], // Ri, Ga, Da
+  abhogi: [3, 9], // Ga, Da — Ri and Ma stay plain
+  hindolam: [3, 8, 10], // Ga, Da, Ni — Ma stays plain
+  sriranjani: [3, 10], // Ga, Ni only
+  kalyani: [2, 4, 6, 9, 11], // every moving swara — the one raga where that is right
+} as const satisfies Partial<Record<ScaleName, readonly number[]>>;
+
+/**
+ * The swaras this raga oscillates, or null when we have no source and every moving swara is
+ * fair game. Null is deliberately distinct from an empty list.
+ */
+export function kampitaSwaras(raga: ScaleName): readonly number[] | null {
+  return (RAGA_KAMPITA as Partial<Record<ScaleName, readonly number[]>>)[raga] ?? null;
+}
+
 /** The panchama — the fifth, the tanpura's second pitch and the raga's other fixed note. */
 const PANCHAMA = 7;
 

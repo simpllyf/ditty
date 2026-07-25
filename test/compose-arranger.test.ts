@@ -846,7 +846,7 @@ describe("arrange — golden & validation", () => {
     expect(weakShort).toBe(0); // …and not one landed on a weak-beat passing tone
   });
 
-  it("shakes held notes only, as wide as the raga's own step to the next swara", () => {
+  it("shakes held notes only, never wider than the neighbouring svarasthana", () => {
     const notesFor = (raga: Scale, o: Record<string, unknown> = {}) =>
       part(
         arrange({
@@ -877,11 +877,21 @@ describe("arrange — golden & validation", () => {
       expect(n.shakeDelaySeconds!).toBeGreaterThan(0); // eases in, lands clean
     }
 
-    // The width is the RAGA's: mohanam's swaras sit a tone or a minor third apart, a
-    // major scale's often a semitone, so the same rule shakes them differently.
-    const widest = (raga: Scale) => Math.max(...notesFor(raga).map((n) => n.shakeCents ?? 0));
-    expect(widest(SCALES.mohanam)).toBeGreaterThan(widest(SCALES.major) - 1e-9);
-    expect(notesFor(SCALES.major).some((n) => (n.shakeCents ?? 0) < 100)).toBe(true); // a semitone neighbour gives a narrow shake
+    // The oscillation reaches toward the neighbouring SVARASTHANA, never further — swinging
+    // most of the way to a note three semitones off would sweep through pitches the raga
+    // deliberately omits, and an ornament that suggests an omitted note blurs the raga.
+    const widest = (raga: Scale, parent: Scale = SCALES.major) =>
+      Math.max(...notesFor(raga, { parent }).map((n) => n.shakeCents ?? 0));
+    for (const [raga, parent] of [
+      [SCALES.mohanam, SCALES.major],
+      [SCALES.hindolam, SCALES.naturalMinor],
+      [SCALES.kalyani, SCALES.lydian],
+      [SCALES.major, SCALES.major],
+    ] as const) {
+      expect(widest(raga, parent)).toBeLessThan(100); // under a semitone, whatever the gaps
+    }
+    // …so a wide-gapped pentatonic no longer shakes wider than a stepwise heptatonic.
+    expect(widest(SCALES.mohanam)).toBeCloseTo(widest(SCALES.major), 6);
 
     // Sa and Pa are the achala swaras — the fixed tonic and its fifth. They anchor the
     // drone and are what the shake moves against, so they never carry it themselves.
@@ -904,5 +914,58 @@ describe("arrange — golden & validation", () => {
     expect(() => arrange({ rng, parent: SCALES.major, raga: SCALES.hindolam })).toThrow(RangeError);
     // a valid subset pairing is accepted.
     expect(() => arrange({ rng, parent: SCALES.major, raga: SCALES.mohanam })).not.toThrow();
+  });
+});
+
+describe("arrange — per-raga kampita and leap measurement", () => {
+  const freqPc = (f: number) => freqToPc(f, DEFAULT_ROOT);
+  const shaken = (o: Record<string, unknown>) =>
+    new Set(
+      (
+        part(arr({ seed: 5, bpm: 60, shake: true, rootMidi: DEFAULT_ROOT, ...o }), "lead")?.notes ??
+        []
+      )
+        .filter((n) => n.shakeCents !== undefined)
+        .map((n) => freqPc(n.freq)),
+    );
+
+  it("oscillates only the swaras the raga names, and everything moving when it names none", () => {
+    // Abhogi [0,2,3,5,9] oscillates Ga(3) and Da(9); Ri(2) and Ma(5) stay plain — a swara
+    // left plain is often what identifies the raga.
+    const named = shaken({ parent: SCALES.dorian, raga: SCALES.abhogi, kampita: [3, 9] });
+    expect(named.size).toBeGreaterThan(0);
+    for (const pc of named) expect([3, 9]).toContain(pc);
+
+    // With no list we fall back to every moving swara, so Ri/Ma become eligible again.
+    const unsourced = shaken({ parent: SCALES.dorian, raga: SCALES.abhogi });
+    expect([...unsourced].some((pc) => pc === 2 || pc === 5)).toBe(true);
+  });
+
+  it("an empty list means the raga oscillates nothing — distinct from an absent one", () => {
+    expect(shaken({ parent: SCALES.dorian, raga: SCALES.abhogi, kampita: [] }).size).toBe(0);
+  });
+
+  it("never slides between ADJACENT swaras, however many semitones apart they sit", () => {
+    // Abhogi [0,2,3,5,9] is the discriminating case: Ma->Da is FOUR semitones yet the two are
+    // neighbours, and no degree-skip in abhogi spans exactly four. So a 400-cent slide there
+    // can only be a glide between adjacent swaras — precisely what a semitone threshold got
+    // wrong. (In mohanam or hamsadhwani four semitones is ambiguous, so they prove nothing.)
+    let slid = 0;
+    for (let seed = 0; seed < 25; seed++) {
+      const score = arr({
+        seed,
+        bpm: 60,
+        slide: true,
+        parent: SCALES.dorian,
+        raga: SCALES.abhogi,
+        rootMidi: DEFAULT_ROOT,
+      });
+      for (const n of part(score, "lead")?.notes ?? []) {
+        if (n.slideFromCents === undefined) continue;
+        slid++;
+        expect(Math.abs(n.slideFromCents)).not.toBe(400);
+      }
+    }
+    expect(slid).toBeGreaterThan(0); // the corpus really does slide somewhere
   });
 });
