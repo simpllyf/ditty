@@ -36,11 +36,15 @@ export const SCALES = {
   blues: [0, 3, 5, 6, 7, 10],
   wholeTone: [0, 2, 4, 6, 8, 10],
   // --- bright Carnatic ragas (some alias a Western mode) ---
+  // A raga's identity is not in its note set: as sets, kalyani IS lydian and bilahari IS
+  // major. What tells them apart is how the line MOVES — the arohana/avarohana it climbs and
+  // descends by, where it rests, and which swaras carry gamaka. So a raga earns a name here
+  // only when something downstream makes it move differently: a style pairing that marks it
+  // `carnatic` (and so oscillates it), or its own `paths`. A name that merely re-labels a
+  // Western mode promises a raga and delivers the mode.
   mohanam: [0, 2, 4, 7, 9], // = major pentatonic
   hamsadhwani: [0, 2, 4, 7, 11],
-  shankarabharanam: [0, 2, 4, 5, 7, 9, 11], // = major
   kalyani: [0, 2, 4, 6, 7, 9, 11], // = lydian
-  kharaharapriya: [0, 2, 3, 5, 7, 9, 10], // = dorian
   hindolam: [0, 3, 5, 8, 10],
   shuddhaSaveri: [0, 2, 5, 7, 9],
   madhyamavati: [0, 2, 5, 7, 10],

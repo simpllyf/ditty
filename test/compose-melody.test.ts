@@ -343,10 +343,10 @@ describe("generateMelody — how far it steps", () => {
     // these down: degree-weighting yields 4.08 and 3.06, so these bounds fail if the
     // unit ever goes back.
     expect(meanLeap(SCALES.mohanam)).toBeLessThan(3.95);
-    expect(meanLeap(SCALES.shankarabharanam)).toBeLessThan(2.95);
+    expect(meanLeap(SCALES.major)).toBeLessThan(2.95);
     // A pentatonic still steps further, and always will — its smallest interval is a
     // whole tone where a heptatonic has semitones. That gap is the raga, not a defect.
-    expect(meanLeap(SCALES.mohanam)).toBeGreaterThan(meanLeap(SCALES.shankarabharanam));
+    expect(meanLeap(SCALES.mohanam)).toBeGreaterThan(meanLeap(SCALES.major));
   });
 
   it("still covers ground — smaller steps must not flatten the line", () => {

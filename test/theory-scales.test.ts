@@ -10,6 +10,7 @@ import {
   degreeToSemitone,
 } from "../src/theory/scales";
 import { semitoneToFrequency } from "../src/theory/pitch";
+import { STYLES } from "../src/styles";
 
 describe("SCALES library", () => {
   it("is broad (20+ scales)", () => {
@@ -33,8 +34,43 @@ describe("SCALES library", () => {
   it("keeps the documented raga↔mode aliases equal (so they can't drift)", () => {
     expect(SCALES.mohanam).toEqual(SCALES.majorPentatonic);
     expect(SCALES.kalyani).toEqual(SCALES.lydian);
-    expect(SCALES.shankarabharanam).toEqual(SCALES.major);
-    expect(SCALES.kharaharapriya).toEqual(SCALES.dorian);
+  });
+
+  it("carries no raga that is only a Western mode under another name", () => {
+    // A raga earns its entry by MOVING differently — a style pairing that marks it
+    // `carnatic`, or its own paths. One that merely re-labels a mode, and that nothing
+    // pairs or gives paths to, promises a raga and delivers the mode.
+    const RAGAS = Object.keys(RAGA_PATHS);
+    // Identity, not equality: bilahari and arabhi hold the same NOTES as major, so matching
+    // on contents would let any alias in on their coat-tails. A style names one particular
+    // entry, and that entry is the one that earns its keep.
+    const paired = new Set<readonly number[]>(
+      Object.values(STYLES).flatMap((s) => s.keys.map((k) => k.raga)),
+    );
+    const MODES: (keyof typeof SCALES)[] = [
+      "major",
+      "naturalMinor",
+      "harmonicMinor",
+      "melodicMinor",
+      "dorian",
+      "phrygian",
+      "lydian",
+      "mixolydian",
+      "locrian",
+      "majorPentatonic",
+      "minorPentatonic",
+      "blues",
+      "wholeTone",
+    ];
+    const modeSets = new Set(MODES.map((m) => JSON.stringify(SCALES[m])));
+    for (const [name, scale] of Object.entries(SCALES)) {
+      if (MODES.includes(name as keyof typeof SCALES)) continue;
+      if (!modeSets.has(JSON.stringify(scale))) continue; // a genuinely distinct set
+      const earnsIt = paired.has(scale) || RAGAS.includes(name);
+      expect(earnsIt, `${name} duplicates a Western mode but nothing makes it move as a raga`).toBe(
+        true,
+      );
+    }
   });
 });
 
