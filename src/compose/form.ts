@@ -13,7 +13,7 @@
 import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
 import { DRUM_GROOVES, type DrumGrooveName, angaStarts, isTala } from "../theory/rhythm";
-import type { RagaPaths, Scale } from "../theory/scales";
+import { type RagaPaths, type Scale, droneTones } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
 import { type MelodyNote, generateMelody } from "./melody";
@@ -364,7 +364,8 @@ function buildSection(label: string, o: FormOptions, kind: FormKind): SectionRec
     borrow: o.borrow,
     secondaryDominants: o.secondaryDominants,
     ...(o.sevenths !== undefined ? { sevenths: o.sevenths } : {}),
-    ...(o.drone ? { drone: true } : {}),
+    // The drone follows the raga: a raga with no panchama is sung against Sa alone.
+    ...(o.drone ? { drone: true, dronePcs: droneTones(o.raga) } : {}),
   });
   if (kind === "kriti") return kritiSection(label, o, rootMidi, plan, bars);
   if (label === "B") {

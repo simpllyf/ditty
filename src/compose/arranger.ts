@@ -24,6 +24,7 @@ import {
   type RagaPaths,
   type Scale,
   degreeToFrequency,
+  droneTones,
   degreeToSemitone,
 } from "../theory/scales";
 import type { DrumName, ScoreVoice } from "../voices";
@@ -150,8 +151,8 @@ export interface ArrangeOptions {
    */
   shake?: boolean;
   /**
-   * Raga mode: the harmony is a fixed Sa+Pa drone. The arp voice becomes a tanpura —
-   * plucking the Pa·Sa·Sa·low-Sa string cycle instead of arpeggiating — and the bass is
+   * Raga mode: the harmony is a fixed tonic drone. The arp voice becomes a tanpura —
+   * plucking its string cycle instead of arpeggiating, tuned to the raga — and the bass is
    * pulled back so it underpins the drone rather than dominating the mix. Default false.
    */
   drone?: boolean;
@@ -620,6 +621,11 @@ function arrangePad(ctx: PartContext): ScoreNote[] {
  * piles more energy onto the one low tone the mix is already heavy with.
  */
 const TANPURA_CYCLE = [-5, 0, 0, 0] as const;
+/**
+ * Retuned for a raga with no panchama: the Pa string comes up to the octave Sa, so the
+ * cycle still opens on a different pitch instead of four identical plucks.
+ */
+const TANPURA_CYCLE_NO_PA = [12, 0, 0, 0] as const;
 
 function arrangeArp(ctx: PartContext): ScoreNote[] {
   const { plan, beatsPerBar, bars, rootMidi, raga, fit, swung, active, texture, arpRng } = ctx;
@@ -629,6 +635,9 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
     // Pa·Sa·Sa·low-Sa cycle; each rings ~two beats (the patch's long release carries the
     // tail) so the plucks overlap into a continuous drone. Steady — no swing, no section
     // gating: a drone that dropped out on a breakdown bar would stop being a drone.
+    // The tanpura is tuned to the raga, not to a fixed shape: a panchama-varjya raga has
+    // its Pa string retuned, so the drone never sounds a note the raga leaves out.
+    const cycle = droneTones(raga).includes(7) ? TANPURA_CYCLE : TANPURA_CYCLE_NO_PA;
     const notes: ScoreNote[] = [];
     for (let bar = 0; bar < bars; bar++) {
       for (let b = 0; b < beatsPerBar; b++) {
@@ -636,7 +645,7 @@ function arrangeArp(ctx: PartContext): ScoreNote[] {
         notes.push({
           startBeat: start,
           durationBeats: fit(start, 2),
-          freq: midiToFrequency(rootMidi + TANPURA_CYCLE[start % TANPURA_CYCLE.length]!),
+          freq: midiToFrequency(rootMidi + cycle[start % cycle.length]!),
           velocity: 0.7, // forward enough to carry the drone in front of the bass
         });
       }

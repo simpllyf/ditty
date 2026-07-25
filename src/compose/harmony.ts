@@ -90,6 +90,13 @@ export interface HarmonyOptions {
    * than tracking changing chords. Overrides every progression/cadence/borrow option.
    */
   drone?: boolean;
+  /**
+   * The drone's pitch classes. Default Sa+Pa. A raga without a panchama (`hindolam`,
+   * `abhogi`, `sriranjani`) is played against a tanpura whose Pa string is retuned to Sa —
+   * sounding a Pa the raga itself excludes is the drone contradicting the melody — so
+   * those pass `[0]`. Only read when {@link drone} is set.
+   */
+  dronePcs?: readonly number[];
 }
 
 const DEFAULT_BARS = 8;
@@ -147,7 +154,7 @@ export function generateHarmony(options: HarmonyOptions): HarmonicPlan {
   // Raga mode: a tonic pedal. Every bar holds Sa+Pa (the tanpura's drone), no progression
   // and no cadence — the melody is anchored to a fixed tonal centre, not led through changes.
   if (options.drone) {
-    const droneChord: Chord = { root: 0, pcs: [0, 7] };
+    const droneChord: Chord = { root: 0, pcs: options.dronePcs ?? [0, 7] };
     return {
       scale,
       rootMidi,

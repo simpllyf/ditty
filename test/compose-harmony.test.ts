@@ -26,6 +26,25 @@ describe("generateHarmony — raga drone mode", () => {
   });
 });
 
+describe("generateHarmony — drone pitch classes", () => {
+  it("holds Sa alone when the caller's raga has no panchama", () => {
+    // The plan must not assert a Pa the raga leaves out: any voice reading chord.pcs
+    // would sound it. (Today the melody is raga-filtered and the pad is dropped, so this
+    // is the plan staying truthful rather than an audible change on its own.)
+    const p = plan(3, { bars: 8, drone: true, dronePcs: [0] });
+    for (const bar of p.bars) {
+      expect([...bar.chord.pcs]).toEqual([0]);
+      expect(bar.chord.root).toBe(0);
+    }
+  });
+
+  it("defaults to Sa+Pa when no drone tones are named", () => {
+    for (const bar of plan(3, { bars: 8, drone: true }).bars) {
+      expect([...bar.chord.pcs]).toEqual([0, 7]);
+    }
+  });
+});
+
 describe("generateHarmony — shape & determinism", () => {
   it("produces the requested number of bars and defaults", () => {
     const p = plan(1);
