@@ -455,6 +455,29 @@ describe("arrange — raga drone (tanpura)", () => {
     expect(pcs.filter((pc) => pc === 0).length).toBe(12); // Sa
   });
 
+  it("reads the tala's accents off the cycle, so the lead resolves where it leans", () => {
+    // Control: the same 7-beat grid WITHOUT a tala (groove "none" is not a cycle), so the
+    // only difference is whether the anga starts count as accents.
+    const leadPcs = (groove: string) => {
+      const score = arr({
+        seed: 8,
+        drone: true,
+        groove,
+        beatsPerBar: 7,
+        bars: 8,
+        density: 0.9,
+        rootMidi: DEFAULT_ROOT,
+      });
+      // How often a note landing on an inner anga start (3 or 5) is a drone tone (Sa/Pa).
+      const onAnga = (part(score, "lead")?.notes ?? []).filter((n) =>
+        [3, 5].includes(n.startBeat % 7),
+      );
+      const drone = onAnga.filter((n) => [0, 7].includes(freqToPc(n.freq, DEFAULT_ROOT)));
+      return onAnga.length === 0 ? 0 : drone.length / onAnga.length;
+    };
+    expect(leadPcs("misraChapu")).toBeGreaterThan(leadPcs("none"));
+  });
+
   it("turns the cycle at the sam — no Western snare fill in drone mode", () => {
     const snares = (drone: boolean) =>
       arr({ seed: 3, drone, fill: true, groove: "adi", beatsPerBar: 8 }).drums.filter(

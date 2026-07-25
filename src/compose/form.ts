@@ -12,7 +12,7 @@
  */
 import type { ContourShape } from "../constraints";
 import type { Rng } from "../rng";
-import { DRUM_GROOVES, type DrumGrooveName } from "../theory/rhythm";
+import { DRUM_GROOVES, type DrumGrooveName, angaStarts, isTala } from "../theory/rhythm";
 import type { RagaPaths, Scale } from "../theory/scales";
 import type { ArpRole, BassPatternName, PadPattern, TextureName, VoiceToggles } from "./arranger";
 import { type HarmonicPlan, generateHarmony } from "./harmony";
@@ -503,6 +503,9 @@ export function buildForm(o: FormOptions): Form {
     },
     scale: o.raga,
     density: o.density,
+    // The theme has to lean where the cycle does, or every section restates it against the tala.
+    ...(isTala(o.groove) ? { accents: angaStarts(o.groove) } : {}),
+
     ...(o.paths !== undefined ? { paths: o.paths } : {}),
   });
   const intro = o.intro === false ? null : buildIntro(o, home);

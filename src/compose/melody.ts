@@ -49,6 +49,12 @@ export interface MelodyOptions {
   contourAmplitude?: number;
   /** Rhythm density 0..1. Default 0.5. */
   density?: number;
+  /**
+   * Beats the meter stresses besides the downbeat — where the line lands a chord tone.
+   * Pass a tala's anga starts so the melody leans where the cycle does; omit for the
+   * even-meter default.
+   */
+  accents?: readonly number[];
   /** Base lead velocity 0..1. Default 0.7. */
   velocity?: number;
   /**
@@ -214,7 +220,11 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
     // one too. Ending a phrase lands, holds, then breathes — so a cadence's resolution
     // rings out into silence instead of being trampled by the next note.
     const phraseEnd = bar % 4 === 3 || bar === plan.cadences.half || bar === plan.cadences.final;
-    const onsets = melodyRhythm(rng, plan.beatsPerBar, { density, phraseEnd });
+    const onsets = melodyRhythm(rng, plan.beatsPerBar, {
+      density,
+      phraseEnd,
+      ...(options.accents !== undefined ? { accents: options.accents } : {}),
+    });
 
     for (let i = 0; i < onsets.length; i++) {
       const onset = onsets[i]!;

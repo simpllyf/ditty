@@ -455,6 +455,35 @@ export const DRUM_KITS = {
     },
     hat: { kind: "noise", gain: 0.4, ampDecay: 0.05, noiseGain: 1, highpass: 7000 },
   },
+  /**
+   * A hand-drum kit for the talas: tuned skin rather than a drum machine. A mridangam's
+   * heads are tuned to the tonic, which {@link tuneKit} already does to any pitched voice
+   * here, so these strokes ring WITH the drone instead of cutting across it — the deep
+   * stroke resonates and falls only a little (a kick's steep drop reads as electronic),
+   * and the sharp stroke is mostly pitched body with a rim of noise, where a snare is
+   * mostly noise. Timbre only: which strokes a player would actually choose is a
+   * vocabulary this doesn't attempt.
+   */
+  mridangam: {
+    kick: {
+      kind: "tone",
+      gain: 0.85,
+      ampDecay: 0.42, // resonant, not a thud
+      freqStart: 96,
+      freqEnd: 76, // a gentle fall — the skin's pitch stays audible
+      pitchDecay: 0.12,
+    },
+    snare: {
+      kind: "mixed",
+      gain: 0.44,
+      ampDecay: 0.19,
+      freqStart: 300,
+      noiseGain: 0.22, // a rim of noise…
+      toneGain: 0.78, // …over a clearly pitched stroke
+      highpass: 900,
+    },
+    hat: { kind: "noise", gain: 0.22, ampDecay: 0.035, noiseGain: 1, highpass: 4200 }, // dry finger taps
+  },
 } as const satisfies Record<string, Record<DrumName, DrumVoice>>;
 
 export type DrumKitName = keyof typeof DRUM_KITS;

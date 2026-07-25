@@ -24,13 +24,25 @@ export interface Onset {
 }
 
 /**
- * Metric strength of a position within a bar, 0..1: downbeat (1) > even-meter
- * midpoint (0.8) > other on-beats (0.5) > offbeat eighths (0.3) > finer (0.15).
- * Meter-aware so 3/4 is strong-weak-weak (only the downbeat is strong).
+ * Metric strength of a position within a bar, 0..1: downbeat (1) > secondary accent
+ * (0.8) > other on-beats (0.5) > offbeat eighths (0.3) > finer (0.15). Meter-aware so
+ * 3/4 is strong-weak-weak (only the downbeat is strong).
+ *
+ * `accents` names the secondary accents explicitly, for a cycle whose stresses aren't
+ * where an even meter would put them — a tala is grouped (3+2+2), not halved, so its
+ * accents fall on the anga boundaries and a 7-beat cycle has no midpoint at all.
+ * Omit it and the accent is the even-meter midpoint, as before.
  */
-export function metricStrength(startBeat: number, beatsPerBar: number): number {
+export function metricStrength(
+  startBeat: number,
+  beatsPerBar: number,
+  accents?: readonly number[],
+): number {
   if (startBeat === 0) return 1;
-  if (beatsPerBar % 2 === 0 && startBeat === beatsPerBar / 2) return 0.8;
+  const accented = accents
+    ? accents.includes(startBeat)
+    : beatsPerBar % 2 === 0 && startBeat === beatsPerBar / 2;
+  if (accented) return 0.8;
   if (Number.isInteger(startBeat)) return 0.5;
   if (startBeat % 1 === 0.5) return 0.3;
   return 0.15;
@@ -73,7 +85,7 @@ type BeatMode = (typeof BEAT_MODES)[number];
 export function melodyRhythm(
   rng: Rng,
   beatsPerBar: number,
-  options: { density?: number; phraseEnd?: boolean } = {},
+  options: { density?: number; phraseEnd?: boolean; accents?: readonly number[] } = {},
 ): Onset[] {
   if (!Number.isInteger(beatsPerBar) || beatsPerBar < 1) {
     throw new RangeError(`melodyRhythm beatsPerBar must be an integer >= 1, got ${beatsPerBar}`);
@@ -93,7 +105,7 @@ export function melodyRhythm(
       onsets.push({
         startBeat,
         durationBeats: durSteps / STEPS_PER_BEAT,
-        strong: metricStrength(startBeat, beatsPerBar) >= STRONG_THRESHOLD,
+        strong: metricStrength(startBeat, beatsPerBar, options.accents) >= STRONG_THRESHOLD,
       });
       step += durSteps;
     }
@@ -175,6 +187,36 @@ export const DRUM_GROOVES = {
  * own grooves explicitly, so a tala never leaks into a fusion track.
  */
 export const TALAS = ["adi", "rupaka", "misraChapu"] as const satisfies readonly DrumGrooveName[];
+
+/** A tala's angas — the counted groups its cycle divides into. Their sum is the meter. */
+export const TALA_ANGAS = {
+  adi: [4, 2, 2], // laghu + drutam + drutam
+  rupaka: [2, 4], // drutam + laghu
+  misraChapu: [3, 2, 2],
+} as const satisfies Record<(typeof TALAS)[number], readonly number[]>;
+
+export type TalaName = keyof typeof TALA_ANGAS;
+
+/** Is this groove a tala (a counted cycle) rather than a Western groove? */
+export function isTala(groove: string): groove is TalaName {
+  return groove in TALA_ANGAS;
+}
+
+/**
+ * Where each anga begins, in beats from the sam. These are the cycle's stresses — the
+ * points a phrase leans on and resolves to. A tala is GROUPED, not halved, so they are
+ * not the even-meter accents: Misra Chapu (3+2+2) leans on 3 and 5 and has no midpoint
+ * at all, and Rupaka (2+4) leans on 2 rather than on its middle.
+ */
+export function angaStarts(tala: TalaName): number[] {
+  const starts: number[] = [0];
+  let at = 0;
+  for (const anga of TALA_ANGAS[tala].slice(0, -1)) {
+    at += anga;
+    starts.push(at);
+  }
+  return starts;
+}
 
 /** Name of a built-in drum groove. */
 export type DrumGrooveName = keyof typeof DRUM_GROOVES;

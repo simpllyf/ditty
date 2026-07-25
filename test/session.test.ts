@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScoreVoice } from "../src/compose/arranger";
+import type { DrumVoice } from "../src/instruments";
 import { makeRng } from "../src/rng";
 import { createSession } from "../src/session";
 import { STYLES, pickStyle } from "../src/styles";
@@ -235,6 +236,24 @@ describe("createSession", () => {
     for (const sn of score.drums.filter((h) => h.drum === "snare")) {
       expect(sn.startBeat % cycle).not.toBe(0);
     }
+  });
+
+  it("plays the tala on a tuned hand drum, and leaves fusion on the backbeat kit", () => {
+    const raga = createSession({ seed: 3, ragaMode: true });
+    const fusion = createSession({ seed: 3 });
+    // A mridangam's heads are tuned to the tonic, so its strokes ring WITH the drone:
+    // pitched body, only a rim of noise, and a resonance a kick doesn't have.
+    expect(raga.drumKit.kick.kind).toBe("tone");
+    expect(raga.drumKit.kick.ampDecay).toBeGreaterThan(fusion.drumKit.kick.ampDecay);
+    // How much of a stroke is pitched body rather than noise — a hand drum is mostly body.
+    const body = (v: DrumVoice) => (v.kind === "mixed" ? v.toneGain : v.kind === "tone" ? 1 : 0);
+    const noise = (v: DrumVoice) => (v.kind === "noise" ? 1 : v.kind === "mixed" ? v.noiseGain : 0);
+    expect(body(raga.drumKit.snare)).toBeGreaterThan(body(fusion.drumKit.snare));
+    expect(noise(raga.drumKit.snare)).toBeLessThan(noise(fusion.drumKit.snare));
+    // An explicit kit still wins.
+    expect(createSession({ seed: 3, ragaMode: true, kit: "default" }).drumKit).toEqual(
+      fusion.drumKit,
+    );
   });
 
   it("leaves fusion on its Western groove — a tala never leaks in", () => {
