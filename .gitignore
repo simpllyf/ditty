@@ -15,3 +15,7 @@ site/lib/
 *.cpuprofile
 *.heapprofile
 *.heapsnapshot
+
+# Local-only study material and notes. Licensed books and anything derived from them
+# live here and must never reach the remote.
+.private/

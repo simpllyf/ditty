@@ -28,7 +28,7 @@ import {
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
 import { type StyleName, pickStyle } from "./styles";
-import { DRUM_GROOVES, TALAS } from "./theory/rhythm";
+import { DRUM_GROOVES, TALAS, TALA_WEIGHTS } from "./theory/rhythm";
 import type { DrumName, ScoreVoice } from "./voices";
 
 /**
@@ -57,6 +57,11 @@ export interface SessionOptions {
   raga?: ArrangeOptions["raga"];
   /** Arohana/avarohana for the raga: the notes the lead may use ascending vs descending. */
   paths?: ArrangeOptions["paths"];
+  /**
+   * The swaras this raga oscillates, as pitch classes from Sa. Overrides the style's. Omit
+   * for the default: every moving swara is fair game.
+   */
+  kampita?: ArrangeOptions["kampita"];
   /**
    * Treat the melody scale as a raga that carries kampita (the sung shake). Default
    * `true`. Set `false` for a plain Western melody scale — a pentatonic has no swaras
@@ -237,6 +242,9 @@ export function createSession(options: SessionOptions): Session {
   // A raga override without paths means a plain raga: don't leave the previous
   // raga's grammar attached to a different note set.
   const paths = options.paths ?? (options.raga ? undefined : chosen.paths);
+  // Same rule as paths: a caller-supplied raga doesn't inherit the previous raga's ornament
+  // list, since which swaras oscillate belongs to the raga, not to the note set.
+  const kampita = options.kampita ?? (options.raga ? undefined : chosen.kampita);
   // Whether the melody carries kampita. A caller passing their own `raga` gets the
   // Carnatic default (true) unless they say otherwise; the styles mark their plain
   // Western melody scales false. Kampita is the one raga-specific ornament — the slide
@@ -247,7 +255,8 @@ export function createSession(options: SessionOptions): Session {
   // Raga mode keeps time in a TALA — a cycle of counted angas — instead of a Western
   // groove, and the meter follows from it (Adi is 8 beats the way a waltz is 3). An
   // explicit groove still wins, so a caller can pin one tala or opt back out.
-  const groove = options.groove ?? (ragaMode ? talaRng.pick(TALAS) : chosen.groove);
+  const groove =
+    options.groove ?? (ragaMode ? talaRng.weighted(TALAS, TALA_WEIGHTS) : chosen.groove);
   const density = options.density ?? chosen.density;
   // A tala is counted evenly; swing is a Western feel and would fight the cycle.
   const swing = options.swing ?? (ragaMode ? 0 : chosen.swing);
@@ -304,6 +313,7 @@ export function createSession(options: SessionOptions): Session {
       parent,
       raga,
       ...(paths !== undefined ? { paths } : {}),
+      ...(kampita !== undefined ? { kampita } : {}),
       rootMidi: section.rootMidi, // may modulate per section (key change)
       groove: section.groove, // B sparser, C busier than home
       density: section.density,
