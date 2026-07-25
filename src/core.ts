@@ -36,6 +36,7 @@ export {
   metricStrength,
   melodyRhythm,
   DRUM_GROOVES,
+  TALAS,
   fitGroove,
   applySwing,
   SWING_MAX,

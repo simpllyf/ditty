@@ -1070,7 +1070,14 @@
       //   import { createEngine, renderOffline, encodeWav } from "https://esm.sh/@simpllyf/ditty";
       //   import { makeRng, pickStyle, SCALES, createSession } from "https://esm.sh/@simpllyf/ditty/core";
       import { createEngine, renderOffline, encodeWav } from "./lib/index.js";
-      import { makeRng, pickStyle, SCALES, createSession, DRUM_GROOVES } from "./lib/core.js";
+      import {
+        makeRng,
+        pickStyle,
+        SCALES,
+        createSession,
+        DRUM_GROOVES,
+        TALAS,
+      } from "./lib/core.js";
 
       const $ = (id) => document.getElementById(id);
       const STYLE_META = {
@@ -1117,6 +1124,7 @@
         evolve: true,
         humanize: true,
         chromatic: true,
+        ragaMode: false, // Carnatic mode: a raga over a tanpura Sa+Pa drone, kept in a tala
         voices: { lead: true, bass: true, pad: true, arp: true, drums: true },
       };
       let engine = null,
@@ -1154,7 +1162,9 @@
 
       // ---- engine ----
       const VOICE_LIST = ["lead", "bass", "pad", "arp", "drums"];
-      const ADV_TOGGLES = ["evolve", "humanize", "chromatic"];
+      const ADV_TOGGLES = ["evolve", "humanize", "chromatic", "ragaMode"];
+      /** Toggles whose key isn't a good label on its own. */
+      const ADV_LABELS = { ragaMode: "raga mode · drone + tala" };
       // Curated arrangement archetypes "new track" draws from — each musical, each a
       // distinctly different texture (the lever that makes tracks actually sound unlike
       // each other, beyond tempo/scale). Disabled voices simply drop out.
@@ -1183,6 +1193,12 @@
           chromatic: state.chromatic,
           audioContext: ensureAudio().ctx,
         };
+        if (state.ragaMode) {
+          o.ragaMode = true;
+          // A tala is counted evenly, and raga mode only defaults swing off when the caller
+          // hasn't pinned it — this panel always sends one, so withhold it here instead.
+          delete o.swing;
+        }
         if (state.groove) o.groove = state.groove; // else the style picks (and sets the meter)
         if (state.contour) o.contour = state.contour; // else the form varies it per section
         if (state.arpRole) o.arpRole = state.arpRole; // else the form orchestrates per section
@@ -1424,8 +1440,13 @@
         const body = $("advancedBody");
         const sel =
           "font-family:var(--font-mono);font-size:13px;padding:6px 9px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);border-radius:8px;cursor:pointer";
+        // A tala is named by its cycle, not by a Western time signature.
         const meterOf = (g) =>
-          DRUM_GROOVES[g].beatsPerBar === 6 ? "6/8" : DRUM_GROOVES[g].beatsPerBar + "/4";
+          TALAS.includes(g)
+            ? `${DRUM_GROOVES[g].beatsPerBar}-beat cycle`
+            : DRUM_GROOVES[g].beatsPerBar === 6
+              ? "6/8"
+              : DRUM_GROOVES[g].beatsPerBar + "/4";
         const grooveOpts = ['<option value="">auto (style picks)</option>']
           .concat(
             Object.keys(DRUM_GROOVES).map(
@@ -1474,7 +1495,7 @@
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("arp role")}<select id="advArpRole" style="${sel}">${arpRoleOpts}</select></label>` +
           `<label style="display:inline-flex;gap:8px;align-items:center">${lbl("form")}<select id="advForm" style="${sel}">${formOpts}</select></label>` +
           `</div>` +
-          `<div style="display:flex;gap:20px;flex-wrap:wrap">${ADV_TOGGLES.map((k) => check("adv-" + k, k, state[k])).join("")}</div>` +
+          `<div style="display:flex;gap:20px;flex-wrap:wrap">${ADV_TOGGLES.map((k) => check("adv-" + k, ADV_LABELS[k] ?? k, state[k])).join("")}</div>` +
           `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">${lbl("voices")}${VOICE_LIST.map((v) => check("voice-" + v, v, state.voices[v])).join("")}</div>`;
         $("advGroove").onchange = (e) => {
           state.groove = e.target.value;
