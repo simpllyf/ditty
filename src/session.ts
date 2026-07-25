@@ -28,7 +28,7 @@ import {
 import { makeNoiseTable } from "./noise";
 import { type Rng, makeRng } from "./rng";
 import { type StyleName, pickStyle } from "./styles";
-import { DRUM_GROOVES } from "./theory/rhythm";
+import { DRUM_GROOVES, TALAS } from "./theory/rhythm";
 import type { DrumName, ScoreVoice } from "./voices";
 
 /**
@@ -197,6 +197,9 @@ export function createSession(options: SessionOptions): Session {
   const instrumentRng = master.fork();
   const arrangeRng = master.fork();
   const noiseRng = master.fork();
+  // Forked last so the streams above keep their seeds — raga mode's tala is the only
+  // draw taken from it, and a fusion track never touches it.
+  const talaRng = master.fork();
 
   const chosen = pickStyle(styleRng, options.style);
   const bpm = options.bpm ?? chosen.bpm;
@@ -240,9 +243,13 @@ export function createSession(options: SessionOptions): Session {
   const carnatic = options.carnatic ?? (options.raga ? true : (chosen.carnatic ?? true));
   const sevenths = options.sevenths ?? chosen.sevenths;
   const rootMidi = options.rootMidi ?? chosen.rootMidi;
-  const groove = options.groove ?? chosen.groove;
+  // Raga mode keeps time in a TALA — a cycle of counted angas — instead of a Western
+  // groove, and the meter follows from it (Adi is 8 beats the way a waltz is 3). An
+  // explicit groove still wins, so a caller can pin one tala or opt back out.
+  const groove = options.groove ?? (ragaMode ? talaRng.pick(TALAS) : chosen.groove);
   const density = options.density ?? chosen.density;
-  const swing = options.swing ?? chosen.swing;
+  // A tala is counted evenly; swing is a Western feel and would fight the cycle.
+  const swing = options.swing ?? (ragaMode ? 0 : chosen.swing);
   // Validate the resolved params eagerly (same checks arrange runs), so a bad config
   // throws here at construction rather than inside the first scheduled tick.
   assertMusicalParams({ swing, density, rootMidi, groove, parent, raga });

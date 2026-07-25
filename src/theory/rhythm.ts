@@ -157,7 +157,24 @@ export const DRUM_GROOVES = {
   waltz: { beatsPerBar: 3, kick: [0], snare: [1, 2], hat: [0, 1, 2] }, // 3/4 oom-pah-pah
   sixEight: { beatsPerBar: 6, kick: [0, 3], snare: [3], hat: [0, 1, 2, 3, 4, 5] }, // 6/8 compound lilt
   none: { beatsPerBar: 4, kick: [], snare: [], hat: [] },
+
+  // ── talas ──
+  // A tala is a fixed cycle of angas (counted groups), and the cycle IS the meter — so a
+  // tala is a groove like any other here and the meter falls out of it. The kit marks the
+  // structure the hands do: a deep stroke on the sam (the cycle's first beat, the point
+  // everything resolves to), a sharper stroke where each following anga begins, and a steady
+  // count underneath. Sparse on purpose — the drone and the raga carry the music.
+  adi: { beatsPerBar: 8, kick: [0], snare: [4, 6], hat: [0, 1, 2, 3, 4, 5, 6, 7] }, // 4+2+2
+  rupaka: { beatsPerBar: 6, kick: [0], snare: [2], hat: [0, 1, 2, 3, 4, 5] }, // 2+4
+  misraChapu: { beatsPerBar: 7, kick: [0], snare: [3, 5], hat: [0, 1, 2, 3, 4, 5, 6] }, // 3+2+2
 } as const satisfies Record<string, DrumGroove>;
+
+/**
+ * The talas, in the order a piece may draw one. Named separately from {@link DRUM_GROOVES}
+ * so raga mode picks a CYCLE rather than a Western groove — the styles keep listing their
+ * own grooves explicitly, so a tala never leaks into a fusion track.
+ */
+export const TALAS = ["adi", "rupaka", "misraChapu"] as const satisfies readonly DrumGrooveName[];
 
 /** Name of a built-in drum groove. */
 export type DrumGrooveName = keyof typeof DRUM_GROOVES;
