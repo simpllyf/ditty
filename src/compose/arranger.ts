@@ -931,7 +931,9 @@ export function arrange(options: ArrangeOptions): Score {
         }
       }
     }
-    if (options.fill) {
+    // A tala turns at the sam, not on a snare roll: the crescendo is a Western device, and
+    // it would land its loudest hit exactly where the cycle's deepest stroke belongs.
+    if (options.fill && !options.drone) {
       // Replace the final bar with a snare buildup → announces the part change.
       const lastBar = (bars - 1) * beatsPerBar;
       drums = drums.filter((h) => h.startBeat < lastBar);

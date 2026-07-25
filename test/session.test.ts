@@ -195,6 +195,59 @@ describe("createSession", () => {
     expect(sawTanpura).toBe(true); // the tanpura really does sound across the piece
   });
 
+  it("raga mode keeps time in a tala — the meter follows the cycle, evenly counted", () => {
+    const cycles = new Map<number, string>([
+      [8, "adi"],
+      [6, "rupaka"],
+      [7, "misraChapu"],
+    ]);
+    const seen = new Set<number>();
+    for (let seed = 0; seed < 40; seed++) {
+      const s = createSession({ seed, ragaMode: true, humanize: false, evolve: false });
+      // The meter IS the tala's cycle length, whatever style the seed drew.
+      expect([...cycles.keys()]).toContain(s.beatsPerBar);
+      seen.add(s.beatsPerBar);
+      const score = s.nextScore();
+      expect(score.beatsPerBar).toBe(s.beatsPerBar);
+      // Swing is a Western feel: a tala is counted evenly, so hits stay on the grid.
+      for (const hit of score.drums) {
+        expect(Number.isInteger(hit.startBeat * 4)).toBe(true);
+      }
+      // Every hit lands inside the cycle.
+      for (const hit of score.drums) {
+        expect(hit.startBeat % s.beatsPerBar).toBeLessThan(s.beatsPerBar);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(1); // the corpus really does draw more than one tala
+  });
+
+  it("marks the sam: a raga-mode cycle opens on its deepest stroke", () => {
+    const s = createSession({ seed: 5, ragaMode: true, humanize: false, evolve: false });
+    const cycle = s.beatsPerBar;
+    // The opening is drumless by design, so play on until the kit enters.
+    let score = s.nextScore();
+    for (let i = 0; i < s.sections.length && score.drums.length === 0; i++) score = s.nextScore();
+    // The kick marks the sam — the first beat of every cycle — and nothing else.
+    const kicks = score.drums.filter((h) => h.drum === "kick").map((h) => h.startBeat % cycle);
+    expect(kicks.length).toBeGreaterThan(0);
+    for (const k of kicks) expect(k).toBe(0);
+    // The snare marks where the following angas begin, so it never doubles the sam.
+    for (const sn of score.drums.filter((h) => h.drum === "snare")) {
+      expect(sn.startBeat % cycle).not.toBe(0);
+    }
+  });
+
+  it("leaves fusion on its Western groove — a tala never leaks in", () => {
+    const talas = new Set(["adi", "rupaka", "misraChapu"]);
+    for (let seed = 0; seed < 40; seed++) {
+      const s = createSession({ seed, humanize: false, evolve: false });
+      expect([3, 4, 6]).toContain(s.beatsPerBar); // the Western meters the grooves ship
+    }
+    for (const style of Object.keys(STYLES) as (keyof typeof STYLES)[]) {
+      for (const g of STYLES[style].grooves) expect(talas.has(g)).toBe(false);
+    }
+  });
+
   it("is the Western/fusion default when ragaMode is off — the harmony moves", () => {
     const midiOf = (freq: number) => Math.round(69 + 12 * Math.log2(freq / 440));
     const pcOf = (freq: number) => (((midiOf(freq) - 60) % 12) + 12) % 12;

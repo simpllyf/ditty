@@ -5,6 +5,7 @@ import {
   SWING_MAX,
   applySwing,
   fitGroove,
+  TALAS,
   melodyRhythm,
   metricStrength,
 } from "../src/theory/rhythm";
@@ -172,5 +173,40 @@ describe("applySwing", () => {
   it("clamps the amount so out-of-range input can't reorder onsets", () => {
     expect(applySwing(0.5, 2)).toBe(applySwing(0.5, 1)); // capped at SWING_MAX
     expect(applySwing(0.5, -1)).toBe(0.5); // negative → identity
+  });
+});
+
+describe("talas", () => {
+  it("each tala's cycle is its meter, opening on the sam", () => {
+    const angas: Record<string, number[]> = {
+      adi: [4, 2, 2], // laghu + drutam + drutam
+      rupaka: [2, 4], // drutam + laghu
+      misraChapu: [3, 2, 2],
+    };
+    for (const name of TALAS) {
+      const tala = DRUM_GROOVES[name];
+      const groups = angas[name]!;
+      // The cycle length IS the sum of its angas, and that is the meter.
+      expect(tala.beatsPerBar).toBe(groups.reduce((a, b) => a + b, 0));
+      // A deep stroke marks the sam and only the sam.
+      expect([...tala.kick]).toEqual([0]);
+      // The sharper strokes fall exactly where the following angas begin.
+      const starts: number[] = [];
+      let at = 0;
+      for (const g of groups.slice(0, -1)) {
+        at += g;
+        starts.push(at);
+      }
+      expect([...tala.snare]).toEqual(starts);
+      // The count runs underneath, one to a beat, all inside the cycle.
+      expect(tala.hat.length).toBe(tala.beatsPerBar);
+      for (const h of tala.hat) expect(h).toBeLessThan(tala.beatsPerBar);
+    }
+  });
+
+  it("talas are odd/long cycles the Western grooves don't cover", () => {
+    for (const name of TALAS) {
+      expect(DRUM_GROOVES[name].beatsPerBar).toBeGreaterThan(4);
+    }
   });
 });

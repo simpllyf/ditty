@@ -455,6 +455,17 @@ describe("arrange — raga drone (tanpura)", () => {
     expect(pcs.filter((pc) => pc === 0).length).toBe(12); // Sa
   });
 
+  it("turns the cycle at the sam — no Western snare fill in drone mode", () => {
+    const snares = (drone: boolean) =>
+      arr({ seed: 3, drone, fill: true, groove: "adi", beatsPerBar: 8 }).drums.filter(
+        (h) => h.drum === "snare",
+      );
+    // With a fill the last bar becomes a snare crescendo, landing its loudest hit on the
+    // downbeat — where the tala's deepest stroke belongs.
+    expect(snares(false).length).toBeGreaterThan(snares(true).length);
+    for (const h of snares(true)) expect(h.startBeat % 8).not.toBe(0); // sam stays the kick's
+  });
+
   it("pulls the bass back in drone mode so it underpins rather than dominates", () => {
     const maxVel = (p: ReturnType<typeof part>) => Math.max(...p!.notes.map((n) => n.velocity));
     const on = maxVel(part(arr({ seed: 3, drone: true }), "bass"));
