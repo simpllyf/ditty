@@ -17,7 +17,14 @@ import { type ScoreVoice } from "./voices";
 import { type InstrumentName, instrumentsForVoice } from "./instruments";
 import type { Rng } from "./rng";
 import type { DrumGrooveName } from "./theory/rhythm";
-import { RAGA_KAMPITA, RAGA_PATHS, type RagaPaths, SCALES, type Scale } from "./theory/scales";
+import {
+  RAGA_KAMPITA,
+  RAGA_NYASA,
+  RAGA_PATHS,
+  type RagaPaths,
+  SCALES,
+  type Scale,
+} from "./theory/scales";
 
 /** A parent-scale + raga pairing a style may draw on (raga ⊆ parent). */
 export interface ScaleKey {
@@ -31,6 +38,8 @@ export interface ScaleKey {
    * have no source: every moving swara is then fair game.
    */
   readonly kampita?: readonly number[];
+  /** The swaras a phrase may rest on (pitch classes from Sa); absent when unsourced. */
+  readonly nyasa?: readonly number[];
   /**
    * Whether the melody scale is a raga that carries kampita (the sung shake between
    * swaras). Default true; set false for a plain Western scale used as the melody —
@@ -67,6 +76,8 @@ export interface ChosenStyle {
   readonly paths?: RagaPaths;
   /** The swaras this raga oscillates (pitch classes from Sa); absent when unsourced. */
   readonly kampita?: readonly number[];
+  /** The swaras a phrase may rest on (pitch classes from Sa); absent when unsourced. */
+  readonly nyasa?: readonly number[];
   /** Whether the melody scale carries kampita — see {@link ScaleKey.carnatic}. */
   readonly carnatic?: boolean;
   /** Scale degrees voiced with their diatonic seventh — the style's harmonic colour. */
@@ -83,11 +94,21 @@ export const STYLES = {
   peppy: {
     name: "peppy",
     keys: [
-      { parent: SCALES.major, raga: SCALES.mohanam, kampita: RAGA_KAMPITA.mohanam },
-      { parent: SCALES.major, raga: SCALES.hamsadhwani },
+      {
+        parent: SCALES.major,
+        raga: SCALES.mohanam,
+        kampita: RAGA_KAMPITA.mohanam,
+        nyasa: RAGA_NYASA.mohanam,
+      },
+      { parent: SCALES.major, raga: SCALES.hamsadhwani, nyasa: RAGA_NYASA.hamsadhwani },
       { parent: SCALES.major, raga: SCALES.shuddhaSaveri },
-      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
-      { parent: SCALES.lydian, raga: SCALES.kalyani, kampita: RAGA_KAMPITA.kalyani }, // bright, floaty (#4)
+      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati, nyasa: RAGA_NYASA.madhyamavati },
+      {
+        parent: SCALES.lydian,
+        raga: SCALES.kalyani,
+        kampita: RAGA_KAMPITA.kalyani,
+        nyasa: RAGA_NYASA.kalyani,
+      }, // bright, floaty (#4)
       { parent: SCALES.lydian, raga: SCALES.majorPentatonic, carnatic: false },
       { parent: SCALES.major, raga: SCALES.majorPentatonic, carnatic: false },
       { parent: SCALES.major, raga: SCALES.bilahari, paths: RAGA_PATHS.bilahari }, // climbs bright, comes down full
@@ -108,13 +129,43 @@ export const STYLES = {
   calm: {
     name: "calm",
     keys: [
-      { parent: SCALES.naturalMinor, raga: SCALES.hindolam, kampita: RAGA_KAMPITA.hindolam },
-      { parent: SCALES.dorian, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
-      { parent: SCALES.major, raga: SCALES.mohanam, kampita: RAGA_KAMPITA.mohanam },
-      { parent: SCALES.phrygian, raga: SCALES.hindolam, kampita: RAGA_KAMPITA.hindolam }, // dark, gentle
-      { parent: SCALES.melodicMinor, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi }, // wistful
+      {
+        parent: SCALES.naturalMinor,
+        raga: SCALES.hindolam,
+        kampita: RAGA_KAMPITA.hindolam,
+        nyasa: RAGA_NYASA.hindolam,
+      },
+      {
+        parent: SCALES.dorian,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
+      {
+        parent: SCALES.major,
+        raga: SCALES.mohanam,
+        kampita: RAGA_KAMPITA.mohanam,
+        nyasa: RAGA_NYASA.mohanam,
+      },
+      {
+        parent: SCALES.phrygian,
+        raga: SCALES.hindolam,
+        kampita: RAGA_KAMPITA.hindolam,
+        nyasa: RAGA_NYASA.hindolam,
+      }, // dark, gentle
+      {
+        parent: SCALES.melodicMinor,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      }, // wistful
       { parent: SCALES.dorian, raga: SCALES.minorPentatonic, carnatic: false },
-      { parent: SCALES.dorian, raga: SCALES.sriranjani, kampita: RAGA_KAMPITA.sriranjani }, // wistful, fifth-less
+      {
+        parent: SCALES.dorian,
+        raga: SCALES.sriranjani,
+        kampita: RAGA_KAMPITA.sriranjani,
+        nyasa: RAGA_NYASA.sriranjani,
+      }, // wistful, fifth-less
       { parent: SCALES.mixolydian, raga: SCALES.kambhoji, paths: RAGA_PATHS.kambhoji }, // warm, the b7 only on the way down
     ],
     grooves: ["soft", "halfTime", "waltz"],
@@ -133,10 +184,20 @@ export const STYLES = {
   playful: {
     name: "playful",
     keys: [
-      { parent: SCALES.major, raga: SCALES.hamsadhwani },
-      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
-      { parent: SCALES.major, raga: SCALES.mohanam, kampita: RAGA_KAMPITA.mohanam },
-      { parent: SCALES.lydian, raga: SCALES.kalyani, kampita: RAGA_KAMPITA.kalyani },
+      { parent: SCALES.major, raga: SCALES.hamsadhwani, nyasa: RAGA_NYASA.hamsadhwani },
+      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati, nyasa: RAGA_NYASA.madhyamavati },
+      {
+        parent: SCALES.major,
+        raga: SCALES.mohanam,
+        kampita: RAGA_KAMPITA.mohanam,
+        nyasa: RAGA_NYASA.mohanam,
+      },
+      {
+        parent: SCALES.lydian,
+        raga: SCALES.kalyani,
+        kampita: RAGA_KAMPITA.kalyani,
+        nyasa: RAGA_NYASA.kalyani,
+      },
       { parent: SCALES.major, raga: SCALES.majorPentatonic, carnatic: false },
       { parent: SCALES.mayamalavagowla, raga: SCALES.mayamalavagowla }, // exotic spice
       { parent: SCALES.major, raga: SCALES.arabhi, paths: RAGA_PATHS.arabhi }, // bold ascent, full descent
@@ -166,13 +227,33 @@ export const STYLES = {
     name: "dreamy",
     keys: [
       { parent: SCALES.major, raga: SCALES.shuddhaSaveri },
-      { parent: SCALES.dorian, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
-      { parent: SCALES.naturalMinor, raga: SCALES.hindolam, kampita: RAGA_KAMPITA.hindolam },
+      {
+        parent: SCALES.dorian,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
+      {
+        parent: SCALES.naturalMinor,
+        raga: SCALES.hindolam,
+        kampita: RAGA_KAMPITA.hindolam,
+        nyasa: RAGA_NYASA.hindolam,
+      },
       { parent: SCALES.lydian, raga: SCALES.majorPentatonic, carnatic: false }, // floaty
       { parent: SCALES.harmonicMinor, raga: SCALES.harmonicMinor, carnatic: false }, // dramatic
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic, carnatic: false }, // dark
-      { parent: SCALES.melodicMinor, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
-      { parent: SCALES.dorian, raga: SCALES.sriranjani, kampita: RAGA_KAMPITA.sriranjani },
+      {
+        parent: SCALES.melodicMinor,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
+      {
+        parent: SCALES.dorian,
+        raga: SCALES.sriranjani,
+        kampita: RAGA_KAMPITA.sriranjani,
+        nyasa: RAGA_NYASA.sriranjani,
+      },
       {
         parent: SCALES.lydian,
         raga: SCALES.mohanakalyani,
@@ -195,10 +276,30 @@ export const STYLES = {
   lofi: {
     name: "lofi",
     keys: [
-      { parent: SCALES.dorian, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
-      { parent: SCALES.naturalMinor, raga: SCALES.hindolam, kampita: RAGA_KAMPITA.hindolam },
-      { parent: SCALES.major, raga: SCALES.mohanam, kampita: RAGA_KAMPITA.mohanam },
-      { parent: SCALES.melodicMinor, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
+      {
+        parent: SCALES.dorian,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
+      {
+        parent: SCALES.naturalMinor,
+        raga: SCALES.hindolam,
+        kampita: RAGA_KAMPITA.hindolam,
+        nyasa: RAGA_NYASA.hindolam,
+      },
+      {
+        parent: SCALES.major,
+        raga: SCALES.mohanam,
+        kampita: RAGA_KAMPITA.mohanam,
+        nyasa: RAGA_NYASA.mohanam,
+      },
+      {
+        parent: SCALES.melodicMinor,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
       { parent: SCALES.charukesi, raga: SCALES.charukesi },
     ],
     grooves: ["halfTime", "soft", "breakbeat"],
@@ -218,10 +319,25 @@ export const STYLES = {
     name: "cinematic",
     keys: [
       { parent: SCALES.harmonicMinor, raga: SCALES.harmonicMinor, carnatic: false }, // dramatic
-      { parent: SCALES.naturalMinor, raga: SCALES.hindolam, kampita: RAGA_KAMPITA.hindolam },
-      { parent: SCALES.lydian, raga: SCALES.kalyani, kampita: RAGA_KAMPITA.kalyani }, // bright/epic
+      {
+        parent: SCALES.naturalMinor,
+        raga: SCALES.hindolam,
+        kampita: RAGA_KAMPITA.hindolam,
+        nyasa: RAGA_NYASA.hindolam,
+      },
+      {
+        parent: SCALES.lydian,
+        raga: SCALES.kalyani,
+        kampita: RAGA_KAMPITA.kalyani,
+        nyasa: RAGA_NYASA.kalyani,
+      }, // bright/epic
       { parent: SCALES.phrygian, raga: SCALES.minorPentatonic, carnatic: false }, // dark
-      { parent: SCALES.melodicMinor, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
+      {
+        parent: SCALES.melodicMinor,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
       { parent: SCALES.phrygian, raga: SCALES.revati },
       { parent: SCALES.charukesi, raga: SCALES.charukesi }, // bittersweet
     ],
@@ -243,9 +359,19 @@ export const STYLES = {
     keys: [
       { parent: SCALES.lydian, raga: SCALES.majorPentatonic, carnatic: false }, // floaty
       { parent: SCALES.major, raga: SCALES.shuddhaSaveri },
-      { parent: SCALES.dorian, raga: SCALES.abhogi, kampita: RAGA_KAMPITA.abhogi },
-      { parent: SCALES.lydian, raga: SCALES.kalyani, kampita: RAGA_KAMPITA.kalyani },
-      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati },
+      {
+        parent: SCALES.dorian,
+        raga: SCALES.abhogi,
+        kampita: RAGA_KAMPITA.abhogi,
+        nyasa: RAGA_NYASA.abhogi,
+      },
+      {
+        parent: SCALES.lydian,
+        raga: SCALES.kalyani,
+        kampita: RAGA_KAMPITA.kalyani,
+        nyasa: RAGA_NYASA.kalyani,
+      },
+      { parent: SCALES.mixolydian, raga: SCALES.madhyamavati, nyasa: RAGA_NYASA.madhyamavati },
       { parent: SCALES.phrygian, raga: SCALES.revati }, // serene, exotic
     ],
     grooves: ["soft", "halfTime", "none", "waltz", "sixEight"], // often drumless
@@ -301,6 +427,7 @@ export function pickStyle(rng: Rng, name: StyleName = "peppy"): ChosenStyle {
     raga: key.raga,
     ...(key.paths !== undefined ? { paths: key.paths } : {}),
     ...(key.kampita !== undefined ? { kampita: key.kampita } : {}),
+    ...(key.nyasa !== undefined ? { nyasa: key.nyasa } : {}),
     ...(key.carnatic !== undefined ? { carnatic: key.carnatic } : {}),
     ...(style.sevenths !== undefined ? { sevenths: style.sevenths } : {}),
     rootMidi,

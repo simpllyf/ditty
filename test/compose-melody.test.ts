@@ -515,3 +515,46 @@ describe("generateMelody — tala accents", () => {
     expect(droneTones.length / strong.length).toBeGreaterThan(0.9);
   });
 });
+
+describe("generateMelody — resting swaras over a drone", () => {
+  const dronePlan = (bpb = 8) =>
+    generateHarmony({ rng: makeRng(1), bars: 8, beatsPerBar: bpb, drone: true });
+  const pcsOf = (notes: MelodyNote[], scale: readonly number[]) =>
+    notes.map((n) => degreePitchClass(scale, n.degree));
+
+  it("lands stresses on the raga's own resting swaras, not on the drone's two notes", () => {
+    const base = {
+      rng: makeRng(3),
+      plan: dronePlan(),
+      scale: SCALES.hindolam,
+      density: 0.8,
+      accents: [0, 4, 6],
+    };
+    // Hindolam rests on Sa, Ga, Ma — Ga and Ma are NOT drone tones.
+    const withNyasa = generateMelody({ ...base, rng: makeRng(3), resting: [0, 3, 5] });
+    const strongPcs = pcsOf(
+      withNyasa.filter((n) => n.strong),
+      SCALES.hindolam,
+    );
+    expect(strongPcs.length).toBeGreaterThan(0);
+    for (const pc of strongPcs) expect([0, 3, 5]).toContain(pc);
+    expect(strongPcs.some((pc) => pc !== 0 && pc !== 7)).toBe(true); // genuinely off the drone
+
+    // With only the drone's tones to land on, every stress is Sa (hindolam has no Pa).
+    const droneOnly = generateMelody({ ...base, rng: makeRng(3), resting: [0, 7] });
+    const droneStrong = new Set(
+      pcsOf(
+        droneOnly.filter((n) => n.strong),
+        SCALES.hindolam,
+      ),
+    );
+    expect([...droneStrong]).toEqual([0]);
+  });
+
+  it("leaves a moving harmony alone — chords still govern when there is no drone", () => {
+    const plan = generateHarmony({ rng: makeRng(4), bars: 8, beatsPerBar: 4 });
+    const a = generateMelody({ rng: makeRng(6), plan, scale: SCALES.mohanam, density: 0.7 });
+    const b = generateMelody({ rng: makeRng(6), plan, scale: SCALES.mohanam, density: 0.7 });
+    expect(a.map((n) => n.degree)).toEqual(b.map((n) => n.degree)); // untouched path
+  });
+});

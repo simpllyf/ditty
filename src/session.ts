@@ -62,6 +62,8 @@ export interface SessionOptions {
    * for the default: every moving swara is fair game.
    */
   kampita?: ArrangeOptions["kampita"];
+  /** The swaras a phrase may rest on (pitch classes from Sa). Only used in raga mode. */
+  nyasa?: ArrangeOptions["nyasa"];
   /**
    * Treat the melody scale as a raga that carries kampita (the sung shake). Default
    * `true`. Set `false` for a plain Western melody scale — a pentatonic has no swaras
@@ -245,6 +247,7 @@ export function createSession(options: SessionOptions): Session {
   // Same rule as paths: a caller-supplied raga doesn't inherit the previous raga's ornament
   // list, since which swaras oscillate belongs to the raga, not to the note set.
   const kampita = options.kampita ?? (options.raga ? undefined : chosen.kampita);
+  const nyasa = options.nyasa ?? (options.raga ? undefined : chosen.nyasa);
   // Whether the melody carries kampita. A caller passing their own `raga` gets the
   // Carnatic default (true) unless they say otherwise; the styles mark their plain
   // Western melody scales false. Kampita is the one raga-specific ornament — the slide
@@ -314,6 +317,7 @@ export function createSession(options: SessionOptions): Session {
       raga,
       ...(paths !== undefined ? { paths } : {}),
       ...(kampita !== undefined ? { kampita } : {}),
+      ...(nyasa !== undefined ? { nyasa } : {}),
       rootMidi: section.rootMidi, // may modulate per section (key change)
       groove: section.groove, // B sparser, C busier than home
       density: section.density,

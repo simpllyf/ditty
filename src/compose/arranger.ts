@@ -157,6 +157,11 @@ export interface ArrangeOptions {
    */
   kampita?: readonly number[];
   /**
+   * The swaras a phrase may rest on (pitch classes from Sa) — the raga's nyasa. Only honoured
+   * in {@link drone} mode, where the harmony is fixed and cannot govern the line.
+   */
+  nyasa?: readonly number[];
+  /**
    * Raga mode: the harmony is a fixed tonic drone. The arp voice becomes a tanpura —
    * plucking its string cycle instead of arpeggiating, tuned to the raga — and the bass is
    * pulled back so it underpins the drone rather than dominating the mix. Default false.
@@ -932,6 +937,10 @@ export function arrange(options: ArrangeOptions): Score {
         range: leadRange,
         density,
         ...(accents !== undefined ? { accents } : {}),
+        // Only under a fixed drone: a moving harmony governs the line through its chords.
+        // Without sourced nyasa the line still lands on the drone's own tones — but it is the
+        // RELEASING of the strong beats that matters most, and that applies to every raga.
+        ...(options.drone ? { resting: options.nyasa ?? droneTones(raga) } : {}),
         ...(options.paths !== undefined ? { paths: options.paths } : {}),
         ...(options.contour !== undefined ? { contour: options.contour } : {}),
         ...(theme ? { motif: theme.notes, motifBars: theme.bars } : {}),

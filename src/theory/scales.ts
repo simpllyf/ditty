@@ -153,6 +153,28 @@ export function kampitaSwaras(raga: ScaleName): readonly number[] | null {
   return (RAGA_KAMPITA as Partial<Record<ScaleName, readonly number[]>>)[raga] ?? null;
 }
 
+/**
+ * Nyasa — the swaras a phrase may come to rest on, as pitch classes from Sa.
+ *
+ * Where a line LANDS is most of what makes a raga recognisable, and it is emphatically not
+ * "the tonic and the fifth": counting phrase endings across a notated repertoire puts Mohanam
+ * on Ga more often than anything else, and Kalyani on Da. Resting the line on the drone's own
+ * two notes every time is what makes a static-drone melody circle.
+ *
+ * These are the endings that recur, not every note a phrase may touch. Sa is included
+ * throughout — it is always a legitimate arrival. A raga absent here falls back to the drone's
+ * tones, which is conservative rather than correct; prefer omitting one to guessing.
+ */
+export const RAGA_NYASA = {
+  mohanam: [0, 4, 7], // Ga is the commonest arrival, ahead of Sa
+  hindolam: [0, 3, 5], // Ma nearly as often as Sa
+  kalyani: [0, 2, 9, 11], // Da, Ri, Ni — the tonic is NOT the usual landing
+  hamsadhwani: [0, 2, 7, 11],
+  abhogi: [0, 2, 3, 5],
+  sriranjani: [0, 3, 10],
+  madhyamavati: [0, 2, 5, 7], // Sa, Ri, Ma, Pa — two independent sources agree
+} as const satisfies Partial<Record<ScaleName, readonly number[]>>;
+
 /** The panchama — the fifth, the tanpura's second pitch and the raga's other fixed note. */
 const PANCHAMA = 7;
 

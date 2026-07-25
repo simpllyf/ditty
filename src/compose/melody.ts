@@ -55,6 +55,13 @@ export interface MelodyOptions {
    * even-meter default.
    */
   accents?: readonly number[];
+  /**
+   * The swaras a phrase may come to rest on (pitch classes from Sa) — the raga's nyasa.
+   * Pass this over a fixed drone: it moves the line's arrivals onto the raga's own resting
+   * notes and releases the strong beats, which a static "chord" of Sa+Pa would otherwise
+   * pin to two pitches. Omit under a moving harmony, where the chords rightly govern.
+   */
+  resting?: readonly number[];
   /** Base lead velocity 0..1. Default 0.7. */
   velocity?: number;
   /**
@@ -130,6 +137,12 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
         down: new Set(options.paths.down.map(pitchClass)),
       }
     : null;
+
+  // Only the raga's own notes can be rested on, and there must be somewhere to land.
+  const resting =
+    options.resting && options.resting.some((pc) => ragaPcs.has(pc))
+      ? options.resting.filter((pc) => ragaPcs.has(pc))
+      : null;
 
   const inRange: number[] = [];
   for (let d = lo; d <= hi; d++) inRange.push(d);
@@ -245,6 +258,10 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
         degree = resolveTo([0]); // resolve to the tonic
       } else if (isLast && bar === plan.cadences.half) {
         degree = resolveTo(chordRagaPcs.length > 0 ? chordRagaPcs : chord.pcs); // open on a V chord tone
+      } else if (resting && isLast && phraseEnd) {
+        // Over a drone the line still has to ARRIVE somewhere — but on one of the raga's own
+        // resting swaras, which are mostly not the drone's two notes.
+        degree = resolveTo(resting);
       } else {
         degree = pickNote(rng, {
           prev,
@@ -253,7 +270,18 @@ export function generateMelody(options: MelodyOptions): MelodyNote[] {
           maxLeap,
           target,
           pcOf,
-          chordPcs: onset.strong && chordRagaPcs.length > 0 ? chordRagaPcs : null,
+          // A moving harmony earns the right to pull every strong beat onto a chord tone. A
+          // fixed drone does not: its "chord tones" are Sa and Pa, and honouring those on every
+          // stress drags the line back to two pitches until the raga circles. Under a drone the
+          // stresses land on the raga's own resting swaras instead — which for most ragas are
+          // not the drone's, so the line still arrives without orbiting the tonic.
+          chordPcs: resting
+            ? onset.strong
+              ? resting
+              : null
+            : onset.strong && chordRagaPcs.length > 0
+              ? chordRagaPcs
+              : null,
           recent,
           maxNoteRepeat,
           paths,
