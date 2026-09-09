@@ -1,2 +1,5 @@
 # Supply-chain buffer: never resolve a version published less than 7 days ago (applies to transitive deps too).
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  # Renovate security update: vitest@4.1.11
+  - vitest@4.1.11
