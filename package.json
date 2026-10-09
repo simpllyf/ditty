@@ -31,7 +31,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@10.34.5",
+  "packageManager": "pnpm@10.34.6",
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
@@ -65,18 +65,18 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@playwright/test": "1.61.1",
-    "@types/node": "24.12.4",
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.1",
     "@vitest/coverage-v8": "4.1.6",
     "@vitest/eslint-plugin": "1.6.17",
     "esbuild": "0.28.1",
-    "eslint": "10.4.0",
-    "fast-check": "4.8.0",
-    "globals": "17.6.0",
-    "prettier": "3.8.3",
+    "eslint": "10.11.0",
+    "fast-check": "4.10.2",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.59.3",
+    "typescript-eslint": "8.71.0",
     "vitest": "4.1.11"
   }
 }
