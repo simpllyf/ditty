@@ -31,7 +31,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@10.34.5",
+  "packageManager": "pnpm@10.34.6",
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
