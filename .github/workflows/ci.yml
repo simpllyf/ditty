@@ -1,19 +1,38 @@
-name: ci
+name: CI
 
+# Tests run on the pull request; with "branch must be up to date" on, the PR's last run tested
+# exactly the tree its squash commit lands. Main re-runs only when a file a cache key hashes
+# changes, to refresh the caches PRs restore from. The weekly run catches drift no PR touches
+# (toolchains, runner images); tag.yml calls this before tagging.
 on:
   pull_request:
   push:
     branches:
       - main
+    paths: # mise-action's cache key
+      - .mise.toml
+      - .github/**
+  schedule:
+    - cron: "14 9 * * 1"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      full:
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && !inputs.full }}
 
 jobs:
   check:
     name: check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -22,6 +41,7 @@ jobs:
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
+          cache_save: ${{ github.event_name != 'pull_request' }}
 
       - name: install dependencies
         run: mise exec -- just setup
@@ -32,6 +52,7 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -40,6 +61,7 @@ jobs:
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
+          cache_save: ${{ github.event_name != 'pull_request' }}
 
       - name: install dependencies
         run: mise exec -- just setup
@@ -49,3 +71,19 @@ jobs:
 
       - name: e2e
         run: mise exec -- just e2e
+
+  # The one required check: passes when every job passed. A full run selects every job, so
+  # there a skip is a bug and fails too.
+  gate:
+    if: always()
+    needs: [check, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          FULL: ${{ inputs.full == true || (github.event_name != 'pull_request' && github.event_name != 'push') }}
+        run: |
+          echo "full=$FULL: $RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
+          if [ "$FULL" = true ]; then case " $RESULTS " in *" skipped "*) exit 1 ;; esac; fi
