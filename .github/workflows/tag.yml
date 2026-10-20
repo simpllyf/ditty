@@ -1,8 +1,9 @@
 name: tag
 
 # When package.json's version changes on main (i.e. a `just release` PR is merged),
-# run the full CI on that commit, then create the matching `v<version>` git tag. The release workflow is then dispatched
-# manually from that tag. Skips the 0.0.0 placeholder, so no tag until a real release.
+# run the full CI on that commit, then create the matching `v<version>` git tag. The
+# release workflow is then dispatched manually from that tag. Skips the 0.0.0
+# placeholder, so no tag until a real release.
 
 on:
   push:
@@ -17,7 +18,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Main does not re-run CI on merge, so the release commit is tested here before it is tagged.
   ci:
     uses: ./.github/workflows/ci.yml
     permissions:

@@ -41,6 +41,7 @@ jobs:
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
+          cache_save: ${{ github.event_name != 'pull_request' }}
 
       - name: install dependencies
         run: mise exec -- just setup
@@ -60,6 +61,7 @@ jobs:
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
+          cache_save: ${{ github.event_name != 'pull_request' }}
 
       - name: install dependencies
         run: mise exec -- just setup
